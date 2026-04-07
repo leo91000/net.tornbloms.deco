@@ -10,6 +10,19 @@ import {
   ErrorResponse,
 } from '../../lib/client';
 
+// How long to retain a client in the tracked list without being seen (30 days)
+const TRACKED_CLIENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export interface TrackedClient {
+  mac: string;
+  name: string;       // decoded (human-readable)
+  ip: string;
+  type: string;
+  online: boolean;    // currently online on this Deco node
+  lastSeen: number;   // unix ms — last time seen online
+  firstSeen: number;  // unix ms — first time seen
+}
+
 /**
  * Class representing a TP-Link Deco Device in Homey.
  * Manages initialization, settings updates, and device-specific actions.
@@ -30,7 +43,11 @@ class TplinkDecoDevice extends Device {
   private api: decoapiwrapper | any;
 
   connected = false; // Connection status
-  clients: any[] = []; // List of connected clients
+  clients: any[] = []; // Currently online clients (raw, for state comparison)
+
+  // Persistent client history — all clients seen in the last 30 days.
+  // Keyed by MAC address. Public so driver.ts can use it for autocomplete.
+  trackedClients: Record<string, TrackedClient> = {};
 
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
@@ -49,6 +66,9 @@ class TplinkDecoDevice extends Device {
 
       // Retrieve device data
       const devicedata = this.getData();
+
+      // Load persistent client history from store
+      this.trackedClients = (this.getStoreValue('trackedClients') as Record<string, TrackedClient>) ?? {};
 
       // Retrieve device settings
       const settings = this.getSettings();
@@ -87,29 +107,6 @@ class TplinkDecoDevice extends Device {
 
         this.log('Successfully connected to TP-Link Deco');
 
-        const rebootActionCard = this.homey.flow.getActionCard('reboot');
-        const rebootActionCardArg = rebootActionCard.getArgument('device');
-        rebootActionCardArg.registerAutocompleteListener(
-          async (query, args) => {
-            const results = [
-              {
-                name: settings.name,
-                mac: settings.mac,
-              },
-            ];
-            // filter based on the queryY
-            return results.filter((result) => {
-              return result.name.toLowerCase().includes(query.toLowerCase());
-            });
-          },
-        );
-        rebootActionCard.registerRunListener(async (args: any, state: any) => {
-          this.log(`Reboot action triggered:`);
-          const device = args.device;
-          await this.api.reboot(device).catch(this.error);
-          return true; // Return true if action succeeded
-        });
-
         // Register capability listeners for reboot, CPU usage, and memory usage
         this.registerCapabilityListener('reboot', async (value) => {
           if (Boolean(value)) {
@@ -134,89 +131,14 @@ class TplinkDecoDevice extends Device {
           }
         });
 
-        this.registerCapabilityListener('measure_cpu_usage', async (value) => {
-          this.savedCpuUsage = value;
-          this.log(`CPU Usage: ${value}`);
-        });
-
-        this.registerCapabilityListener('measure_mem_usage', async (value) => {
-          this.savedMemUsage = value;
-          this.log(`Memory Usage: ${value}`);
-        });
-
-        const clientIsConnected =
-          this.homey.flow.getConditionCard('client_is_online');
-        clientIsConnected.registerRunListener(async (args) => {
-          if (this.clients.find((client) => client.mac === args.client.mac)) {
-            return true;
-          }
-          return false;
-        });
-        clientIsConnected.registerArgumentAutocompleteListener(
-          'client',
-          async (query) => {
-            const filteredClients = this.clients.filter((client) => {
-              const search = query.toLowerCase();
-
-              return (
-                client.mac.toLowerCase().includes(search) ||
-                Buffer.from(client.name, 'base64')
-                  .toString()
-                  .toLowerCase()
-                  .includes(search) ||
-                client.ipaddr.toLowerCase().includes(search)
-              );
-            });
-            const results = [
-              ...filteredClients.map((client) => ({
-                name: Buffer.from(client.name, 'base64').toString(),
-                mac: client.mac,
-                description: client.mac,
-              })),
-            ];
-
-            return results;
-          },
-        );
-
         const clientStateFlow = this.homey.flow.getDeviceTriggerCard(
           'client_state_changed',
         );
         clientStateFlow.registerRunListener(async (args, state) => {
-          this.log('clientStateFlow.registerRunListener', {
-            args,
-            state,
-          });
           return (
             args.status === state.status && args.client.mac === state.client.mac
           );
         });
-        clientStateFlow.registerArgumentAutocompleteListener(
-          'client',
-          async (query) => {
-            const filteredClients = this.clients.filter((client) => {
-              const search = query.toLowerCase();
-
-              return (
-                client.mac.toLowerCase().includes(search) ||
-                Buffer.from(client.name, 'base64')
-                  .toString()
-                  .toLowerCase()
-                  .includes(search) ||
-                client.ipaddr.toLowerCase().includes(search)
-              );
-            });
-            const results = [
-              ...filteredClients.map((client) => ({
-                name: Buffer.from(client.name, 'base64').toString(),
-                mac: client.mac,
-                description: client.mac,
-              })),
-            ];
-
-            return results;
-          },
-        );
 
         // Initialize capabilities on device start
         await this.updateDeviceMetrics();
@@ -315,6 +237,28 @@ class TplinkDecoDevice extends Device {
   }
 
   /**
+   * Re-authenticates the API session when the STOK has expired.
+   * Returns true if re-authentication succeeded.
+   */
+  private async reAuthenticate(): Promise<boolean> {
+    try {
+      const settings = this.getSettings();
+      this.log('Session expired, re-authenticating...');
+      this.api = new decoapiwrapper(settings.hostname);
+      this.connected = await this.api.authenticate(settings.password);
+      if (this.connected) {
+        this.log('Re-authentication successful');
+      } else {
+        this.error('Re-authentication failed');
+      }
+      return this.connected;
+    } catch (e) {
+      this.error('Re-authentication error', e);
+      return false;
+    }
+  }
+
+  /**
    * Updates device metrics by fetching data from the API and updating capabilities.
    * Handles performance metrics, WAN IP address, internet status, client list, and client state changes.
    */
@@ -369,6 +313,12 @@ class TplinkDecoDevice extends Device {
         'Device Data',
       );
       this.debug(`${settings.hostname} onInit():deviceList: `, deviceList);
+
+      // If the API returns an error, the session (STOK) has likely expired — re-auth and wait for next poll
+      if (deviceList.error_code !== 0) {
+        await this.reAuthenticate();
+        return;
+      }
 
       if (
         deviceList.error_code === 0 &&
@@ -518,11 +468,12 @@ class TplinkDecoDevice extends Device {
             );
           }
 
-          // Fetch client list
+          // Fetch client list — use this device's MAC so each node only reports its own clients,
+          // preventing duplicate flow triggers when multiple Deco units are paired.
           const request = {
             operation: 'read',
             params: {
-              device_mac: 'default',
+              device_mac: devicedata.id,
             },
           };
           const jsonRequest = JSON.stringify(request);
@@ -637,13 +588,12 @@ class TplinkDecoDevice extends Device {
 
       // Check if WAN status has changed
       if (currentWanStatus !== savedWanState) {
-        const cardTriggerWanStatus = this.homey.flow.getTriggerCard(
+        const cardTriggerWanStatus = this.homey.flow.getDeviceTriggerCard(
           'alarm_wan_state_changed',
         );
 
         // Trigger flow card for WAN state change
-        await cardTriggerWanStatus.trigger({
-          device: this.getName() ?? 'Unknown Device',
+        await cardTriggerWanStatus.trigger(this, {
           wan_state: currentWanStatus,
           ip_version: ipVersion,
         });
@@ -713,15 +663,17 @@ class TplinkDecoDevice extends Device {
   /**
    * Handles client state changes by comparing the current client list with the previous one.
    * Triggers flow cards when clients go online or offline.
-   * @param clientList - The current list of clients.
+   * Also maintains the persistent 30-day trackedClients history.
+   * @param clientList - The current list of clients (online on this node right now).
    */
   private async handleClientStateChanges(clientList: any[]) {
     try {
       const clientStateFlow = this.homey.flow.getDeviceTriggerCard(
         'client_state_changed',
       );
+      const now = Date.now();
 
-      // Create Maps for quick lookup of clients by MAC address
+      // Maps for quick lookup
       const lastClientsMap = new Map(
         this.clients?.map((client) => [client.mac, client]),
       );
@@ -731,13 +683,26 @@ class TplinkDecoDevice extends Device {
 
       // Clients that have come online
       for (const [mac, client] of currentClientsMap) {
+        const decodedName = Buffer.from(client.name, 'base64').toString();
+        const tokens = {
+          name: decodedName,
+          ipaddr: client.ip,
+          mac: client.mac,
+          type: client.client_type ?? '',
+        };
+
+        // Update persistent history
+        this.trackedClients[mac] = {
+          mac: client.mac,
+          name: decodedName,
+          ip: client.ip,
+          type: client.client_type ?? '',
+          online: true,
+          lastSeen: now,
+          firstSeen: this.trackedClients[mac]?.firstSeen ?? now,
+        };
+
         if (!lastClientsMap.has(mac)) {
-          const tokens = {
-            name: Buffer.from(client.name, 'base64').toString(),
-            ipaddr: client.ip,
-            mac: client.mac,
-            type: client.client_type,
-          };
           await clientStateFlow.trigger(this, tokens, {
             status: 'online',
             client: tokens,
@@ -748,12 +713,19 @@ class TplinkDecoDevice extends Device {
       // Clients that have gone offline
       for (const [mac, client] of lastClientsMap) {
         if (!currentClientsMap.has(mac)) {
+          const decodedName = Buffer.from(client.name, 'base64').toString();
           const tokens = {
-            name: Buffer.from(client.name, 'base64').toString(),
+            name: decodedName,
             ipaddr: client.ip,
             mac: client.mac,
-            type: client.client_type,
+            type: client.client_type ?? '',
           };
+
+          // Mark as offline in persistent history (keep lastSeen from when they were last online)
+          if (this.trackedClients[mac]) {
+            this.trackedClients[mac].online = false;
+          }
+
           await clientStateFlow.trigger(this, tokens, {
             status: 'offline',
             client: tokens,
@@ -761,7 +733,17 @@ class TplinkDecoDevice extends Device {
         }
       }
 
-      // Update the stored clients for the next comparison
+      // Prune clients not seen for more than 30 days
+      for (const [mac, tracked] of Object.entries(this.trackedClients)) {
+        if (!tracked.online && now - tracked.lastSeen > TRACKED_CLIENT_TTL_MS) {
+          delete this.trackedClients[mac];
+        }
+      }
+
+      // Persist updated history
+      await this.setStoreValue('trackedClients', this.trackedClients);
+
+      // Update the current online list for the next comparison
       this.clients = clientList;
     } catch (err) {
       this.error('Failed to handle client state changes', err);

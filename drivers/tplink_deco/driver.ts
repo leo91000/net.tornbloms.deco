@@ -17,6 +17,63 @@ class TplinkDecoDriver extends Driver {
    */
   async onInit() {
     this.log('TP-Link Deco Driver has been initialized');
+
+    // Register condition: client is online
+    // Registered once here so multiple device instances don't overwrite each other.
+    // Uses the persistent trackedClients store so the condition works even for clients
+    // that are currently offline (returns false) but have been seen in the last 30 days.
+    const clientIsOnline = this.homey.flow.getConditionCard('client_is_online');
+    clientIsOnline.registerRunListener(async (args) => {
+      const device = args.device as any;
+      const tracked = device?.trackedClients ?? {};
+      return tracked[args.client.mac]?.online === true;
+    });
+    clientIsOnline.registerArgumentAutocompleteListener(
+      'client',
+      async (query, args) => {
+        return this.buildClientAutocomplete(args.device, query);
+      },
+    );
+
+    // Register autocomplete for client_state_changed trigger
+    // Registered once here so multiple device instances don't overwrite each other.
+    const clientStateFlow = this.homey.flow.getDeviceTriggerCard('client_state_changed');
+    clientStateFlow.registerArgumentAutocompleteListener(
+      'client',
+      async (query, args) => {
+        return this.buildClientAutocomplete(args.device, query);
+      },
+    );
+  }
+
+  /**
+   * Builds an autocomplete result list from a device's tracked client history.
+   * Shows all clients seen in the last 30 days (online and offline).
+   * Online clients are shown first; offline clients show their last-seen date.
+   */
+  private buildClientAutocomplete(device: any, query: string) {
+    const tracked: Record<string, any> = device?.trackedClients ?? {};
+    const search = query.toLowerCase();
+
+    return Object.values(tracked)
+      .filter(
+        (c) =>
+          c.mac.toLowerCase().includes(search) ||
+          c.name.toLowerCase().includes(search) ||
+          (c.ip ?? '').toLowerCase().includes(search),
+      )
+      .sort((a, b) => {
+        // Online clients first, then by lastSeen descending
+        if (a.online !== b.online) return a.online ? -1 : 1;
+        return b.lastSeen - a.lastSeen;
+      })
+      .map((c) => ({
+        name: c.name || c.mac,
+        mac: c.mac,
+        description: c.online
+          ? `${c.mac} — online`
+          : `${c.mac} — last seen ${new Date(c.lastSeen).toLocaleDateString()}`,
+      }));
   }
 
   /**
@@ -131,7 +188,7 @@ class TplinkDecoDriver extends Driver {
                 ' - ' +
                 this.cleanString(this.decodeBase64(device.nickname)),
               mac: device.mac,
-              hostname: device.device_ip,
+              hostname: hostname,
               password: password,
               model: device.device_model,
               ip: device.device_ip,

@@ -246,10 +246,6 @@ class EndpointArgs {
   }
 }
 
-// Initialize a CookieJar instance for handling cookies in requests
-const cookieJar = new CookieJar();
-wrapper(axios);
-
 // Main Client class to interact with the API
 export default class DecoAPIWraper {
   public c: AxiosInstance;
@@ -265,12 +261,18 @@ export default class DecoAPIWraper {
   constructor(target: string) {
     const baseUrl = `http://${target}/cgi-bin/luci/`;
     this.host = `${target}`;
+    const cookieJar = new CookieJar();
+    wrapper(axios);
     this.c = axios.create({
       baseURL: baseUrl,
       timeout: 10000,
       withCredentials: true,
       jar: cookieJar,
     }) as AxiosInstance;
+    this.c.interceptors.request.use((config) => {
+      delete config.headers['Accept'];
+      return config;
+    });
   }
 
   // Method to ping the host

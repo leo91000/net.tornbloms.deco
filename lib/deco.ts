@@ -216,12 +216,6 @@ export default class Deco {
       params: params, // Sending as a regular object
     };
 
-    // Remove the 'Accept' header before sending the request
-    this.c.interceptors.request.use((config) => {
-      delete config.headers['Accept'];
-      return config;
-    });
-
     // Debugging raw body data before sending the request
     // console.log('URL:', url);
     // console.log('Query params:', params);
