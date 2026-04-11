@@ -7,7 +7,6 @@ import {
 } from '././utils/aes';
 import { AxiosInstance } from 'axios';
 import { KeyObject } from 'crypto';
-import { url } from 'inspector';
 
 // Buffer for the default body used in read operations
 const readBody = Buffer.from(JSON.stringify({ operation: 'read' }));
