@@ -359,7 +359,7 @@ export default class DecoAPIWraper {
       // Continue with the login process...
       const loginReq: LoginRequest = {
         params: {
-          password: encryptedPassword + '&confirm=true',
+          password: encryptedPassword,
         },
         operation: 'login',
       };
