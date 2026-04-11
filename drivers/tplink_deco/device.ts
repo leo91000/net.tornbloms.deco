@@ -84,7 +84,14 @@ class TplinkDecoDevice extends Device {
         await this.addCapability('wan_ipv4_ipaddr');
       }
       if (this.hasCapability('alarm_wan_ipv6_state')) {
-        this.removeCapability('alarm_wan_ipv6_state');
+        await this.removeCapability('alarm_wan_ipv6_state');
+      }
+
+      // Migrate existing devices: add new capabilities if missing
+      for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
+        if (!this.hasCapability(cap)) {
+          await this.addCapability(cap);
+        }
       }
 
       // Check if hostname and password are provided
@@ -345,6 +352,26 @@ class TplinkDecoDevice extends Device {
           );
           await this.updateCapability('device_role', settings.role);
           await this.updateCapability('lan_ipv4_ipaddr', settings.hostname);
+
+          // Signal strength (only meaningful on slave nodes; master shows '–')
+          const isMaster = device.role.toLowerCase() === 'master';
+          await this.updateCapability(
+            'signal_strength_2g',
+            isMaster ? '–' : (device.signal_level?.band2_4 || '–'),
+          );
+          await this.updateCapability(
+            'signal_strength_5g',
+            isMaster ? '–' : (device.signal_level?.band5 || '–'),
+          );
+
+          // Backhaul connection type (how this node connects to the mesh)
+          const connectionTypes: string[] | undefined = (device as any).connection_type;
+          const backhaulStr = isMaster
+            ? 'master'
+            : (Array.isArray(connectionTypes) && connectionTypes.length > 0
+                ? connectionTypes.join(', ')
+                : '–');
+          await this.updateCapability('backhaul_connection', backhaulStr);
 
           // Fetch performance metrics
           const performance = await this.safeApiCall(
@@ -689,6 +716,10 @@ class TplinkDecoDevice extends Device {
           ipaddr: client.ip,
           mac: client.mac,
           type: client.client_type ?? '',
+          connection_type: client.connection_type ?? '',
+          interface: client.interface ?? '',
+          down_speed: client.down_speed ?? 0,
+          up_speed: client.up_speed ?? 0,
         };
 
         // Update persistent history
@@ -719,6 +750,10 @@ class TplinkDecoDevice extends Device {
             ipaddr: client.ip,
             mac: client.mac,
             type: client.client_type ?? '',
+            connection_type: client.connection_type ?? '',
+            interface: client.interface ?? '',
+            down_speed: 0,
+            up_speed: 0,
           };
 
           // Mark as offline in persistent history (keep lastSeen from when they were last online)
