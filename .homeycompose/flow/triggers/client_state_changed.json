@@ -124,6 +124,108 @@
         "ru": "A1:B2:C3:D4:E5:F6",
         "ko": "A1:B2:C3:D4:E5:F6"
       }
+    },
+    {
+      "type": "string",
+      "name": "connection_type",
+      "title": {
+        "en": "connection type",
+        "nl": "verbindingstype",
+        "da": "forbindelsestype",
+        "de": "Verbindungstyp",
+        "es": "tipo de conexión",
+        "fr": "type de connexion",
+        "it": "tipo di connessione",
+        "no": "tilkoblingstype",
+        "sv": "anslutningstyp",
+        "pl": "typ połączenia",
+        "ru": "тип соединения",
+        "ko": "연결 유형"
+      },
+      "example": {
+        "en": "5G",
+        "nl": "5G",
+        "da": "5G",
+        "de": "5G",
+        "es": "5G",
+        "fr": "5G",
+        "it": "5G",
+        "no": "5G",
+        "sv": "5G",
+        "pl": "5G",
+        "ru": "5G",
+        "ko": "5G"
+      }
+    },
+    {
+      "type": "string",
+      "name": "interface",
+      "title": {
+        "en": "network",
+        "nl": "netwerk",
+        "da": "netværk",
+        "de": "Netzwerk",
+        "es": "red",
+        "fr": "réseau",
+        "it": "rete",
+        "no": "nettverk",
+        "sv": "nätverk",
+        "pl": "sieć",
+        "ru": "сеть",
+        "ko": "네트워크"
+      },
+      "example": {
+        "en": "main",
+        "nl": "main",
+        "da": "main",
+        "de": "main",
+        "es": "main",
+        "fr": "main",
+        "it": "main",
+        "no": "main",
+        "sv": "main",
+        "pl": "main",
+        "ru": "main",
+        "ko": "main"
+      }
+    },
+    {
+      "type": "number",
+      "name": "down_speed",
+      "title": {
+        "en": "download speed (KB/s)",
+        "nl": "downloadsnelheid (KB/s)",
+        "da": "downloadhastighed (KB/s)",
+        "de": "Download-Geschwindigkeit (KB/s)",
+        "es": "velocidad de descarga (KB/s)",
+        "fr": "vitesse de téléchargement (KB/s)",
+        "it": "velocità di download (KB/s)",
+        "no": "nedlastingshastighet (KB/s)",
+        "sv": "nedladdningshastighet (KB/s)",
+        "pl": "prędkość pobierania (KB/s)",
+        "ru": "скорость загрузки (KB/s)",
+        "ko": "다운로드 속도 (KB/s)"
+      },
+      "example": 1024
+    },
+    {
+      "type": "number",
+      "name": "up_speed",
+      "title": {
+        "en": "upload speed (KB/s)",
+        "nl": "uploadsnelheid (KB/s)",
+        "da": "uploadhastighed (KB/s)",
+        "de": "Upload-Geschwindigkeit (KB/s)",
+        "es": "velocidad de subida (KB/s)",
+        "fr": "vitesse d'envoi (KB/s)",
+        "it": "velocità di upload (KB/s)",
+        "no": "opplastingshastighet (KB/s)",
+        "sv": "uppladdningshastighet (KB/s)",
+        "pl": "prędkość wysyłania (KB/s)",
+        "ru": "скорость отдачи (KB/s)",
+        "ko": "업로드 속도 (KB/s)"
+      },
+      "example": 512
     }
   ],
   "args": [

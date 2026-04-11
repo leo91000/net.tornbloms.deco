@@ -1,0 +1,21 @@
+{
+  "type": "string",
+  "title": {
+    "en": "Backhaul Connection",
+    "nl": "Backhaul verbinding",
+    "da": "Backhaul forbindelse",
+    "de": "Backhaul-Verbindung",
+    "es": "Conexión backhaul",
+    "fr": "Connexion backhaul",
+    "it": "Connessione backhaul",
+    "no": "Backhaul-tilkobling",
+    "sv": "Backhaul-anslutning",
+    "pl": "Połączenie backhaul",
+    "ru": "Соединение обратного канала",
+    "ko": "백홀 연결"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

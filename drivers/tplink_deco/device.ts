@@ -87,6 +87,17 @@ class TplinkDecoDevice extends Device {
         await this.removeCapability('alarm_wan_ipv6_state');
       }
 
+      // Slave-only capabilities: only meaningful on satellite nodes.
+      // Add for slaves, remove for master (avoids showing redundant "–" / "master" values).
+      const initIsMaster = (settings.role ?? '').toLowerCase() === 'master';
+      for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
+        if (initIsMaster && this.hasCapability(cap)) {
+          await this.removeCapability(cap);
+        } else if (!initIsMaster && !this.hasCapability(cap)) {
+          await this.addCapability(cap);
+        }
+      }
+
       // Check if hostname and password are provided
       if (settings.hostname && settings.password) {
         // Instantiate the API wrapper with the device hostname
@@ -345,6 +356,35 @@ class TplinkDecoDevice extends Device {
           );
           await this.updateCapability('device_role', settings.role);
           await this.updateCapability('lan_ipv4_ipaddr', settings.hostname);
+
+          // Signal strength and backhaul are only meaningful on satellite nodes.
+          // Dynamically add/remove so they never appear on the master tile.
+          const isMaster = device.role.toLowerCase() === 'master';
+          for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
+            if (isMaster && this.hasCapability(cap)) {
+              await this.removeCapability(cap);
+            } else if (!isMaster && !this.hasCapability(cap)) {
+              await this.addCapability(cap);
+            }
+          }
+
+          if (!isMaster) {
+            await this.updateCapability(
+              'signal_strength_2g',
+              device.signal_level?.band2_4 || '–',
+            );
+            await this.updateCapability(
+              'signal_strength_5g',
+              device.signal_level?.band5 || '–',
+            );
+            const connectionTypes: string[] | undefined = (device as any).connection_type;
+            await this.updateCapability(
+              'backhaul_connection',
+              Array.isArray(connectionTypes) && connectionTypes.length > 0
+                ? connectionTypes.join(', ')
+                : '–',
+            );
+          }
 
           // Fetch performance metrics
           const performance = await this.safeApiCall(
@@ -689,6 +729,10 @@ class TplinkDecoDevice extends Device {
           ipaddr: client.ip,
           mac: client.mac,
           type: client.client_type ?? '',
+          connection_type: client.connection_type ?? '',
+          interface: client.interface ?? '',
+          down_speed: client.down_speed ?? 0,
+          up_speed: client.up_speed ?? 0,
         };
 
         // Update persistent history
@@ -719,6 +763,10 @@ class TplinkDecoDevice extends Device {
             ipaddr: client.ip,
             mac: client.mac,
             type: client.client_type ?? '',
+            connection_type: client.connection_type ?? '',
+            interface: client.interface ?? '',
+            down_speed: 0,
+            up_speed: 0,
           };
 
           // Mark as offline in persistent history (keep lastSeen from when they were last online)

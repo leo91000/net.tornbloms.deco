@@ -1,0 +1,21 @@
+{
+  "type": "string",
+  "title": {
+    "en": "Signal 2.4 GHz",
+    "nl": "Signaal 2,4 GHz",
+    "da": "Signal 2,4 GHz",
+    "de": "Signal 2,4 GHz",
+    "es": "Señal 2,4 GHz",
+    "fr": "Signal 2,4 GHz",
+    "it": "Segnale 2,4 GHz",
+    "no": "Signal 2,4 GHz",
+    "sv": "Signal 2,4 GHz",
+    "pl": "Sygnał 2,4 GHz",
+    "ru": "Сигнал 2,4 ГГц",
+    "ko": "신호 2.4 GHz"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

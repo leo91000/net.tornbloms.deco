@@ -1,0 +1,21 @@
+{
+  "type": "string",
+  "title": {
+    "en": "Signal 5 GHz",
+    "nl": "Signaal 5 GHz",
+    "da": "Signal 5 GHz",
+    "de": "Signal 5 GHz",
+    "es": "Señal 5 GHz",
+    "fr": "Signal 5 GHz",
+    "it": "Segnale 5 GHz",
+    "no": "Signal 5 GHz",
+    "sv": "Signal 5 GHz",
+    "pl": "Sygnał 5 GHz",
+    "ru": "Сигнал 5 ГГц",
+    "ko": "신호 5 GHz"
+  },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

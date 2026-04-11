@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.3.6",
+  "version": "1.4.0",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "platforms": [
@@ -389,6 +389,108 @@
               "ru": "A1:B2:C3:D4:E5:F6",
               "ko": "A1:B2:C3:D4:E5:F6"
             }
+          },
+          {
+            "type": "string",
+            "name": "connection_type",
+            "title": {
+              "en": "connection type",
+              "nl": "verbindingstype",
+              "da": "forbindelsestype",
+              "de": "Verbindungstyp",
+              "es": "tipo de conexión",
+              "fr": "type de connexion",
+              "it": "tipo di connessione",
+              "no": "tilkoblingstype",
+              "sv": "anslutningstyp",
+              "pl": "typ połączenia",
+              "ru": "тип соединения",
+              "ko": "연결 유형"
+            },
+            "example": {
+              "en": "5G",
+              "nl": "5G",
+              "da": "5G",
+              "de": "5G",
+              "es": "5G",
+              "fr": "5G",
+              "it": "5G",
+              "no": "5G",
+              "sv": "5G",
+              "pl": "5G",
+              "ru": "5G",
+              "ko": "5G"
+            }
+          },
+          {
+            "type": "string",
+            "name": "interface",
+            "title": {
+              "en": "network",
+              "nl": "netwerk",
+              "da": "netværk",
+              "de": "Netzwerk",
+              "es": "red",
+              "fr": "réseau",
+              "it": "rete",
+              "no": "nettverk",
+              "sv": "nätverk",
+              "pl": "sieć",
+              "ru": "сеть",
+              "ko": "네트워크"
+            },
+            "example": {
+              "en": "main",
+              "nl": "main",
+              "da": "main",
+              "de": "main",
+              "es": "main",
+              "fr": "main",
+              "it": "main",
+              "no": "main",
+              "sv": "main",
+              "pl": "main",
+              "ru": "main",
+              "ko": "main"
+            }
+          },
+          {
+            "type": "number",
+            "name": "down_speed",
+            "title": {
+              "en": "download speed (KB/s)",
+              "nl": "downloadsnelheid (KB/s)",
+              "da": "downloadhastighed (KB/s)",
+              "de": "Download-Geschwindigkeit (KB/s)",
+              "es": "velocidad de descarga (KB/s)",
+              "fr": "vitesse de téléchargement (KB/s)",
+              "it": "velocità di download (KB/s)",
+              "no": "nedlastingshastighet (KB/s)",
+              "sv": "nedladdningshastighet (KB/s)",
+              "pl": "prędkość pobierania (KB/s)",
+              "ru": "скорость загрузки (KB/s)",
+              "ko": "다운로드 속도 (KB/s)"
+            },
+            "example": 1024
+          },
+          {
+            "type": "number",
+            "name": "up_speed",
+            "title": {
+              "en": "upload speed (KB/s)",
+              "nl": "uploadsnelheid (KB/s)",
+              "da": "uploadhastighed (KB/s)",
+              "de": "Upload-Geschwindigkeit (KB/s)",
+              "es": "velocidad de subida (KB/s)",
+              "fr": "vitesse d'envoi (KB/s)",
+              "it": "velocità di upload (KB/s)",
+              "no": "opplastingshastighet (KB/s)",
+              "sv": "uppladdningshastighet (KB/s)",
+              "pl": "prędkość wysyłania (KB/s)",
+              "ru": "скорость отдачи (KB/s)",
+              "ko": "업로드 속도 (KB/s)"
+            },
+            "example": 512
           }
         ],
         "args": [
@@ -1318,6 +1420,27 @@
       },
       "icon": "./assets/capabilities/alarm_wan.svg"
     },
+    "backhaul_connection": {
+      "type": "string",
+      "title": {
+        "en": "Backhaul Connection",
+        "nl": "Backhaul verbinding",
+        "da": "Backhaul forbindelse",
+        "de": "Backhaul-Verbindung",
+        "es": "Conexión backhaul",
+        "fr": "Connexion backhaul",
+        "it": "Connessione backhaul",
+        "no": "Backhaul-tilkobling",
+        "sv": "Backhaul-anslutning",
+        "pl": "Połączenie backhaul",
+        "ru": "Соединение обратного канала",
+        "ko": "백홀 연결"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
     "connected_clients": {
       "type": "number",
       "title": {
@@ -1647,6 +1770,48 @@
       "setable": true,
       "insights": true,
       "icon": "./assets/capabilities/reboot.svg"
+    },
+    "signal_strength_2g": {
+      "type": "string",
+      "title": {
+        "en": "Signal 2.4 GHz",
+        "nl": "Signaal 2,4 GHz",
+        "da": "Signal 2,4 GHz",
+        "de": "Signal 2,4 GHz",
+        "es": "Señal 2,4 GHz",
+        "fr": "Signal 2,4 GHz",
+        "it": "Segnale 2,4 GHz",
+        "no": "Signal 2,4 GHz",
+        "sv": "Signal 2,4 GHz",
+        "pl": "Sygnał 2,4 GHz",
+        "ru": "Сигнал 2,4 ГГц",
+        "ko": "신호 2.4 GHz"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "signal_strength_5g": {
+      "type": "string",
+      "title": {
+        "en": "Signal 5 GHz",
+        "nl": "Signaal 5 GHz",
+        "da": "Signal 5 GHz",
+        "de": "Signal 5 GHz",
+        "es": "Señal 5 GHz",
+        "fr": "Signal 5 GHz",
+        "it": "Segnale 5 GHz",
+        "no": "Signal 5 GHz",
+        "sv": "Signal 5 GHz",
+        "pl": "Sygnał 5 GHz",
+        "ru": "Сигнал 5 ГГц",
+        "ko": "신호 5 GHz"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
     },
     "wan_ipv4_ipaddr": {
       "type": "string",
