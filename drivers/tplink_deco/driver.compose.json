@@ -111,8 +111,8 @@
     "alarm_group_state",
     "lan_ipv4_ipaddr",
     "connected_clients",
-    "reboot",
-    "device_role"
+    "device_role",
+    "reboot"
   ],
   "platforms": ["local"],
   "connectivity": ["lan"]
