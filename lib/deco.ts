@@ -73,25 +73,27 @@ export default class Deco {
   // Method to retrieve the password key from the server and generate an RSA key from it
   public async getPasswordKey(): Promise<KeyObject | null> {
     const args: EndpointArgs = { form: 'keys' };
-    // console.log('getPasswordKey: Starting password key retrieval.');
+    console.log('deco.ts: getPasswordKey: requesting /login?form=keys');
     try {
       const passKey: PasswordKeyResponse = await this.doPost(
         ';stok=/login',
         args,
         readBody,
       );
-      // console.log('getPasswordKey: Received password key response:', passKey);
+      console.log('deco.ts: getPasswordKey: response error_code:', passKey?.error_code);
 
       if (passKey.error_code !== 0) {
+        console.error('deco.ts: getPasswordKey: non-zero error_code, full response:', JSON.stringify(passKey));
         throw new Error(`Error fetching password key: ${passKey.error_code}`);
       }
 
       const key = generateRsaKey(passKey.result.password);
-      // console.log('getPasswordKey: Generated RSA public key:', key);
-
+      if (!key) {
+        console.error('deco.ts: getPasswordKey: generateRsaKey returned null for password array:', passKey.result.password);
+      }
       return key;
     } catch (e) {
-      // console.log('getPasswordKey: Error generating RSA key:', e);
+      console.error('deco.ts: getPasswordKey failed:', e);
       return null;
     }
   }
@@ -102,25 +104,27 @@ export default class Deco {
     seq: number;
   }> {
     const args: EndpointArgs = { form: 'auth' };
-    // console.log('getSessionKey: Starting session key retrieval.');
+    console.log('deco.ts: getSessionKey: requesting /login?form=auth');
     try {
       const passKey: SessionKeyResponse = await this.doPost(
         ';stok=/login',
         args,
         readBody,
       );
-      // console.log('getSessionKey: Received session key response: ', passKey);
+      console.log('deco.ts: getSessionKey: response error_code:', passKey?.error_code, 'seq:', passKey?.result?.seq);
 
       if (passKey.error_code !== 0) {
+        console.error('deco.ts: getSessionKey: non-zero error_code, full response:', JSON.stringify(passKey));
         throw new Error(`Error fetching session key: ${passKey.error_code}`);
       }
 
       const key = generateRsaKey(passKey.result.key);
-      // console.log('getSessionKey: Error generating RSA key:', key);
-
+      if (!key) {
+        console.error('deco.ts: getSessionKey: generateRsaKey returned null for key array:', passKey.result.key);
+      }
       return { key, seq: passKey.result.seq };
     } catch (e) {
-      // console.log('getSessionKey: Failed to get session key:', e);
+      console.error('deco.ts: getSessionKey failed:', e);
       return { key: null, seq: 0 };
     }
   }
@@ -225,11 +229,12 @@ export default class Deco {
     try {
       // Send the request and return the response data
       const response = await this.c(config);
-      // console.log('doPost: Response status:', response.status);
-      // console.log('doPost: Decoded response:', response.data);
       return response.data;
-    } catch (e) {
-      // console.log('Error in doPost:', e);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+      const code = e?.code;
+      console.error(`deco.ts: doPost failed for path "${path}":`, code ?? e?.message, status ? `HTTP ${status}` : '', data ? JSON.stringify(data) : '');
       throw e;
     }
   }
