@@ -865,9 +865,6 @@
         "alarm_group_state",
         "lan_ipv4_ipaddr",
         "connected_clients",
-        "signal_strength_2g",
-        "signal_strength_5g",
-        "backhaul_connection",
         "device_role",
         "reboot"
       ],

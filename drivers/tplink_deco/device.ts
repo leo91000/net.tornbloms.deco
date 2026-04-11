@@ -87,9 +87,13 @@ class TplinkDecoDevice extends Device {
         await this.removeCapability('alarm_wan_ipv6_state');
       }
 
-      // Migrate existing devices: add new capabilities if missing
+      // Slave-only capabilities: only meaningful on satellite nodes.
+      // Add for slaves, remove for master (avoids showing redundant "–" / "master" values).
+      const initIsMaster = (settings.role ?? '').toLowerCase() === 'master';
       for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
-        if (!this.hasCapability(cap)) {
+        if (initIsMaster && this.hasCapability(cap)) {
+          await this.removeCapability(cap);
+        } else if (!initIsMaster && !this.hasCapability(cap)) {
           await this.addCapability(cap);
         }
       }
@@ -353,25 +357,34 @@ class TplinkDecoDevice extends Device {
           await this.updateCapability('device_role', settings.role);
           await this.updateCapability('lan_ipv4_ipaddr', settings.hostname);
 
-          // Signal strength (only meaningful on slave nodes; master shows '–')
+          // Signal strength and backhaul are only meaningful on satellite nodes.
+          // Dynamically add/remove so they never appear on the master tile.
           const isMaster = device.role.toLowerCase() === 'master';
-          await this.updateCapability(
-            'signal_strength_2g',
-            isMaster ? '–' : (device.signal_level?.band2_4 || '–'),
-          );
-          await this.updateCapability(
-            'signal_strength_5g',
-            isMaster ? '–' : (device.signal_level?.band5 || '–'),
-          );
+          for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
+            if (isMaster && this.hasCapability(cap)) {
+              await this.removeCapability(cap);
+            } else if (!isMaster && !this.hasCapability(cap)) {
+              await this.addCapability(cap);
+            }
+          }
 
-          // Backhaul connection type (how this node connects to the mesh)
-          const connectionTypes: string[] | undefined = (device as any).connection_type;
-          const backhaulStr = isMaster
-            ? 'master'
-            : (Array.isArray(connectionTypes) && connectionTypes.length > 0
+          if (!isMaster) {
+            await this.updateCapability(
+              'signal_strength_2g',
+              device.signal_level?.band2_4 || '–',
+            );
+            await this.updateCapability(
+              'signal_strength_5g',
+              device.signal_level?.band5 || '–',
+            );
+            const connectionTypes: string[] | undefined = (device as any).connection_type;
+            await this.updateCapability(
+              'backhaul_connection',
+              Array.isArray(connectionTypes) && connectionTypes.length > 0
                 ? connectionTypes.join(', ')
-                : '–');
-          await this.updateCapability('backhaul_connection', backhaulStr);
+                : '–',
+            );
+          }
 
           // Fetch performance metrics
           const performance = await this.safeApiCall(
