@@ -1,4 +1,5 @@
 import crypto, { KeyObject } from 'crypto';
+import http from 'http';
 import axios, { AxiosInstance } from 'axios';
 import Deco from './deco';
 import { encryptRsa } from '././utils/rsa';
@@ -263,11 +264,16 @@ export default class DecoAPIWraper {
     this.host = `${target}`;
     const cookieJar = new CookieJar();
     wrapper(axios);
+    // Node.js 22 changed keep-alive socket management. Without an explicit
+    // agent, idle sockets can be torn down mid-request causing ECONNRESET.
+    // See: https://apps.developer.homey.app/upgrade-guides/node-22
+    const httpAgent = new http.Agent({ keepAlive: true });
     this.c = axios.create({
       baseURL: baseUrl,
       timeout: 10000,
       withCredentials: true,
       jar: cookieJar,
+      httpAgent,
     }) as AxiosInstance;
     this.c.interceptors.request.use((config) => {
       delete config.headers['Accept'];
