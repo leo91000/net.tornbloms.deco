@@ -178,5 +178,8 @@
   },
   "1.3.0": {
     "en": "Plenty of fixed, it has been a good year since this app got some love"
+  },
+  "1.3.2": {
+    "en": "Updated login, logging and translations"
   }
 }
