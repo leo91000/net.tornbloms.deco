@@ -275,12 +275,19 @@ export default class DecoAPIWraper {
     });
   }
 
-  // Method to ping the host
+  // Method to ping the host — accepts any HTTP response (including redirects) as
+  // "alive". Only connection-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
   private async pingHost(host: string): Promise<boolean> {
     try {
-      const response = await this.c.get(`http://${host}`);
-      return response.status === 200;
-    } catch (error) {
+      await this.c.get(`http://${host}`);
+      return true;
+    } catch (error: any) {
+      // If we got an HTTP error response the host IS reachable
+      if (error?.response) {
+        console.log(`client.ts: pingHost: host ${host} responded with HTTP ${error.response.status} — treating as reachable`);
+        return true;
+      }
+      console.error(`client.ts: pingHost: host ${host} not reachable:`, error?.code ?? error?.message);
       return false;
     }
   }
@@ -301,68 +308,66 @@ export default class DecoAPIWraper {
 
   // Public method to authenticate the client with the given password
   public async authenticate(password: string): Promise<boolean> {
-    // console.log('client.ts: ' + 'Starting authentication process...');
     let authenticated = false;
+    console.log(`client.ts: authenticate: checking host reachability for ${this.host}`);
     const hostIsAlive = await this.pingHost(this.host);
     try {
       if (!hostIsAlive) {
+        console.error(`client.ts: authenticate: host ${this.host} is not reachable (ping failed)`);
         throw new Error(`client.ts: Host ${this.host} is not reachable.`);
       }
+      console.log(`client.ts: authenticate: host ${this.host} is reachable`);
 
       // Generate AES key for encryption
       this.aes = generateAESKey();
-      // console.log('client.ts: ' + `AES Key generated: ${this.aes.key.toString('hex')}`,);
-      // console.log('client.ts: ' + `AES IV generated: ${this.aes.iv.toString('hex')}`,);
 
       // Generate MD5 hash using the username and password
       this.hash = crypto
         .createHash('md5')
         .update(`${userName}${password}`)
         .digest('hex');
-      // console.log('client.ts: ' + `MD5 Hash generated: ${this.hash}`);
 
       this.ensureDecoInstance();
 
-      // console.log('client.ts: ' + 'Attempting to retrieve password key...');
+      console.log('client.ts: authenticate: retrieving password key');
       const passwordKey = await this.decoInstance!.getPasswordKey();
       if (!passwordKey) {
-        throw new Error('client.ts: ' + 'Failed to retrieve password key.');
+        console.error('client.ts: authenticate: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
+        throw new Error('client.ts: Failed to retrieve password key.');
       }
-      // console.log('client.ts: ' + 'Password key retrieved successfully:',passwordKey,);
 
       // Encrypt the password using the retrieved password key
-      // console.log('client.ts: ' + 'Encrypting password using password key...');
       const encryptedPassword = encryptRsa(password, passwordKey!);
-      // console.log('client.ts: ' + `Encrypted password: ${encryptedPassword}`);
+      if (!encryptedPassword) {
+        console.error('client.ts: authenticate: RSA encryption of password returned empty string');
+        throw new Error('client.ts: RSA encryption of password failed.');
+      }
 
-      // console.log('client.ts: ' + 'Attempting to retrieve session key...');
+      console.log('client.ts: authenticate: retrieving session key');
       const { key: sessionKey, seq: sequence } =
         await this.decoInstance!.getSessionKey();
       if (!sessionKey) {
-        throw new Error('client.ts: ' + 'Failed to retrieve session key.');
+        console.error('client.ts: authenticate: failed to retrieve session key');
+        throw new Error('client.ts: Failed to retrieve session key.');
       }
-      // console.log('client.ts: ' +`Session key retrieved successfully: ${printKey(sessionKey,)}), Sequence: ${sequence.toString()}`,);
+      console.log('client.ts: authenticate: session key ok, seq:', sequence);
 
       // Update RSA key and sequence
       this.rsa = sessionKey;
       this.sequence = sequence;
 
-      // Additional Logging for Debugging
-      // console.log('client.ts: ' + 'Checking RSA key after session key retrieval:',this.rsa,);
-
       // Continue with the login process...
       const loginReq: LoginRequest = {
         params: {
-          password: encryptedPassword + '&confirm=true',
+          password: encryptedPassword,
         },
         operation: 'login',
       };
 
       const loginJSON = JSON.stringify(loginReq);
-      // console.log('client.ts: ' + `Login request JSON: ${loginJSON}`);
       const args = new EndpointArgs('login');
 
-      // console.log('client.ts: ' + 'Sending login request...');
+      console.log('client.ts: authenticate: sending encrypted login request');
       try {
         const result = await this.decoInstance!.doEncryptedPost(
           ';stok=/login',
@@ -373,19 +378,22 @@ export default class DecoAPIWraper {
           this.sequence,
         );
 
+        console.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
         this.stok = result.result.stok;
         if (!this.stok) {
-          throw new Error('client.ts: ' + 'Failed to retrieve STok.');
+          console.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
+          throw new Error('client.ts: Failed to retrieve STok.');
         } else {
-          // console.log('client.ts: ' + `Login successful. STOK: ${this.stok}`);
+          console.log('client.ts: authenticate: login successful');
           authenticated = true;
         }
       } catch (e) {
-        // console.log('client.ts: ' + e);
+        console.error('client.ts: authenticate: encrypted login request failed:', e);
         return authenticated;
       }
       return authenticated;
-    } catch {
+    } catch (e) {
+      console.error('client.ts: authenticate: fatal error during authentication:', e);
       return authenticated;
     }
   }

@@ -84,7 +84,7 @@ class TplinkDecoDevice extends Device {
         await this.addCapability('wan_ipv4_ipaddr');
       }
       if (this.hasCapability('alarm_wan_ipv6_state')) {
-        this.removeCapability('alarm_wan_ipv6_state');
+        await this.removeCapability('alarm_wan_ipv6_state');
       }
 
       // Check if hostname and password are provided
@@ -523,7 +523,7 @@ class TplinkDecoDevice extends Device {
           // })) as ClientListResponse;
 
           const clientNames = clientListResponse.result.client_list
-            .map((client) => atob(client.name))
+            .map((client) => Buffer.from(client.name, 'base64').toString('utf-8'))
             .join(', ');
           await this.setSettings({ clients: clientNames });
 

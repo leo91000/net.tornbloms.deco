@@ -12,18 +12,15 @@ const ErrInvalidPKCS7Data = new Error(
   'invalid PKCS7 data (empty or not padded)',
 );
 
-// Function to generate a random AES-128 key and initialization vector (IV)
+// Function to generate a random AES-128 key and initialization vector (IV).
+// Key and IV must be exactly 16 ASCII digit characters (matching the TP-Link
+// Deco firmware expectation). We use the range [10^15, 10^16-1] so the decimal
+// representation is always exactly 16 digits with no leading zeros.
 export function generateAESKey(): AESKey {
-  const key = Buffer.from(
-    Math.floor(Math.random() * 1e16)
-      .toString()
-      .padStart(16, '0'),
-  );
-  const iv = Buffer.from(
-    Math.floor(Math.random() * 1e16)
-      .toString()
-      .padStart(16, '0'),
-  );
+  const randomSixteen = () =>
+    (Math.floor(Math.random() * 9e15) + 1e15).toString();
+  const key = Buffer.from(randomSixteen());
+  const iv = Buffer.from(randomSixteen());
 
   // console.log(`GenerateAESKey: Generated AES Key: ${key.toString('hex')}`);
   // console.log(`GenerateAESKey: Generated AES IV: ${iv.toString('hex')}`);
