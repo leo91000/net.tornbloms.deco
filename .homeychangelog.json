@@ -187,5 +187,8 @@
   },
   "1.4.2": {
     "en": "Iproved loggin for login "
+  },
+  "1.4.3": {
+    "en": "Minor fixes for login and adding devices"
   }
 }
