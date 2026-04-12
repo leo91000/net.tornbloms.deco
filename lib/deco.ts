@@ -206,6 +206,11 @@ export default class Deco {
       const decoded = AES128Decrypt(req.data, this.aes);
       this.logger.log(`deco.ts: doEncryptedPost: decrypted response length=${decoded.length}B`);
 
+      if (decoded.length === 0) {
+        this.logger.log(`deco.ts: doEncryptedPost: empty decrypt for path=${path} form=${params.form} (endpoint not supported by this node)`);
+        return { error_code: 0, result: {} };
+      }
+
       const parsed = JSON.parse(decoded);
       if (parsed?.error_code !== undefined && parsed.error_code !== 0) {
         this.logger.error(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
