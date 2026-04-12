@@ -269,14 +269,15 @@ export default class DecoAPIWraper {
     this.c = new HttpClient(baseUrl, 10000, logger);
   }
 
-  // Method to ping the host — accepts any HTTP response (including redirects) as
-  // "alive". Only connection-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
+  // Method to ping the host — probes the actual API base path so routers that
+  // don't serve on the root still respond. Accepts any HTTP status as "alive";
+  // only network-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
   private async pingHost(host: string): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
+      const timer = setTimeout(() => controller.abort(), 5000);
       try {
-        await fetch(`http://${host}`, { signal: controller.signal });
+        await fetch(`http://${host}/cgi-bin/luci/`, { signal: controller.signal });
       } finally {
         clearTimeout(timer);
       }
