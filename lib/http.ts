@@ -8,19 +8,28 @@ interface PostConfig {
   params: { form: string };
 }
 
+export interface AppLogger {
+  log: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+}
+
+const consoleLogger: AppLogger = { log: console.log, error: console.error };
+
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie
  * for session cookie management. Replaces axios + axios-cookiejar-support.
  */
 export class HttpClient {
   private readonly jar: CookieJar;
+  private readonly logger: AppLogger;
   readonly baseURL: string;
   private readonly timeout: number;
 
-  constructor(baseURL: string, timeout = 10000) {
+  constructor(baseURL: string, timeout = 10000, logger: AppLogger = consoleLogger) {
     this.jar = new CookieJar();
     this.baseURL = baseURL;
     this.timeout = timeout;
+    this.logger = logger;
   }
 
   async request(config: PostConfig): Promise<{ data: any }> {
@@ -28,7 +37,7 @@ export class HttpClient {
     const urlStr = `${this.baseURL}${config.url}${paramStr}`;
 
     const cookieStr = await this.jar.getCookieString(this.baseURL);
-    console.log(
+    this.logger.log(
       `http.ts: POST ${config.url}?form=${config.params.form}`,
       `body=${config.data.length}B`,
       cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
@@ -61,7 +70,7 @@ export class HttpClient {
           ? rawHeaders.getSetCookie()
           : [];
       if (setCookies.length > 0) {
-        console.log(`http.ts: received ${setCookies.length} Set-Cookie header(s)`);
+        this.logger.log(`http.ts: received ${setCookies.length} Set-Cookie header(s)`);
         for (const cookie of setCookies) {
           await this.jar.setCookie(cookie, this.baseURL).catch(() => {});
         }
@@ -70,19 +79,19 @@ export class HttpClient {
       rawText = await response.text();
 
       if (!response.ok) {
-        console.error(
+        this.logger.error(
           `http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}"`,
           `body=${rawText.slice(0, 200)}`,
         );
       } else {
-        console.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
+        this.logger.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
       }
 
       try {
         const data = JSON.parse(rawText);
         return { data };
       } catch (parseErr) {
-        console.error(
+        this.logger.error(
           `http.ts: JSON parse failed for "${config.url}?form=${config.params.form}" HTTP ${responseStatus}`,
           `raw=${rawText.slice(0, 300)}`,
         );
@@ -92,7 +101,7 @@ export class HttpClient {
       if (responseStatus === undefined) {
         // Network-level failure (no response received)
         const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
-        console.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
+        this.logger.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
       }
       throw e;
     } finally {
