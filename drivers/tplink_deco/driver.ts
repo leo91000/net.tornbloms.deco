@@ -1,8 +1,7 @@
 'use strict';
 import crypto from 'crypto';
 import { Driver } from 'homey';
-import decoapiwrapper from '../../lib/client';
-import { DeviceListResponse } from '../../lib/client';
+import decoapiwrapper, { AppLogger, DeviceListResponse } from '../../lib/client';
 
 class TplinkDecoDriver extends Driver {
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
@@ -10,6 +9,13 @@ class TplinkDecoDriver extends Driver {
 
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
+
+  private makeLogger(): AppLogger {
+    return {
+      log: (...args: any[]) => this.log(...args),
+      error: (...args: any[]) => this.error(...args),
+    };
+  }
 
   /**
    * Called when the driver is initialized.
@@ -101,7 +107,7 @@ class TplinkDecoDriver extends Driver {
         this.log('password: [redacted]');
         this.log('creating client');
         try {
-          this.api = new decoapiwrapper(hostname);
+          this.api = new decoapiwrapper(hostname, this.makeLogger());
           const result = (await this.api.authenticate(password)) as boolean;
           this.log('result: ', result);
           if (result) {
@@ -240,7 +246,7 @@ class TplinkDecoDriver extends Driver {
         this.log('password: [redacted]');
         this.log('repairing client');
         try {
-          const api = new decoapiwrapper(hostname);
+          const api = new decoapiwrapper(hostname, this.makeLogger());
           const result = await api.authenticate(password);
           if (result) {
             this.log('Successfully connected to TP-Link Deco');

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Device } from 'homey';
-import decoapiwrapper from '../../lib/client';
+import decoapiwrapper, { AppLogger } from '../../lib/client';
 import {
   DeviceListResponse,
   PerformanceResponse,
@@ -52,6 +52,15 @@ class TplinkDecoDevice extends Device {
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
 
+  // Returns a logger that routes through the Homey SDK so output appears
+  // in diagnostics reports as well as the real-time developer tools.
+  private makeLogger(): AppLogger {
+    return {
+      log: (...args: any[]) => this.log(...args),
+      error: (...args: any[]) => this.error(...args),
+    };
+  }
+
   /**
    * Initializes the TP-Link Deco device.
    * Sets up the API connection using device settings and starts periodic updates.
@@ -101,7 +110,7 @@ class TplinkDecoDevice extends Device {
       // Check if hostname and password are provided
       if (settings.hostname && settings.password) {
         // Instantiate the API wrapper with the device hostname
-        this.api = new decoapiwrapper(settings.hostname);
+        this.api = new decoapiwrapper(settings.hostname, this.makeLogger());
 
         // Authenticate with the API
         this.connected = await this.api
@@ -191,7 +200,7 @@ class TplinkDecoDevice extends Device {
     // Reinitialize API if hostname or password has changed
     if (changedKeys.includes('hostname') || changedKeys.includes('password')) {
       try {
-        this.api = new decoapiwrapper(newSettings.hostname);
+        this.api = new decoapiwrapper(newSettings.hostname, this.makeLogger());
         this.connected = await this.api.authenticate(newSettings.password);
         this.log('API reinitialized with updated settings');
       } catch (error) {
@@ -251,7 +260,7 @@ class TplinkDecoDevice extends Device {
     try {
       const settings = this.getSettings();
       this.log('Session expired, re-authenticating...');
-      this.api = new decoapiwrapper(settings.hostname);
+      this.api = new decoapiwrapper(settings.hostname, this.makeLogger());
       this.connected = await this.api.authenticate(settings.password);
       if (this.connected) {
         this.log('Re-authentication successful');
