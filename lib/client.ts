@@ -309,9 +309,12 @@ export default class DecoAPIWraper {
     }
   }
 
-  // Public method to authenticate the client with the given password
+  // Public method to authenticate the client with the given password.
+  // Returns true on success.
+  // Throws AuthNetworkError when the router cannot be reached.
+  // Throws AuthCredentialsError when the password is wrong.
+  // Throws Error for other failures.
   public async authenticate(password: string): Promise<boolean> {
-    let authenticated = false;
     this.logger.log(`client.ts: authenticate: checking host reachability for ${this.host}`);
     const hostIsAlive = await this.pingHost(this.host);
     if (!hostIsAlive) {
@@ -319,94 +322,97 @@ export default class DecoAPIWraper {
     } else {
       this.logger.log(`client.ts: authenticate: host ${this.host} is reachable`);
     }
+
+    // Generate AES key for encryption
+    this.aes = generateAESKey();
+    this.logger.log(
+      'client.ts: authenticate: AES generated',
+      `keyLen=${String(this.aes.key).length} ivLen=${String(this.aes.iv).length}`,
+      '(both must be 16)',
+    );
+
+    // Generate MD5 hash using the username and password
+    this.hash = crypto
+      .createHash('md5')
+      .update(`${userName}${password}`)
+      .digest('hex');
+    this.logger.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)');
+
+    this.ensureDecoInstance();
+
+    // --- password key (network phase) ---
+    this.logger.log('client.ts: authenticate: retrieving password key');
+    let passwordKey;
     try {
-
-      // Generate AES key for encryption
-      this.aes = generateAESKey();
-      this.logger.log(
-        'client.ts: authenticate: AES generated',
-        `keyLen=${String(this.aes.key).length} ivLen=${String(this.aes.iv).length}`,
-        '(both must be 16)',
-      );
-
-      // Generate MD5 hash using the username and password
-      this.hash = crypto
-        .createHash('md5')
-        .update(`${userName}${password}`)
-        .digest('hex');
-      this.logger.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)');
-
-      this.ensureDecoInstance();
-
-      this.logger.log('client.ts: authenticate: retrieving password key');
-      const passwordKey = await this.decoInstance!.getPasswordKey();
-      if (!passwordKey) {
-        this.logger.error('client.ts: authenticate: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
-        throw new Error('client.ts: Failed to retrieve password key.');
-      }
-      this.logger.log('client.ts: authenticate: password key retrieved ok');
-
-      // Encrypt the password using the retrieved password key
-      const encryptedPassword = encryptRsa(password, passwordKey!);
-      if (!encryptedPassword) {
-        this.logger.error('client.ts: authenticate: RSA encryption of password returned empty string');
-        throw new Error('client.ts: RSA encryption of password failed.');
-      }
-      this.logger.log('client.ts: authenticate: encrypted password length:', encryptedPassword.length);
-
-      this.logger.log('client.ts: authenticate: retrieving session key');
-      const { key: sessionKey, seq: sequence } =
-        await this.decoInstance!.getSessionKey();
-      if (!sessionKey) {
-        this.logger.error('client.ts: authenticate: failed to retrieve session key');
-        throw new Error('client.ts: Failed to retrieve session key.');
-      }
-      this.logger.log('client.ts: authenticate: session key ok, seq:', sequence, '(seq must be > 0)');
-
-      // Update RSA key and sequence
-      this.rsa = sessionKey;
-      this.sequence = sequence;
-
-      // Continue with the login process...
-      const loginReq: LoginRequest = {
-        params: {
-          password: encryptedPassword,
-        },
-        operation: 'login',
-      };
-
-      const loginJSON = JSON.stringify(loginReq);
-      const args = new EndpointArgs('login');
-
-      this.logger.log('client.ts: authenticate: sending encrypted login request');
-      try {
-        const result = await this.decoInstance!.doEncryptedPost(
-          ';stok=/login',
-          args,
-          Buffer.from(loginJSON),
-          true,
-          sessionKey,
-          this.sequence,
-        );
-
-        this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
-        this.stok = result.result.stok;
-        if (!this.stok) {
-          this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
-          throw new Error('client.ts: Failed to retrieve STok.');
-        } else {
-          this.logger.log('client.ts: authenticate: login successful');
-          authenticated = true;
-        }
-      } catch (e) {
-        this.logger.error('client.ts: authenticate: encrypted login request failed:', e);
-        return authenticated;
-      }
-      return authenticated;
-    } catch (e) {
-      this.logger.error('client.ts: authenticate: fatal error during authentication:', e);
-      return authenticated;
+      passwordKey = await this.decoInstance!.getPasswordKey();
+    } catch (e: any) {
+      this.logger.error('client.ts: authenticate: network error fetching password key:', e);
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
     }
+    if (!passwordKey) {
+      this.logger.error('client.ts: authenticate: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), {});
+    }
+    this.logger.log('client.ts: authenticate: password key retrieved ok');
+
+    // Encrypt the password using the retrieved password key
+    const encryptedPassword = encryptRsa(password, passwordKey);
+    if (!encryptedPassword) {
+      this.logger.error('client.ts: authenticate: RSA encryption of password returned empty string');
+      throw new Error('RSA encryption of password failed.');
+    }
+    this.logger.log('client.ts: authenticate: encrypted password length:', encryptedPassword.length);
+
+    // --- session key (network phase) ---
+    this.logger.log('client.ts: authenticate: retrieving session key');
+    let sessionKey, sequence;
+    try {
+      ({ key: sessionKey, seq: sequence } = await this.decoInstance!.getSessionKey());
+    } catch (e: any) {
+      this.logger.error('client.ts: authenticate: network error fetching session key:', e);
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
+    }
+    if (!sessionKey) {
+      this.logger.error('client.ts: authenticate: failed to retrieve session key');
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), {});
+    }
+    this.logger.log('client.ts: authenticate: session key ok, seq:', sequence, '(seq must be > 0)');
+
+    this.rsa = sessionKey;
+    this.sequence = sequence;
+
+    // --- login POST (credentials phase) ---
+    const loginReq: LoginRequest = {
+      params: { password: encryptedPassword },
+      operation: 'login',
+    };
+    const args = new EndpointArgs('login');
+
+    this.logger.log('client.ts: authenticate: sending encrypted login request');
+    let result;
+    try {
+      result = await this.decoInstance!.doEncryptedPost(
+        ';stok=/login',
+        args,
+        Buffer.from(JSON.stringify(loginReq)),
+        true,
+        sessionKey,
+        this.sequence,
+      );
+    } catch (e: any) {
+      this.logger.error('client.ts: authenticate: network error during login POST:', e);
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
+    }
+
+    this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
+    this.stok = result?.result?.stok;
+    if (!this.stok) {
+      this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
+      throw new Error('CREDENTIALS: Wrong password. Use the password from the TP-Link Deco app.');
+    }
+
+    this.logger.log('client.ts: authenticate: login successful');
+    return true;
   }
 
   // Public method to retrieve Wan data

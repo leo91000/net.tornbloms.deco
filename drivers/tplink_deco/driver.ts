@@ -108,18 +108,21 @@ class TplinkDecoDriver extends Driver {
         this.log('creating client');
         try {
           this.api = new decoapiwrapper(hostname, this.makeLogger());
-          const result = (await this.api.authenticate(password)) as boolean;
-          this.log('result: ', result);
-          if (result) {
-            this.log('Successfully connected to TP-Link Deco');
-            return true;
-          } else {
-            this.log('Failed to connect to TP-Link Deco');
-            return false;
+          await this.api.authenticate(password);
+          this.log('Successfully connected to TP-Link Deco');
+          return true;
+        } catch (error: any) {
+          const msg: string = error?.message ?? '';
+          if (msg.startsWith('NETWORK:')) {
+            this.error('pair: network error:', msg);
+            throw new Error(msg.replace('NETWORK: ', ''));
           }
-        } catch (error) {
-          this.error('Failed to connect to TP-Link Deco', error);
-          return false;
+          if (msg.startsWith('CREDENTIALS:')) {
+            this.error('pair: credentials error:', msg);
+            throw new Error(msg.replace('CREDENTIALS: ', ''));
+          }
+          this.error('pair: unexpected error:', error);
+          throw new Error('Connection failed. Check the IP address and password.');
         }
       },
     );
@@ -247,17 +250,16 @@ class TplinkDecoDriver extends Driver {
         this.log('repairing client');
         try {
           const api = new decoapiwrapper(hostname, this.makeLogger());
-          const result = await api.authenticate(password);
-          if (result) {
-            this.log('Successfully connected to TP-Link Deco');
-            return { success: true };
-          } else {
-            this.log('Failed to connect to TP-Link Deco');
-            return { success: false, error: 'Authentication failed' };
+          await api.authenticate(password);
+          this.log('Successfully connected to TP-Link Deco');
+          return { success: true };
+        } catch (error: any) {
+          const msg: string = error?.message ?? '';
+          this.error('pair: repair error:', msg);
+          if (msg.startsWith('NETWORK:') || msg.startsWith('CREDENTIALS:')) {
+            return { success: false, error: msg.replace(/^(NETWORK|CREDENTIALS): /, '') };
           }
-        } catch (error) {
-          this.error('Failed to connect to TP-Link Deco', error);
-          return { success: false, error: error || 'Unknown error' };
+          return { success: false, error: 'Connection failed. Check the IP address and password.' };
         }
       },
     );
