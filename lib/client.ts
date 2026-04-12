@@ -314,12 +314,12 @@ export default class DecoAPIWraper {
     let authenticated = false;
     this.logger.log(`client.ts: authenticate: checking host reachability for ${this.host}`);
     const hostIsAlive = await this.pingHost(this.host);
-    try {
-      if (!hostIsAlive) {
-        this.logger.error(`client.ts: authenticate: host ${this.host} is not reachable (ping failed)`);
-        throw new Error(`client.ts: Host ${this.host} is not reachable.`);
-      }
+    if (!hostIsAlive) {
+      this.logger.log(`client.ts: authenticate: ping failed for ${this.host} — proceeding with auth anyway (router may block HTTP GET)`);
+    } else {
       this.logger.log(`client.ts: authenticate: host ${this.host} is reachable`);
+    }
+    try {
 
       // Generate AES key for encryption
       this.aes = generateAESKey();
