@@ -181,11 +181,7 @@ class TplinkDecoDevice extends Device {
     newSettings: { [key: string]: any };
     changedKeys: string[];
   }): Promise<void> {
-    this.log('Device settings updated:', {
-      oldSettings,
-      newSettings,
-      changedKeys,
-    });
+    this.log('Device settings updated:', changedKeys);
 
     // Update debug mode if changed
     if (changedKeys.includes('debugenabled')) {

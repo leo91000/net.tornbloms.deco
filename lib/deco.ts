@@ -5,7 +5,7 @@ import {
   AES128Encrypt,
   AES128Decrypt,
 } from '././utils/aes';
-import { AxiosInstance } from 'axios';
+import { HttpClient } from './http';
 import { KeyObject } from 'crypto';
 
 // Buffer for the default body used in read operations
@@ -45,7 +45,7 @@ export default class Deco {
   private hash: string;
   private rsa: KeyObject;
   private sequence: number;
-  private c: AxiosInstance;
+  private c: HttpClient;
 
   // Constructor initializes the Deco instance with necessary encryption keys and HTTP client
   constructor(
@@ -53,19 +53,30 @@ export default class Deco {
     hash: string,
     rsa: KeyObject,
     sequence: number,
-    httpClient: AxiosInstance,
+    httpClient: HttpClient,
   ) {
     this.aes = aes;
     this.hash = hash;
     this.rsa = rsa;
     this.sequence = sequence;
     this.c = httpClient;
-    // console.log('Deco instance initialized with AES, RSA, and HTTP client.');
+  }
+
+  // Update the encryption context (e.g. after a new session key is obtained)
+  public updateContext(
+    aes: AESKey,
+    hash: string,
+    rsa: KeyObject,
+    sequence: number,
+  ) {
+    this.aes = aes;
+    this.hash = hash;
+    this.rsa = rsa;
+    this.sequence = sequence;
   }
 
   // Static method to generate a new AES key
   public static generateAESKey(): AESKey {
-    // console.log('Generating AES key...');
     return generateAESKey();
   }
 
@@ -137,20 +148,13 @@ export default class Deco {
     key: KeyObject = this.rsa,
     sequence: number = this.sequence,
   ): Promise<any> {
-    // console.log('Starting encrypted POST request...');
-
-    // Check and log the RSA key
-    // console.log('Checking RSA key before encryption:', key);
-
     if (!key) {
-      // console.log('RSA key is missing or undefined before encryption.');
       throw new Error('RSA key is missing or undefined.');
     }
 
     try {
       // Encrypt the data using AES
       var encryptedData = AES128Encrypt(body.toString(), this.aes);
-      // console.log('Data encrypted with AES:', encryptedData);
 
       const length = Number(sequence) + encryptedData.length;
       let sign: string;
@@ -158,10 +162,8 @@ export default class Deco {
       // Generate sign data depending on whether it's a login request or not
       if (isLogin) {
         sign = `k=${this.aes.key}&i=${this.aes.iv}&h=${this.hash}&s=${length}`;
-        // console.log('doEncryptedPost: Generated login sign data:', sign);
       } else {
         sign = `h=${this.hash}&s=${length}`;
-        // console.log('doEncryptedPost: Generated non-login sign data:', sign);
       }
 
       // Encrypt the sign data with RSA, possibly splitting it into two parts
@@ -169,32 +171,26 @@ export default class Deco {
         const first = encryptRsa(sign.substring(0, 53), key);
         const second = encryptRsa(sign.substring(53), key);
         sign = `${first}${second}`;
-        // console.log('Sign split into two encrypted parts.');
       } else {
         sign = encryptRsa(sign, key);
-        // console.log('Sign encrypted as a single block.');
       }
 
       // Prepare the final POST data
       const postData = `sign=${encodeURIComponent(
         sign,
       )}&data=${encodeURIComponent(encryptedData)}`;
-      // console.log('doEncryptedPost: Final POST data:', postData);
 
-      // Convert postData to a Buffer and send it in the request
       const postDataBuffer = Buffer.from(postData);
 
       // Send the POST request with encrypted data
       const req: ResponseData = await this.doPost(path, params, postDataBuffer);
-      // console.log('Encrypted POST request successful:', req);
 
       // Decrypt the response data
       const decoded = AES128Decrypt(req.data, this.aes);
-      // console.log('doEncryptedPost: Decrypted response:', decoded);
 
       return JSON.parse(decoded);
     } catch (e) {
-      // console.log('Error in doEncryptedPost:', e);
+      console.error('Error in doEncryptedPost:', e);
       throw e;
     }
   }
@@ -205,35 +201,23 @@ export default class Deco {
     params: EndpointArgs,
     body: Buffer,
   ): Promise<any> {
-    // console.log(`Sending POST request to ${path} with params: ${params} and body params ${body}`,);
-
-    // Configure the POST request
     const config = {
-      method: 'POST',
+      method: 'POST' as const,
       url: path,
       data: body,
       headers: {
         'Accept-Encoding': 'gzip',
         'Content-Type': 'application/json',
       },
-      params: params, // Sending as a regular object
+      params: params,
     };
 
-    // Debugging raw body data before sending the request
-    // console.log('URL:', url);
-    // console.log('Query params:', params);
-    // console.log('POST body:', body.toString());
-    // console.log('Headers:', config);
-
     try {
-      // Send the request and return the response data
-      const response = await this.c(config);
+      const response = await this.c.request(config);
       return response.data;
     } catch (e: any) {
-      const status = e?.response?.status;
-      const data = e?.response?.data;
-      const code = e?.code;
-      console.error(`deco.ts: doPost failed for path "${path}":`, code ?? e?.message, status ? `HTTP ${status}` : '', data ? JSON.stringify(data) : '');
+      const code = e?.code ?? (e?.name === 'AbortError' ? 'ETIMEDOUT' : undefined);
+      console.error(`deco.ts: doPost failed for path "${path}":`, code ?? e?.message);
       throw e;
     }
   }

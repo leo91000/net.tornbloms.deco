@@ -95,10 +95,10 @@ class TplinkDecoDriver extends Driver {
       'login',
       async (data: { username: string; password: string }) => {
         this.log('pair: login');
-        hostname = data.username.replace(/^http:\/\/|^https:\/\//i, '').trim();
+        hostname = this.normalizeHostname(data.username);
         this.log('hostname: ', hostname);
         password = data.password;
-        this.log('password: ', password);
+        this.log('password: [redacted]');
         this.log('creating client');
         try {
           this.api = new decoapiwrapper(hostname);
@@ -234,10 +234,10 @@ class TplinkDecoDriver extends Driver {
       'repair',
       async (data: { username: string; password: string }) => {
         this.log('pair: repairing');
-        hostname = data.username;
+        hostname = this.normalizeHostname(data.username);
         this.log('hostname: ', hostname);
         password = data.password;
-        this.log('password: ', password);
+        this.log('password: [redacted]');
         this.log('repairing client');
         try {
           const api = new decoapiwrapper(hostname);
@@ -286,6 +286,10 @@ class TplinkDecoDriver extends Driver {
 
     // Remove escape and control characters, and trim leading and trailing spaces in one step.
     return input.replace(escapeCharsRegex, '').trim();
+  }
+
+  private normalizeHostname(input: string): string {
+    return input.trim().replace(/^https?:\/\//i, '').split('/')[0].trim();
   }
 
   /**
