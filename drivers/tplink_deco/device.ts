@@ -677,9 +677,8 @@ class TplinkDecoDevice extends Device {
         resultCpuUsage !== this.savedCpuUsage
       ) {
         const cardTriggerCpuUsage =
-          this.homey.flow.getDeviceTriggerCard('cpu_usage');
-        await cardTriggerCpuUsage.trigger(this, {
-          device: hostname ?? 'Unknown Device',
+          this.homey.flow.getTriggerCard('cpu_usage');
+        await cardTriggerCpuUsage.trigger({
           cpu_usage: resultCpuUsage,
         });
         // Update saved CPU usage
@@ -692,9 +691,8 @@ class TplinkDecoDevice extends Device {
         resultMemUsage !== this.savedMemUsage
       ) {
         const cardTriggerMemUsage =
-          this.homey.flow.getDeviceTriggerCard('mem_usage');
-        await cardTriggerMemUsage.trigger(this, {
-          device: hostname ?? 'Unknown Device',
+          this.homey.flow.getTriggerCard('mem_usage');
+        await cardTriggerMemUsage.trigger({
           mem_usage: resultMemUsage,
         });
         // Update saved memory usage
