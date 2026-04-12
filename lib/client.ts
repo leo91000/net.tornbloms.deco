@@ -1,11 +1,8 @@
 import crypto, { KeyObject } from 'crypto';
-import http from 'http';
-import axios, { AxiosInstance } from 'axios';
 import Deco from './deco';
 import { encryptRsa } from '././utils/rsa';
 import { AESKey, generateAESKey } from '././utils/aes';
-import { wrapper } from 'axios-cookiejar-support';
-import { CookieJar } from 'tough-cookie';
+import { HttpClient } from './http';
 
 // Define a constant for the username to be used for authentication
 const userName = 'admin';
@@ -249,7 +246,7 @@ class EndpointArgs {
 
 // Main Client class to interact with the API
 export default class DecoAPIWraper {
-  public c: AxiosInstance;
+  public c: HttpClient;
   public aes: AESKey | undefined;
   public rsa: KeyObject | null = null;
   public hash: string = '';
@@ -260,45 +257,31 @@ export default class DecoAPIWraper {
 
   // Constructor to initialize the client with the target host
   constructor(target: string) {
-    const baseUrl = `http://${target}/cgi-bin/luci/`;
-    this.host = `${target}`;
-    const cookieJar = new CookieJar();
-    wrapper(axios);
-    // Node.js 22 changed keep-alive socket management. Without an explicit
-    // agent, idle sockets can be torn down mid-request causing ECONNRESET.
-    // See: https://apps.developer.homey.app/upgrade-guides/node-22
-    const httpAgent = new http.Agent({ keepAlive: true });
-    this.c = axios.create({
-      baseURL: baseUrl,
-      timeout: 10000,
-      withCredentials: true,
-      jar: cookieJar,
-      httpAgent,
-    }) as AxiosInstance;
-    this.c.interceptors.request.use((config) => {
-      delete config.headers['Accept'];
-      return config;
-    });
+    const normalizedTarget = target.trim().replace(/^https?:\/\//i, '').split('/')[0];
+    const baseUrl = `http://${normalizedTarget}/cgi-bin/luci/`;
+    this.host = normalizedTarget;
+    this.c = new HttpClient(baseUrl, 10000);
   }
 
   // Method to ping the host — accepts any HTTP response (including redirects) as
   // "alive". Only connection-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
   private async pingHost(host: string): Promise<boolean> {
     try {
-      await this.c.get(`http://${host}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        await fetch(`http://${host}`, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       return true;
     } catch (error: any) {
-      // If we got an HTTP error response the host IS reachable
-      if (error?.response) {
-        console.log(`client.ts: pingHost: host ${host} responded with HTTP ${error.response.status} — treating as reachable`);
-        return true;
-      }
       console.error(`client.ts: pingHost: host ${host} not reachable:`, error?.code ?? error?.message);
       return false;
     }
   }
 
-  // Private method to ensure the Deco instance is initialized
+  // Private method to ensure the Deco instance is initialized or updated
   private ensureDecoInstance() {
     if (!this.decoInstance) {
       this.decoInstance = new Deco(
@@ -308,7 +291,13 @@ export default class DecoAPIWraper {
         this.sequence,
         this.c,
       );
-      // console.log('client.ts: ' +'Deco instance initialized with AES, RSA, and HTTP client.',);
+    } else {
+      this.decoInstance.updateContext(
+        this.aes!,
+        this.hash,
+        this.rsa!,
+        this.sequence,
+      );
     }
   }
 
