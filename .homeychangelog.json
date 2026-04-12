@@ -184,5 +184,8 @@
   },
   "1.4.1": {
     "en": "Massive fixes for Node"
+  },
+  "1.4.2": {
+    "en": "Iproved loggin for login "
   }
 }
