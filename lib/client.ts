@@ -315,12 +315,18 @@ export default class DecoAPIWraper {
 
       // Generate AES key for encryption
       this.aes = generateAESKey();
+      console.log(
+        'client.ts: authenticate: AES generated',
+        `keyLen=${String(this.aes.key).length} ivLen=${String(this.aes.iv).length}`,
+        '(both must be 16)',
+      );
 
       // Generate MD5 hash using the username and password
       this.hash = crypto
         .createHash('md5')
         .update(`${userName}${password}`)
         .digest('hex');
+      console.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)');
 
       this.ensureDecoInstance();
 
@@ -330,6 +336,7 @@ export default class DecoAPIWraper {
         console.error('client.ts: authenticate: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
         throw new Error('client.ts: Failed to retrieve password key.');
       }
+      console.log('client.ts: authenticate: password key retrieved ok');
 
       // Encrypt the password using the retrieved password key
       const encryptedPassword = encryptRsa(password, passwordKey!);
@@ -337,6 +344,7 @@ export default class DecoAPIWraper {
         console.error('client.ts: authenticate: RSA encryption of password returned empty string');
         throw new Error('client.ts: RSA encryption of password failed.');
       }
+      console.log('client.ts: authenticate: encrypted password length:', encryptedPassword.length);
 
       console.log('client.ts: authenticate: retrieving session key');
       const { key: sessionKey, seq: sequence } =
@@ -345,7 +353,7 @@ export default class DecoAPIWraper {
         console.error('client.ts: authenticate: failed to retrieve session key');
         throw new Error('client.ts: Failed to retrieve session key.');
       }
-      console.log('client.ts: authenticate: session key ok, seq:', sequence);
+      console.log('client.ts: authenticate: session key ok, seq:', sequence, '(seq must be > 0)');
 
       // Update RSA key and sequence
       this.rsa = sessionKey;

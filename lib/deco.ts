@@ -152,9 +152,16 @@ export default class Deco {
       throw new Error('RSA key is missing or undefined.');
     }
 
+    console.log(
+      `deco.ts: doEncryptedPost: path=${path} form=${params.form} isLogin=${isLogin}`,
+      `aesKeyLen=${String(this.aes.key).length} aesIvLen=${String(this.aes.iv).length}`,
+      `seq=${sequence}`,
+    );
+
     try {
       // Encrypt the data using AES
       var encryptedData = AES128Encrypt(body.toString(), this.aes);
+      console.log(`deco.ts: doEncryptedPost: AES encryptedData length=${encryptedData.length}`);
 
       const length = Number(sequence) + encryptedData.length;
       let sign: string;
@@ -166,14 +173,18 @@ export default class Deco {
         sign = `h=${this.hash}&s=${length}`;
       }
 
+      const plainSignLen = sign.length;
       // Encrypt the sign data with RSA, possibly splitting it into two parts
       if (sign.length > 53) {
+        console.log(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (>53, split into 2 RSA blocks)`);
         const first = encryptRsa(sign.substring(0, 53), key);
         const second = encryptRsa(sign.substring(53), key);
         sign = `${first}${second}`;
       } else {
+        console.log(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (single RSA block)`);
         sign = encryptRsa(sign, key);
       }
+      console.log(`deco.ts: doEncryptedPost: RSA-encrypted sign length=${sign.length}`);
 
       // Prepare the final POST data
       const postData = `sign=${encodeURIComponent(
@@ -181,16 +192,22 @@ export default class Deco {
       )}&data=${encodeURIComponent(encryptedData)}`;
 
       const postDataBuffer = Buffer.from(postData);
+      console.log(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
 
       // Send the POST request with encrypted data
       const req: ResponseData = await this.doPost(path, params, postDataBuffer);
 
       // Decrypt the response data
       const decoded = AES128Decrypt(req.data, this.aes);
+      console.log(`deco.ts: doEncryptedPost: decrypted response length=${decoded.length}B`);
 
-      return JSON.parse(decoded);
+      const parsed = JSON.parse(decoded);
+      if (parsed?.error_code !== undefined && parsed.error_code !== 0) {
+        console.error(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
+      }
+      return parsed;
     } catch (e) {
-      console.error('Error in doEncryptedPost:', e);
+      console.error('deco.ts: doEncryptedPost: error:', e);
       throw e;
     }
   }

@@ -28,8 +28,17 @@ export class HttpClient {
     const urlStr = `${this.baseURL}${config.url}${paramStr}`;
 
     const cookieStr = await this.jar.getCookieString(this.baseURL);
+    console.log(
+      `http.ts: POST ${config.url}?form=${config.params.form}`,
+      `body=${config.data.length}B`,
+      cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
+    );
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
+
+    let responseStatus: number | undefined;
+    let rawText: string | undefined;
 
     try {
       const response = await fetch(urlStr, {
@@ -42,6 +51,8 @@ export class HttpClient {
         signal: controller.signal,
       });
 
+      responseStatus = response.status;
+
       // Persist any Set-Cookie headers the router sends back.
       // getSetCookie() returns an array (Node.js 18+); fall back gracefully.
       const rawHeaders = response.headers as any;
@@ -49,18 +60,40 @@ export class HttpClient {
         typeof rawHeaders.getSetCookie === 'function'
           ? rawHeaders.getSetCookie()
           : [];
-      for (const cookie of setCookies) {
-        await this.jar.setCookie(cookie, this.baseURL).catch(() => {});
+      if (setCookies.length > 0) {
+        console.log(`http.ts: received ${setCookies.length} Set-Cookie header(s)`);
+        for (const cookie of setCookies) {
+          await this.jar.setCookie(cookie, this.baseURL).catch(() => {});
+        }
       }
 
-      const data = await response.json();
-      return { data };
+      rawText = await response.text();
+
+      if (!response.ok) {
+        console.error(
+          `http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}"`,
+          `body=${rawText.slice(0, 200)}`,
+        );
+      } else {
+        console.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
+      }
+
+      try {
+        const data = JSON.parse(rawText);
+        return { data };
+      } catch (parseErr) {
+        console.error(
+          `http.ts: JSON parse failed for "${config.url}?form=${config.params.form}" HTTP ${responseStatus}`,
+          `raw=${rawText.slice(0, 300)}`,
+        );
+        throw parseErr;
+      }
     } catch (e: any) {
-      const label =
-        e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
-      console.error(
-        `http.ts: POST failed for "${config.url}": ${label}`,
-      );
+      if (responseStatus === undefined) {
+        // Network-level failure (no response received)
+        const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
+        console.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
+      }
       throw e;
     } finally {
       clearTimeout(timer);
