@@ -1,5 +1,8 @@
 'use strict';
 import crypto from 'crypto';
+import dns from 'dns/promises';
+import net from 'net';
+import os from 'os';
 import { Driver } from 'homey';
 import decoapiwrapper, { AppLogger, DeviceListResponse } from '../../lib/client';
 
@@ -16,6 +19,9 @@ class TplinkDecoDriver extends Driver {
   // Serializes concurrent authenticate() calls for the same hostname so
   // multiple devices detecting "session expired" at the same time don't race.
   private authQueue = new Map<string, Promise<boolean>>();
+  // Tracks hostnames for which network diagnostics have already been logged
+  // this session, so re-auth cycles don't flood the log.
+  private diagRan = new Set<string>();
 
   /**
    * Returns (or lazily creates) the shared API instance for a given hostname.
@@ -39,10 +45,73 @@ class TplinkDecoDriver extends Driver {
       this.log(`sharedAuthenticate: auth already in progress for ${hostname}, waiting`);
       return inFlight;
     }
+    if (!this.diagRan.has(hostname)) {
+      this.diagRan.add(hostname);
+      await this.logNetworkDiagnostics(hostname);
+    }
     const api = this.getOrCreateSharedApi(hostname, logger);
     const promise = api.authenticate(password).finally(() => this.authQueue.delete(hostname));
     this.authQueue.set(hostname, promise);
     return promise;
+  }
+
+  /**
+   * Logs network diagnostics for a given hostname/IP.
+   * Call this before any authentication attempt so the data always
+   * appears in diagnostics reports, even when the connection fails.
+   */
+  public async logNetworkDiagnostics(hostname: string): Promise<void> {
+    // Homey's own local IPv4 addresses
+    const ifaces = os.networkInterfaces();
+    const localIPs = (Object.values(ifaces) as (os.NetworkInterfaceInfo[] | undefined)[])
+      .flat()
+      .filter((i): i is os.NetworkInterfaceInfo => !!i && !i.internal && i.family === 'IPv4')
+      .map((i) => i.address);
+    this.log(`[diag] Homey local IPs: ${localIPs.join(', ') || 'none found'}`);
+    this.log(`[diag] Target hostname: ${hostname}`);
+
+    // DNS resolution
+    let resolvedIP: string | null = null;
+    try {
+      const { address } = await dns.lookup(hostname);
+      resolvedIP = address;
+      this.log(`[diag] DNS: ${hostname} → ${address}`);
+    } catch (e: any) {
+      this.log(`[diag] DNS: ${hostname} failed to resolve — ${e.message}`);
+      this.log(`[diag] TCP check skipped (DNS failed)`);
+      return;
+    }
+
+    // Subnet match — are Homey and the router on the same /24?
+    const routerOctets = resolvedIP.split('.');
+    const matched = localIPs.find((ip) => {
+      const o = ip.split('.');
+      return o[0] === routerOctets[0] && o[1] === routerOctets[1] && o[2] === routerOctets[2];
+    });
+    if (matched) {
+      this.log(`[diag] Subnet (/24): OK — Homey (${matched}) and router (${resolvedIP}) are on the same subnet`);
+    } else {
+      this.log(`[diag] Subnet (/24): MISMATCH — Homey IPs [${localIPs.join(', ')}] vs router ${resolvedIP}. Homey may not be able to reach the router.`);
+    }
+
+    // TCP port 80 reachability
+    const tcpOk = await this.checkTcpPort(resolvedIP, 80);
+    this.log(`[diag] TCP port 80 → ${resolvedIP}: ${tcpOk ? 'reachable' : 'UNREACHABLE'}`);
+
+    // Also try port 443 in case the Deco uses HTTPS
+    const tcpOk443 = await this.checkTcpPort(resolvedIP, 443);
+    this.log(`[diag] TCP port 443 → ${resolvedIP}: ${tcpOk443 ? 'reachable' : 'UNREACHABLE'}`);
+  }
+
+  private checkTcpPort(host: string, port: number, timeoutMs = 3000): Promise<boolean> {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeoutMs);
+      socket.once('connect', () => { socket.destroy(); resolve(true); });
+      socket.once('timeout', () => { socket.destroy(); resolve(false); });
+      socket.once('error', () => { socket.destroy(); resolve(false); });
+      socket.connect(port, host);
+    });
   }
 
   private makeLogger(): AppLogger {
@@ -141,6 +210,7 @@ class TplinkDecoDriver extends Driver {
         password = data.password;
         this.log('password: [redacted]');
         this.log('creating client');
+        await this.logNetworkDiagnostics(hostname);
         try {
           this.api = new decoapiwrapper(hostname, this.makeLogger());
           await this.api.authenticate(password);
