@@ -190,5 +190,8 @@
   },
   "1.4.3": {
     "en": "Minor fixes for login and adding devices"
+  },
+  "1.4.4": {
+    "en": "Fixes for master and Satelites"
   }
 }
