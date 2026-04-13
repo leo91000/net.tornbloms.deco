@@ -164,12 +164,16 @@ class TplinkDecoDevice extends Device {
           );
         });
 
-        // Initialize capabilities on device start
-        await this.updateDeviceMetrics();
-
-        // Set up an interval to periodically update device metrics using timeoutSeconds from settings
-        const interval = (settings.timeoutSeconds || 30) * 1000; // Default to 15 seconds if not set
-        this.setUpdateInterval(interval);
+        // Stagger first poll across devices to avoid simultaneous auth attempts.
+        // The Deco allows only one session at a time — concurrent logins cause
+        // HTTP 403 on all-but-one device. A random 0–15 s delay spreads them out.
+        const interval = (settings.timeoutSeconds || 30) * 1000;
+        const startupDelay = Math.floor(Math.random() * Math.min(interval, 15000));
+        this.log(`First poll in ${startupDelay / 1000}s (stagger offset)`);
+        setTimeout(async () => {
+          await this.updateDeviceMetrics();
+          this.setUpdateInterval(interval);
+        }, startupDelay);
       } else {
         this.error('Missing API configuration settings');
       }
@@ -248,10 +252,11 @@ class TplinkDecoDevice extends Device {
       this.timeoutSecondsIntervalId = null;
     }
 
-    // Set up a new interval
+    // Set up a new interval with a small jitter (0–5 s) to prevent
+    // devices that started at the same offset from drifting back in sync.
     this.timeoutSecondsIntervalId = setInterval(
       this.updateDeviceMetrics.bind(this),
-      interval + Math.random() * 10,
+      interval + Math.random() * 5000,
     );
     this.log(`Set update interval to ${interval / 1000} seconds`);
   }
@@ -494,23 +499,27 @@ class TplinkDecoDevice extends Device {
               'Internet Status',
             );
 
-            // Handle WAN state changes for IPv4 and IPv6
-            await this.handleWanStateChange(
-              'ipv4',
-              internetResponse?.result?.ipv4?.inet_status ?? '',
-              this.savedWanipv4State ?? false,
-              'alarm_wan_ipv4_state',
-            );
-            if (internetResponse?.result?.ipv6?.error_code === 0) {
-              if (!this.hasCapability('alarm_wan_ipv6_state')) {
-                await this.addCapability('alarm_wan_ipv6_state');
-              }
+            // Only update WAN alarm when we got a real response (not the safeApiCall fallback).
+            // If the call failed/timed-out, error_code is 1 (our default) and we leave
+            // the capability at its last known value to avoid false "disconnected" alerts.
+            if (internetResponse?.error_code === 0) {
               await this.handleWanStateChange(
-                'ipv6',
-                internetResponse?.result?.ipv6?.inet_status ?? '',
-                this.savedWanipv6State ?? false,
-                'alarm_wan_ipv6_state',
+                'ipv4',
+                internetResponse?.result?.ipv4?.inet_status ?? '',
+                this.savedWanipv4State ?? false,
+                'alarm_wan_ipv4_state',
               );
+              if (internetResponse?.result?.ipv6?.error_code === 0) {
+                if (!this.hasCapability('alarm_wan_ipv6_state')) {
+                  await this.addCapability('alarm_wan_ipv6_state');
+                }
+                await this.handleWanStateChange(
+                  'ipv6',
+                  internetResponse?.result?.ipv6?.inet_status ?? '',
+                  this.savedWanipv6State ?? false,
+                  'alarm_wan_ipv6_state',
+                );
+              }
             }
           }
 
@@ -568,12 +577,11 @@ class TplinkDecoDevice extends Device {
           //   }; // Return default values in case of error
           // })) as ClientListResponse;
 
-          const clientNames = clientListResponse.result.client_list
+          const clientList = clientListResponse?.result?.client_list ?? [];
+          const clientNames = clientList
             .map((client) => Buffer.from(client.name, 'base64').toString('utf-8'))
             .join(', ');
           await this.setSettings({ clients: clientNames });
-
-          const clientList = clientListResponse?.result?.client_list ?? [];
           // Update capability with the number of connected clients
           await this.updateCapability('connected_clients', clientList.length);
 
