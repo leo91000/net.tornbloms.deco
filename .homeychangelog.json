@@ -208,5 +208,8 @@
   },
   "1.4.10": {
     "en": "Remove WAN disconnected alarm from satellite nodes (was showing \"-\"); map backhaul connection labels to readable WiFi 2.4 GHz / WiFi 5 GHz / Wired"
+  },
+  "1.4.11": {
+    "en": "Adding networks to the diag"
   }
 }
