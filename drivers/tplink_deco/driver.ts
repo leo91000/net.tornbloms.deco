@@ -215,7 +215,7 @@ class TplinkDecoDriver extends Driver {
               hardware_ver: device.hardware_ver,
               software_ver: device.software_ver,
               hw_id: device.hw_id,
-              timeoutSeconds: 10,
+              timeoutSeconds: 30,
             },
           }));
           this.log(devices);

@@ -168,7 +168,7 @@ class TplinkDecoDevice extends Device {
         await this.updateDeviceMetrics();
 
         // Set up an interval to periodically update device metrics using timeoutSeconds from settings
-        const interval = (settings.timeoutSeconds || 15) * 1000; // Default to 15 seconds if not set
+        const interval = (settings.timeoutSeconds || 30) * 1000; // Default to 15 seconds if not set
         this.setUpdateInterval(interval);
       } else {
         this.error('Missing API configuration settings');
