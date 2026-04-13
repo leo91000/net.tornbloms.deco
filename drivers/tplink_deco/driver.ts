@@ -61,13 +61,19 @@ class TplinkDecoDriver extends Driver {
    * appears in diagnostics reports, even when the connection fails.
    */
   public async logNetworkDiagnostics(hostname: string): Promise<void> {
-    // Homey's own local IPv4 addresses
+    // Homey's own local IPv4 interfaces (address + mask)
     const ifaces = os.networkInterfaces();
-    const localIPs = (Object.values(ifaces) as (os.NetworkInterfaceInfo[] | undefined)[])
+    const localIfaces = (Object.values(ifaces) as (os.NetworkInterfaceInfo[] | undefined)[])
       .flat()
-      .filter((i): i is os.NetworkInterfaceInfo => !!i && !i.internal && i.family === 'IPv4')
-      .map((i) => i.address);
-    this.log(`[diag] Homey local IPs: ${localIPs.join(', ') || 'none found'}`);
+      .filter((i): i is os.NetworkInterfaceInfo => !!i && !i.internal && i.family === 'IPv4');
+
+    if (localIfaces.length === 0) {
+      this.log(`[diag] Homey local IPs: none found`);
+    } else {
+      for (const iface of localIfaces) {
+        this.log(`[diag] Homey local IP: ${iface.address}  mask: ${iface.netmask}  cidr: ${iface.cidr ?? 'n/a'}`);
+      }
+    }
     this.log(`[diag] Target hostname: ${hostname}`);
 
     // DNS resolution
@@ -82,16 +88,22 @@ class TplinkDecoDriver extends Driver {
       return;
     }
 
-    // Subnet match — are Homey and the router on the same /24?
-    const routerOctets = resolvedIP.split('.');
-    const matched = localIPs.find((ip) => {
-      const o = ip.split('.');
-      return o[0] === routerOctets[0] && o[1] === routerOctets[1] && o[2] === routerOctets[2];
+    // Subnet match using each interface's actual netmask (not a hardcoded /24).
+    // Converts IP and mask to 32-bit integers and compares network addresses,
+    // so a /22 mask (255.255.252.0) spanning e.g. 192.168.68–71.x is handled correctly.
+    const ipToInt = (ip: string) =>
+      ip.split('.').reduce((acc, o) => ((acc << 8) | parseInt(o, 10)) >>> 0, 0);
+
+    const matched = localIfaces.find((iface) => {
+      const m = ipToInt(iface.netmask);
+      return (ipToInt(iface.address) & m) === (ipToInt(resolvedIP!) & m);
     });
+
     if (matched) {
-      this.log(`[diag] Subnet (/24): OK — Homey (${matched}) and router (${resolvedIP}) are on the same subnet`);
+      this.log(`[diag] Subnet: OK — Homey (${matched.address}/${matched.netmask}) and router (${resolvedIP}) are on the same network`);
     } else {
-      this.log(`[diag] Subnet (/24): MISMATCH — Homey IPs [${localIPs.join(', ')}] vs router ${resolvedIP}. Homey may not be able to reach the router.`);
+      const homeyList = localIfaces.map((i) => `${i.address}/${i.netmask}`).join(', ');
+      this.log(`[diag] Subnet: MISMATCH — Homey [${homeyList}] cannot reach router ${resolvedIP}. Check VLANs / guest network isolation.`);
     }
 
     // TCP port 80 reachability
