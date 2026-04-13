@@ -1,4 +1,5 @@
 import crypto, { KeyObject } from 'crypto';
+import dns from 'dns/promises';
 import Deco from './deco';
 import { encryptRsa } from '././utils/rsa';
 import { AESKey, generateAESKey } from '././utils/aes';
@@ -315,6 +316,21 @@ export default class DecoAPIWraper {
   // Throws AuthCredentialsError when the password is wrong.
   // Throws Error for other failures.
   public async authenticate(password: string): Promise<boolean> {
+    // Resolve hostname to IPv4 before making any HTTP requests.
+    // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
+    // link-local IPv6 address which causes undici to crash on redirects
+    // (detached ArrayBuffer bug). Always use the IPv4 address.
+    try {
+      const { address } = await dns.lookup(this.host, { family: 4 });
+      if (address !== this.host) {
+        this.logger.log(`client.ts: authenticate: resolved ${this.host} → ${address} (IPv4 forced)`);
+        this.host = address;
+        this.c = new HttpClient(`http://${address}/cgi-bin/luci/`, 10000, this.logger);
+      }
+    } catch (e: any) {
+      this.logger.log(`client.ts: authenticate: IPv4 DNS lookup failed for ${this.host} — using hostname as-is: ${e.message}`);
+    }
+
     this.logger.log(`client.ts: authenticate: checking host reachability for ${this.host}`);
     const hostIsAlive = await this.pingHost(this.host);
     if (!hostIsAlive) {

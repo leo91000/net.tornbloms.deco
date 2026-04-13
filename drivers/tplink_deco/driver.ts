@@ -76,15 +76,23 @@ class TplinkDecoDriver extends Driver {
     }
     this.log(`[diag] Target hostname: ${hostname}`);
 
-    // DNS resolution
+    // DNS resolution — show both IPv4 and IPv6 so address-family issues are obvious
     let resolvedIP: string | null = null;
     try {
-      const { address } = await dns.lookup(hostname);
+      const { address } = await dns.lookup(hostname, { family: 4 });
       resolvedIP = address;
-      this.log(`[diag] DNS: ${hostname} → ${address}`);
+      this.log(`[diag] DNS IPv4: ${hostname} → ${address}`);
     } catch (e: any) {
-      this.log(`[diag] DNS: ${hostname} failed to resolve — ${e.message}`);
-      this.log(`[diag] TCP check skipped (DNS failed)`);
+      this.log(`[diag] DNS IPv4: ${hostname} failed — ${e.message}`);
+    }
+    try {
+      const { address } = await dns.lookup(hostname, { family: 6 });
+      this.log(`[diag] DNS IPv6: ${hostname} → ${address}${resolvedIP ? ' (will use IPv4 above)' : ' (no IPv4 — this is the problem!)'}`);
+    } catch {
+      // no IPv6 record — fine
+    }
+    if (!resolvedIP) {
+      this.log(`[diag] DNS: ${hostname} has no IPv4 address — TCP check skipped`);
       return;
     }
 
