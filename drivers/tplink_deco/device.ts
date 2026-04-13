@@ -353,6 +353,7 @@ class TplinkDecoDevice extends Device {
             hardware_ver: device.hardware_ver,
             software_ver: device.software_ver,
             role: device.role,
+            ip: device.device_ip,
           });
 
           await this.updateCapability(
@@ -360,7 +361,7 @@ class TplinkDecoDevice extends Device {
             device.group_status.toLowerCase() !== 'connected',
           );
           await this.updateCapability('device_role', settings.role);
-          await this.updateCapability('lan_ipv4_ipaddr', settings.hostname);
+          await this.updateCapability('lan_ipv4_ipaddr', device.device_ip || settings.ip || settings.hostname);
 
           // Signal strength and backhaul are only meaningful on satellite nodes.
           // Dynamically add/remove so they never appear on the master tile.
