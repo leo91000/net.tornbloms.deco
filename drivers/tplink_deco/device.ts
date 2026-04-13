@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { Device } from 'homey';
 import decoapiwrapper, { AppLogger } from '../../lib/client';
+// Type-only import to access the driver's shared-auth methods without a circular dep
+type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
 import {
   DeviceListResponse,
   PerformanceResponse,
@@ -106,17 +108,26 @@ class TplinkDecoDevice extends Device {
           await this.addCapability(cap);
         }
       }
+      // Master-only capabilities: CPU and RAM are only reported by the master node.
+      // Remove from slaves to avoid stale "56 years ago" timestamps in the UI.
+      for (const cap of ['measure_cpu_usage', 'measure_mem_usage']) {
+        if (!initIsMaster && this.hasCapability(cap)) {
+          await this.removeCapability(cap);
+        }
+      }
 
       // Check if hostname and password are provided
       if (settings.hostname && settings.password) {
-        // Instantiate the API wrapper with the device hostname
-        this.api = new decoapiwrapper(settings.hostname, this.makeLogger());
+        // Use the driver's shared API instance for this hostname.
+        // All device instances on the same master share ONE session —
+        // the Deco only allows one active login at a time.
+        const driver = this.driver as TplinkDecoDriver;
+        this.api = driver.getOrCreateSharedApi(settings.hostname, this.makeLogger());
 
-        // Authenticate with the API. If it fails (e.g. router session limit on
-        // concurrent startup), we still start the polling interval so re-auth
-        // fires automatically on the next tick instead of leaving the device dead.
-        this.connected = await this.api
-          .authenticate(settings.password)
+        // Authenticate via the shared serialised auth so concurrent device
+        // startups don't all hit the router at once.
+        this.connected = await driver
+          .sharedAuthenticate(settings.hostname, settings.password, this.makeLogger())
           .catch((e: any) => {
             const msg: string = e?.message ?? '';
             if (msg.startsWith('RETRY:')) {
@@ -208,8 +219,9 @@ class TplinkDecoDevice extends Device {
     // Reinitialize API if hostname or password has changed
     if (changedKeys.includes('hostname') || changedKeys.includes('password')) {
       try {
-        this.api = new decoapiwrapper(newSettings.hostname, this.makeLogger());
-        this.connected = await this.api.authenticate(newSettings.password);
+        const driver = this.driver as TplinkDecoDriver;
+        this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
+        this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
         this.log('API reinitialized with updated settings');
       } catch (error) {
         this.error('Failed to reinitialize API', error);
@@ -269,8 +281,14 @@ class TplinkDecoDevice extends Device {
     try {
       const settings = this.getSettings();
       this.log('Session expired, re-authenticating...');
-      this.api = new decoapiwrapper(settings.hostname, this.makeLogger());
-      this.connected = await this.api.authenticate(settings.password);
+      const driver = this.driver as TplinkDecoDriver;
+      // Use the shared serialised auth — if another device is already
+      // authenticating, we wait for the same result instead of racing.
+      this.connected = await driver.sharedAuthenticate(
+        settings.hostname,
+        settings.password,
+        this.makeLogger(),
+      );
       if (this.connected) {
         this.log('Re-authentication successful');
       } else {
@@ -382,13 +400,19 @@ class TplinkDecoDevice extends Device {
           }
 
           if (!isMaster) {
+            const signalLabel = (v: string | undefined) => {
+              if (v === '1') return 'Weak';
+              if (v === '2') return 'Good';
+              if (v === '3') return 'Strong';
+              return v || '–';
+            };
             await this.updateCapability(
               'signal_strength_2g',
-              device.signal_level?.band2_4 || '–',
+              signalLabel(device.signal_level?.band2_4),
             );
             await this.updateCapability(
               'signal_strength_5g',
-              device.signal_level?.band5 || '–',
+              signalLabel(device.signal_level?.band5),
             );
             const connectionTypes: string[] | undefined = (device as any).connection_type;
             await this.updateCapability(

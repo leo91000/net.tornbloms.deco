@@ -10,6 +10,41 @@ class TplinkDecoDriver extends Driver {
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
 
+  // One shared DecoAPIWrapper per master hostname so all device instances
+  // use a single session (the Deco only allows one active session at a time).
+  private sharedApis = new Map<string, decoapiwrapper>();
+  // Serializes concurrent authenticate() calls for the same hostname so
+  // multiple devices detecting "session expired" at the same time don't race.
+  private authQueue = new Map<string, Promise<boolean>>();
+
+  /**
+   * Returns (or lazily creates) the shared API instance for a given hostname.
+   * Devices should always call this instead of `new decoapiwrapper(...)`.
+   */
+  public getOrCreateSharedApi(hostname: string, logger: AppLogger): decoapiwrapper {
+    if (!this.sharedApis.has(hostname)) {
+      this.sharedApis.set(hostname, new decoapiwrapper(hostname, logger));
+    }
+    return this.sharedApis.get(hostname)!;
+  }
+
+  /**
+   * Authenticates the shared API for a hostname.
+   * If an auth is already in progress (from another device instance),
+   * returns the same promise so only ONE login hits the router.
+   */
+  public async sharedAuthenticate(hostname: string, password: string, logger: AppLogger): Promise<boolean> {
+    const inFlight = this.authQueue.get(hostname);
+    if (inFlight) {
+      this.log(`sharedAuthenticate: auth already in progress for ${hostname}, waiting`);
+      return inFlight;
+    }
+    const api = this.getOrCreateSharedApi(hostname, logger);
+    const promise = api.authenticate(password).finally(() => this.authQueue.delete(hostname));
+    this.authQueue.set(hostname, promise);
+    return promise;
+  }
+
   private makeLogger(): AppLogger {
     return {
       log: (...args: any[]) => this.log(...args),
@@ -331,4 +366,5 @@ class TplinkDecoDriver extends Driver {
   }
 }
 
+export { TplinkDecoDriver };
 module.exports = TplinkDecoDriver;
