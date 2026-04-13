@@ -85,15 +85,6 @@ class TplinkDecoDevice extends Device {
       const settings = this.getSettings();
       this.debug(`Settings:`, settings);
 
-      if (this.hasCapability('wan_ipv4_ipaddr') && settings.role === 'slave') {
-        await this.removeCapability('wan_ipv4_ipaddr');
-      }
-      if (
-        !this.hasCapability('wan_ipv4_ipaddr') &&
-        settings.role === 'master'
-      ) {
-        await this.addCapability('wan_ipv4_ipaddr');
-      }
       if (this.hasCapability('alarm_wan_ipv6_state')) {
         await this.removeCapability('alarm_wan_ipv6_state');
       }
@@ -108,12 +99,15 @@ class TplinkDecoDevice extends Device {
           await this.addCapability(cap);
         }
       }
-      // Master-only capabilities: CPU and RAM are only reported by the master node.
-      // Remove from slaves to avoid stale "56 years ago" timestamps in the UI.
-      for (const cap of ['measure_cpu_usage', 'measure_mem_usage']) {
+      // Master-only capabilities: CPU, RAM, and WAN status are only reported by the
+      // master node. Remove from slaves to avoid stale or never-set values in the UI.
+      for (const cap of ['measure_cpu_usage', 'measure_mem_usage', 'alarm_wan_ipv4_state', 'wan_ipv4_ipaddr']) {
         if (!initIsMaster && this.hasCapability(cap)) {
           await this.removeCapability(cap);
         }
+      }
+      if (initIsMaster && !this.hasCapability('wan_ipv4_ipaddr')) {
+        await this.addCapability('wan_ipv4_ipaddr');
       }
 
       // Check if hostname and password are provided
@@ -415,12 +409,18 @@ class TplinkDecoDevice extends Device {
               signalLabel(device.signal_level?.band5),
             );
             const connectionTypes: string[] | undefined = (device as any).connection_type;
-            await this.updateCapability(
-              'backhaul_connection',
-              Array.isArray(connectionTypes) && connectionTypes.length > 0
-                ? connectionTypes.join(', ')
-                : '–',
-            );
+            const backhaulLabel = (types: string[] | undefined) => {
+              if (!Array.isArray(types) || types.length === 0) return '–';
+              return types
+                .map((t) => {
+                  if (t === 'wired') return 'Wired';
+                  if (t === 'band2_4') return 'WiFi 2.4 GHz';
+                  if (t === 'band5') return 'WiFi 5 GHz';
+                  return t;
+                })
+                .join(' + ');
+            };
+            await this.updateCapability('backhaul_connection', backhaulLabel(connectionTypes));
           }
 
           // Fetch performance metrics — only available on master node
@@ -448,9 +448,6 @@ class TplinkDecoDevice extends Device {
 
           // Fetch WAN IP address
           if (device.role.toLowerCase() === 'master') {
-            if (!this.hasCapability('wan_ipv4_ipaddr')) {
-              await this.addCapability('wan_ipv4_ipaddr');
-            }
             const wanResponse = await this.safeApiCall(
               () =>
                 this.api.custom(
