@@ -392,32 +392,28 @@ class TplinkDecoDevice extends Device {
             );
           }
 
-          // Fetch performance metrics
-          const performance = await this.safeApiCall(
-            () =>
-              this.api.custom(
-                '/admin/network',
-                { form: 'performance' },
-                this.readBody,
-              ),
-            {
-              error_code: 1,
-              result: { cpu_usage: 0, mem_usage: 0 },
-            },
-            'Performance Metrics',
-          );
-
-          // Calculate CPU and memory usage percentages
-          const resultCpuUsage = Math.round(
-            Number(performance?.result?.cpu_usage ?? 0) * 100,
-          );
-          const resultMemUsage = Math.round(
-            Number(performance?.result?.mem_usage ?? 0) * 100,
-          );
-
-          // Update device capabilities with retrieved performance information
-          await this.updateCapability('measure_cpu_usage', resultCpuUsage);
-          await this.updateCapability('measure_mem_usage', resultMemUsage);
+          // Fetch performance metrics — only available on master node
+          let resultCpuUsage = 0;
+          let resultMemUsage = 0;
+          if (isMaster) {
+            const performance = await this.safeApiCall(
+              () =>
+                this.api.custom(
+                  '/admin/network',
+                  { form: 'performance' },
+                  this.readBody,
+                ),
+              {
+                error_code: 1,
+                result: { cpu_usage: 0, mem_usage: 0 },
+              },
+              'Performance Metrics',
+            );
+            resultCpuUsage = Math.round(Number(performance?.result?.cpu_usage ?? 0) * 100);
+            resultMemUsage = Math.round(Number(performance?.result?.mem_usage ?? 0) * 100);
+            await this.updateCapability('measure_cpu_usage', resultCpuUsage);
+            await this.updateCapability('measure_mem_usage', resultMemUsage);
+          }
 
           // Fetch WAN IP address
           if (device.role.toLowerCase() === 'master') {
@@ -464,54 +460,56 @@ class TplinkDecoDevice extends Device {
             // Update capability with WAN IP address
             await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
           }
-          // Fetch Internet status
-          const internetResponse = await this.safeApiCall(
-            () =>
-              this.api.custom(
-                '/admin/network',
-                { form: 'internet' },
-                this.readBody,
-              ),
-            {
-              error_code: 1,
-              result: {
-                ipv4: {
-                  auto_detect_type: '',
-                  connect_type: '',
-                  dial_status: '',
-                  error_code: 1,
-                  inet_status: '',
+          // Fetch Internet status — only available on master node
+          if (isMaster) {
+            const internetResponse = await this.safeApiCall(
+              () =>
+                this.api.custom(
+                  '/admin/network',
+                  { form: 'internet' },
+                  this.readBody,
+                ),
+              {
+                error_code: 1,
+                result: {
+                  ipv4: {
+                    auto_detect_type: '',
+                    connect_type: '',
+                    dial_status: '',
+                    error_code: 1,
+                    inet_status: '',
+                  },
+                  ipv6: {
+                    auto_detect_type: '',
+                    connect_type: '',
+                    dial_status: '',
+                    error_code: 1,
+                    inet_status: '',
+                  },
+                  link_status: '',
                 },
-                ipv6: {
-                  auto_detect_type: '',
-                  connect_type: '',
-                  dial_status: '',
-                  error_code: 1,
-                  inet_status: '',
-                },
-                link_status: '',
               },
-            },
-            'Internet Status',
-          );
-
-          // Handle WAN state changes for IPv4 and IPv6
-          await this.handleWanStateChange(
-            'ipv4',
-            internetResponse?.result?.ipv4?.inet_status ?? '',
-            this.savedWanipv4State ?? false,
-            'alarm_wan_ipv4_state',
-          );
-          if (internetResponse?.result?.ipv6?.error_code === 0) {
-            if (!this.hasCapability('alarm_wan_ipv6_state')) {
-              await this.addCapability('alarm_wan_ipv6_state');
-            }
-            await this.handleWanStateChange(
-              'ipv6',
-              internetResponse?.result?.ipv6?.inet_status ?? '',
-              this.savedWanipv6State ?? false,
-              'alarm_wan_ipv6_state',
+              'Internet Status',
             );
+
+            // Handle WAN state changes for IPv4 and IPv6
+            await this.handleWanStateChange(
+              'ipv4',
+              internetResponse?.result?.ipv4?.inet_status ?? '',
+              this.savedWanipv4State ?? false,
+              'alarm_wan_ipv4_state',
+            );
+            if (internetResponse?.result?.ipv6?.error_code === 0) {
+              if (!this.hasCapability('alarm_wan_ipv6_state')) {
+                await this.addCapability('alarm_wan_ipv6_state');
+              }
+              await this.handleWanStateChange(
+                'ipv6',
+                internetResponse?.result?.ipv6?.inet_status ?? '',
+                this.savedWanipv6State ?? false,
+                'alarm_wan_ipv6_state',
+              );
+            }
           }
 
           // Fetch client list — use this device's MAC so each node only reports its own clients,
