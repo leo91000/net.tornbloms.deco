@@ -211,5 +211,8 @@
   },
   "1.4.11": {
     "en": "Adding networks to the diag"
+  },
+  "1.4.12": {
+    "en": "Forcing use of IPv4"
   }
 }
