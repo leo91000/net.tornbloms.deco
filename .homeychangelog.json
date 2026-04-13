@@ -214,5 +214,8 @@
   },
   "1.4.12": {
     "en": "Forcing use of IPv4"
+  },
+  "1.4.13": {
+    "en": "Fixing 301 redirect"
   }
 }
