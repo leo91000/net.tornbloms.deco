@@ -183,6 +183,16 @@ class TplinkDecoDriver extends Driver {
           deviceList.error_code === 0 &&
           deviceList.result.device_list.length > 0
         ) {
+          // Use the master node's actual IP as the API endpoint for all devices.
+          // This avoids relying on DNS (tplinkdeco.net) which can be unreliable,
+          // and ensures we always connect through the master regardless of which
+          // node the user typed.
+          const masterDevice = deviceList.result.device_list.find(
+            (d) => d.role?.toLowerCase() === 'master',
+          );
+          const apiHostname = masterDevice?.device_ip || hostname;
+          this.log('pair: using API hostname:', apiHostname);
+
           const devices = deviceList.result.device_list.map((device) => ({
             name:
               device.device_model +
@@ -197,7 +207,7 @@ class TplinkDecoDriver extends Driver {
                 ' - ' +
                 this.cleanString(this.decodeBase64(device.nickname)),
               mac: device.mac,
-              hostname: hostname,
+              hostname: apiHostname,
               password: password,
               model: device.device_model,
               ip: device.device_ip,

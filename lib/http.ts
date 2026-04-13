@@ -83,9 +83,14 @@ export class HttpClient {
           `http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}"`,
           `body=${rawText.slice(0, 200)}`,
         );
-      } else {
-        this.logger.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
+        // Throw a typed error so callers can distinguish HTTP failures from
+        // network failures without trying to JSON.parse an empty/HTML body.
+        const err: any = new Error(`HTTP ${responseStatus}`);
+        err.httpStatus = responseStatus;
+        throw err;
       }
+
+      this.logger.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
 
       try {
         const data = JSON.parse(rawText);

@@ -112,20 +112,24 @@ class TplinkDecoDevice extends Device {
         // Instantiate the API wrapper with the device hostname
         this.api = new decoapiwrapper(settings.hostname, this.makeLogger());
 
-        // Authenticate with the API
+        // Authenticate with the API. If it fails (e.g. router session limit on
+        // concurrent startup), we still start the polling interval so re-auth
+        // fires automatically on the next tick instead of leaving the device dead.
         this.connected = await this.api
           .authenticate(settings.password)
-          .catch((e) => {
-            this.error('Failed to authenticate', e);
+          .catch((e: any) => {
+            const msg: string = e?.message ?? '';
+            if (msg.startsWith('RETRY:')) {
+              this.log('Initial auth deferred (router session limit) — will retry on first poll');
+            } else {
+              this.error('Authentication failed', e);
+            }
             return false;
           });
 
-        if (!this.connected) {
-          this.error('Authentication failed');
-          return;
+        if (this.connected) {
+          this.log('Successfully connected to TP-Link Deco');
         }
-
-        this.log('Successfully connected to TP-Link Deco');
 
         // Register capability listeners for reboot, CPU usage, and memory usage
         this.registerCapabilityListener('reboot', async (value) => {

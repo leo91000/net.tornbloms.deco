@@ -400,6 +400,10 @@ export default class DecoAPIWraper {
         this.sequence,
       );
     } catch (e: any) {
+      if (e?.httpStatus === 403) {
+        this.logger.error('client.ts: authenticate: login rejected with 403 — router may limit concurrent sessions. Will retry on next poll.');
+        throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e });
+      }
       this.logger.error('client.ts: authenticate: network error during login POST:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
     }
