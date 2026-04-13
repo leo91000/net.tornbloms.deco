@@ -416,7 +416,9 @@ class TplinkDecoDevice extends Device {
                   if (t === 'wired') return 'Wired';
                   if (t === 'band2_4') return 'WiFi 2.4 GHz';
                   if (t === 'band5') return 'WiFi 5 GHz';
-                  return t;
+                  if (t === 'band5_2') return 'WiFi 5 GHz (2)';
+                  if (t === 'band6') return 'WiFi 6 GHz';
+                  return t; // unknown — show raw so nothing is silently dropped
                 })
                 .join(' + ');
             };
