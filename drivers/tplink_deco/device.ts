@@ -334,16 +334,14 @@ class TplinkDecoDevice extends Device {
       );
       this.debug(`${settings.hostname} onInit():deviceList: `, deviceList);
 
-      // If the API returns an error, the session (STOK) has likely expired — re-auth and wait for next poll
-      if (deviceList.error_code !== 0) {
+      // If the API returns an error or device_list is missing (empty stok returns { error_code:0, result:{} }),
+      // the session has expired or was never established — re-auth and wait for next poll
+      if (deviceList.error_code !== 0 || !deviceList.result?.device_list) {
         await this.reAuthenticate();
         return;
       }
 
-      if (
-        deviceList.error_code === 0 &&
-        deviceList.result.device_list.length > 0
-      ) {
+      if (deviceList.result.device_list.length > 0) {
         // Filter the device list to find the current device
         const device = deviceList.result.device_list.find(
           (d) => d.mac === devicedata.id,
