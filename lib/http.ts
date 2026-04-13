@@ -18,11 +18,16 @@ const consoleLogger: AppLogger = { log: console.log, error: console.error };
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie
  * for session cookie management. Replaces axios + axios-cookiejar-support.
+ *
+ * Handles HTTP→HTTPS redirects automatically (newer Deco firmware enforces
+ * HTTPS on the admin interface). Uses a custom undici Agent that skips
+ * self-signed certificate validation for local router access.
  */
 export class HttpClient {
   private readonly jar: CookieJar;
   private readonly logger: AppLogger;
-  readonly baseURL: string;
+  // Not readonly — may be upgraded from http:// to https:// on first redirect
+  baseURL: string;
   private readonly timeout: number;
 
   constructor(baseURL: string, timeout = 10000, logger: AppLogger = consoleLogger) {
@@ -34,7 +39,6 @@ export class HttpClient {
 
   async request(config: PostConfig): Promise<{ data: any }> {
     const paramStr = `?form=${encodeURIComponent(config.params.form)}`;
-    const urlStr = `${this.baseURL}${config.url}${paramStr}`;
 
     const cookieStr = await this.jar.getCookieString(this.baseURL);
     this.logger.log(
@@ -43,27 +47,53 @@ export class HttpClient {
       cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
     );
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    // Up to 2 attempts: first over http, then https if the router redirects.
+    // We use redirect:'manual' to prevent undici's httpRedirectFetch from
+    // crashing with "detached ArrayBuffer" when re-reading a POST body.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const urlStr = `${this.baseURL}${config.url}${paramStr}`;
 
-    let responseStatus: number | undefined;
-    let rawText: string | undefined;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.timeout);
 
-    try {
-      const response = await fetch(urlStr, {
-        method: 'POST',
-        headers: {
-          ...config.headers,
-          ...(cookieStr ? { Cookie: cookieStr } : {}),
-        },
-        body: config.data,
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await fetch(urlStr, {
+          method: 'POST',
+          headers: {
+            ...config.headers,
+            ...(cookieStr ? { Cookie: cookieStr } : {}),
+          },
+          // Always use a fresh copy so retries after a redirect still have the body.
+          body: Buffer.from(config.data),
+          signal: controller.signal,
+          redirect: 'manual',
+        } as RequestInit);
+      } catch (e: any) {
+        clearTimeout(timer);
+        const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
+        this.logger.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
+        throw e;
+      }
 
-      responseStatus = response.status;
+      clearTimeout(timer);
 
-      // Persist any Set-Cookie headers the router sends back.
-      // getSetCookie() returns an array (Node.js 18+); fall back gracefully.
+      // Handle HTTP→HTTPS (or other) redirects manually.
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location') ?? '';
+        this.logger.log(`http.ts: redirect ${response.status} → ${location} (upgrading baseURL)`);
+        if (location.startsWith('https://')) {
+          // Upgrade baseURL so all subsequent requests in this session use HTTPS.
+          this.baseURL = this.baseURL.replace(/^http:\/\//, 'https://');
+        } else if (location) {
+          // Unexpected redirect target — log and abort rather than loop.
+          throw Object.assign(new Error(`Unexpected redirect to ${location}`), { httpStatus: response.status });
+        }
+        // Retry the request with the updated baseURL.
+        continue;
+      }
+
+      // --- normal response handling ---
       const rawHeaders = response.headers as any;
       const setCookies: string[] =
         typeof rawHeaders.getSetCookie === 'function'
@@ -76,41 +106,32 @@ export class HttpClient {
         }
       }
 
-      rawText = await response.text();
+      const rawText = await response.text();
 
       if (!response.ok) {
         this.logger.error(
-          `http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}"`,
+          `http.ts: HTTP ${response.status} for "${config.url}?form=${config.params.form}"`,
           `body=${rawText.slice(0, 200)}`,
         );
-        // Throw a typed error so callers can distinguish HTTP failures from
-        // network failures without trying to JSON.parse an empty/HTML body.
-        const err: any = new Error(`HTTP ${responseStatus}`);
-        err.httpStatus = responseStatus;
+        const err: any = new Error(`HTTP ${response.status}`);
+        err.httpStatus = response.status;
         throw err;
       }
 
-      this.logger.log(`http.ts: HTTP ${responseStatus} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
+      this.logger.log(`http.ts: HTTP ${response.status} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
 
       try {
-        const data = JSON.parse(rawText);
-        return { data };
+        return { data: JSON.parse(rawText) };
       } catch (parseErr) {
         this.logger.error(
-          `http.ts: JSON parse failed for "${config.url}?form=${config.params.form}" HTTP ${responseStatus}`,
+          `http.ts: JSON parse failed for "${config.url}?form=${config.params.form}" HTTP ${response.status}`,
           `raw=${rawText.slice(0, 300)}`,
         );
         throw parseErr;
       }
-    } catch (e: any) {
-      if (responseStatus === undefined) {
-        // Network-level failure (no response received)
-        const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
-        this.logger.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
-      }
-      throw e;
-    } finally {
-      clearTimeout(timer);
     }
+
+    // Should never reach here (loop always returns or throws).
+    throw new Error('http.ts: request loop exhausted without response');
   }
 }

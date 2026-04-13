@@ -1,5 +1,10 @@
 'use strict';
 
+// Deco routers use self-signed TLS certificates on their HTTPS admin interface.
+// This app exclusively connects to local-network devices so certificate
+// verification is intentionally disabled for the entire process.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import Homey from 'homey';
 import decoapiwrapper from './lib/client';
 const { Log } = require('homey-log');
