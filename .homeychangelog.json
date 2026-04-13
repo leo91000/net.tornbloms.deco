@@ -196,5 +196,17 @@
   },
   "1.4.6": {
     "en": "Fixes to hostname, login and decos. changed default query time to 30s to relese pain on decos"
+  },
+  "1.4.7": {
+    "en": "Fix crash on startup when two devices get HTTP 403 due to Deco session limit; devices now re-authenticate automatically on next poll"
+  },
+  "1.4.8": {
+    "en": "Fix crash on client list, fix false WAN disconnected alarm, and stagger startup polling to resolve permanent 403 session-limit loop on multi-device setups"
+  },
+  "1.4.9": {
+    "en": "Fix permanent 403 session loop (shared single login across all nodes), remove stale CPU/RAM tiles from satellite nodes, map signal strength 1/2/3 to Weak/Good/Strong labels"
+  },
+  "1.4.10": {
+    "en": "Remove WAN disconnected alarm from satellite nodes (was showing \"-\"); map backhaul connection labels to readable WiFi 2.4 GHz / WiFi 5 GHz / Wired"
   }
 }
