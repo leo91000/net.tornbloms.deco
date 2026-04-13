@@ -193,5 +193,8 @@
   },
   "1.4.4": {
     "en": "Fixes for master and Satelites"
+  },
+  "1.4.6": {
+    "en": "Fixes to hostname, login and decos. changed default query time to 30s to relese pain on decos"
   }
 }
