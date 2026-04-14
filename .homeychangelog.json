@@ -223,5 +223,8 @@
   },
   "1.4.16": {
     "en": "Small changes to the decryption of the keys in the login"
+  },
+  "1.4.17": {
+    "en": "Regression handeling"
   }
 }
