@@ -200,9 +200,19 @@ export default class Deco {
       this.logger.log(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
 
       // Send the POST request with encrypted data.
-      // Body is URL-encoded form data (sign=...&data=...); newer HTTPS firmware
-      // is strict about Content-Type and returns HTTP 500 if it sees application/json.
-      const req: ResponseData = await this.doPost(path, params, postDataBuffer, 'application/x-www-form-urlencoded');
+      // The body is URL-encoded form data (sign=...&data=...).
+      // Newer Deco firmware that enforces HTTPS is strict about Content-Type and
+      // returns HTTP 500 if it sees application/json — it needs form-urlencoded.
+      // Older HTTP-only firmware returns "no such callback" if it sees form-urlencoded
+      // — it expects application/json.
+      // Use the baseURL to detect which case we're in: if the router already redirected
+      // us from http→https (HttpClient.baseURL was upgraded), use form-urlencoded;
+      // otherwise stick with json.
+      const encContentType = this.c.baseURL.startsWith('https://')
+        ? 'application/x-www-form-urlencoded'
+        : 'application/json';
+      this.logger.log(`deco.ts: doEncryptedPost: using Content-Type=${encContentType} (baseURL=${this.c.baseURL.substring(0, 8)}…)`);
+      const req: ResponseData = await this.doPost(path, params, postDataBuffer, encContentType);
 
       // Decrypt the response data
       const decoded = AES128Decrypt(req.data, this.aes);

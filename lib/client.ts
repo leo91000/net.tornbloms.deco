@@ -432,11 +432,16 @@ export default class DecoAPIWraper {
     }
 
     this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
-    this.stok = result?.result?.stok;
-    if (!this.stok) {
+    // Only update this.stok when we have a confirmed valid token.
+    // Assigning before the check would clobber the previous valid stok with
+    // undefined on a failed re-auth, causing concurrent devices on the shared
+    // client to use stok=undefined in their request paths.
+    const newStok = result?.result?.stok;
+    if (!newStok) {
       this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
       throw new Error('CREDENTIALS: Wrong password. Use the password from the TP-Link Deco app.');
     }
+    this.stok = newStok;
 
     this.logger.log('client.ts: authenticate: login successful');
     return true;
