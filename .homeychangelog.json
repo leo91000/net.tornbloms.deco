@@ -220,5 +220,8 @@
   },
   "1.4.14": {
     "en": "Better handeling of login, improved client handeling when no devices on the accesspoint."
+  },
+  "1.4.16": {
+    "en": "Small changes to the decryption of the keys in the login"
   }
 }
