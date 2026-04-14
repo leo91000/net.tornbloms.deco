@@ -600,7 +600,11 @@ class TplinkDecoDevice extends Device {
           //   }; // Return default values in case of error
           // })) as ClientListResponse;
 
-          const clientList = clientListResponse?.result?.client_list ?? [];
+          // Some Deco firmware returns client_list as {} instead of [] when
+          // there are no connected clients. Use Array.isArray to handle all
+          // non-array shapes (null, undefined, {}, 0, …).
+          const rawClientList = clientListResponse?.result?.client_list;
+          const clientList = Array.isArray(rawClientList) ? rawClientList : [];
           const clientNames = clientList
             .map((client) => Buffer.from(client.name, 'base64').toString('utf-8'))
             .join(', ');
