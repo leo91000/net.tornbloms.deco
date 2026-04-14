@@ -199,8 +199,10 @@ export default class Deco {
       const postDataBuffer = Buffer.from(postData);
       this.logger.log(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
 
-      // Send the POST request with encrypted data
-      const req: ResponseData = await this.doPost(path, params, postDataBuffer);
+      // Send the POST request with encrypted data.
+      // Body is URL-encoded form data (sign=...&data=...); newer HTTPS firmware
+      // is strict about Content-Type and returns HTTP 500 if it sees application/json.
+      const req: ResponseData = await this.doPost(path, params, postDataBuffer, 'application/x-www-form-urlencoded');
 
       // Decrypt the response data
       const decoded = AES128Decrypt(req.data, this.aes);
@@ -246,6 +248,7 @@ export default class Deco {
     path: string,
     params: EndpointArgs,
     body: Buffer,
+    contentType: string = 'application/json',
   ): Promise<any> {
     const config = {
       method: 'POST' as const,
@@ -253,7 +256,7 @@ export default class Deco {
       data: body,
       headers: {
         'Accept-Encoding': 'gzip',
-        'Content-Type': 'application/json',
+        'Content-Type': contentType,
       },
       params: params,
     };
