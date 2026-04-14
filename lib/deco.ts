@@ -216,7 +216,26 @@ export default class Deco {
         this.logger.error(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
       }
       return parsed;
-    } catch (e) {
+    } catch (e: any) {
+      // Some Deco firmware (especially when enforcing HTTPS) returns HTTP 4xx/5xx
+      // with an AES-encrypted body containing the real error_code (e.g. -5 = wrong
+      // password). Try to decrypt it so the caller gets a meaningful error instead
+      // of a generic "network error".
+      if (e?.httpStatus && e?.responseBody) {
+        try {
+          const decoded = AES128Decrypt(e.responseBody, this.aes);
+          if (decoded.length > 0) {
+            const parsed = JSON.parse(decoded);
+            this.logger.log(
+              `deco.ts: doEncryptedPost: decrypted HTTP ${e.httpStatus} body:`,
+              `error_code=${parsed?.error_code}`,
+            );
+            return parsed; // let the caller (client.ts) interpret the error_code
+          }
+        } catch (decryptErr) {
+          this.logger.error('deco.ts: doEncryptedPost: could not decrypt HTTP error body:', decryptErr);
+        }
+      }
       this.logger.error('deco.ts: doEncryptedPost: error:', e);
       throw e;
     }

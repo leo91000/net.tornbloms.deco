@@ -420,6 +420,13 @@ export default class DecoAPIWraper {
         this.logger.error('client.ts: authenticate: login rejected with 403 — router may limit concurrent sessions. Will retry on next poll.');
         throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e });
       }
+      if (e?.httpStatus === 500) {
+        // HTTP 500 on the login POST usually means wrong password.
+        // doEncryptedPost already attempted decryption; if it still threw here
+        // the body was not decryptable. Surface as a credentials error.
+        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — likely wrong password');
+        throw new Error('CREDENTIALS: Wrong password. Use the password from the TP-Link Deco app.');
+      }
       this.logger.error('client.ts: authenticate: network error during login POST:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
     }

@@ -115,6 +115,9 @@ export class HttpClient {
         );
         const err: any = new Error(`HTTP ${response.status}`);
         err.httpStatus = response.status;
+        // Attach the raw body so callers that handle encrypted responses
+        // (e.g. doEncryptedPost) can attempt decryption to get the real error code.
+        err.responseBody = rawText;
         throw err;
       }
 
