@@ -217,5 +217,8 @@
   },
   "1.4.13": {
     "en": "Fixing 301 redirect"
+  },
+  "1.4.14": {
+    "en": "Better handeling of login, improved client handeling when no devices on the accesspoint."
   }
 }
