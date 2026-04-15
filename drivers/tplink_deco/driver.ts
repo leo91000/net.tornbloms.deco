@@ -343,7 +343,7 @@ class TplinkDecoDriver extends Driver {
               timeoutSeconds: 30,
             },
           }));
-          this.log(devices);
+          this.log(devices.map((d) => ({ ...d, settings: { ...d.settings, password: '[redacted]' } })));
           if (this.debugEnabled) {
             this.homey.app.log(
               `driver.ts:onInit() driver: `,
@@ -402,24 +402,18 @@ class TplinkDecoDriver extends Driver {
 
   // If no error do respond with result
   private decodeBase64(encoded: string | undefined): string {
-    if (!encoded) {
-      this.error('driver.ts: No string provided for decoding');
-      return '';
-    }
+    if (!encoded) return '';
 
-    // Check if the string is base64 encoded
+    // Some firmware versions return plain-text nicknames; others return base64.
+    // Try to decode and fall back silently — not an error either way.
     const base64Regex =
       /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/;
-    if (!base64Regex.test(encoded)) {
-      this.error('driver.ts: Provided string is not base64 encoded');
-      return encoded;
-    }
+    if (!base64Regex.test(encoded)) return encoded;
 
     try {
       return Buffer.from(encoded, 'base64').toString('utf-8');
-    } catch (e) {
-      this.error(`driver.ts: Failed to decode base64 string: ${encoded}`, e);
-      return encoded; // Return the original string if decoding fails
+    } catch {
+      return encoded;
     }
   }
 

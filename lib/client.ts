@@ -315,7 +315,7 @@ export default class DecoAPIWraper {
   // Throws AuthNetworkError when the router cannot be reached.
   // Throws AuthCredentialsError when the password is wrong.
   // Throws Error for other failures.
-  public async authenticate(password: string): Promise<boolean> {
+  public async authenticate(password: string, _retried = false): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address which causes undici to crash on redirects
@@ -432,6 +432,20 @@ export default class DecoAPIWraper {
     }
 
     this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
+
+    // "no such callback" means the firmware rejected the Content-Type we used.
+    // This happens on newer HTTPS firmware that needs application/json even
+    // over HTTPS (opposite of older HTTPS firmware that needed form-urlencoded).
+    // Flip the flag and retry the full auth sequence once with the other encoding.
+    if (result?.error_code === 1 && result?.msg === 'no such callback' && !_retried) {
+      this.logger.log(
+        'client.ts: authenticate: "no such callback" — firmware rejected current Content-Type;',
+        `switching to ${this.c.forceJsonContentType ? 'form-urlencoded' : 'JSON'} and retrying`,
+      );
+      this.c.forceJsonContentType = !this.c.forceJsonContentType;
+      return this.authenticate(password, true);
+    }
+
     // Only update this.stok when we have a confirmed valid token.
     // Assigning before the check would clobber the previous valid stok with
     // undefined on a failed re-auth, causing concurrent devices on the shared

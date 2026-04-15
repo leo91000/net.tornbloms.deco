@@ -226,5 +226,8 @@
   },
   "1.4.17": {
     "en": "Regression handeling"
+  },
+  "1.4.18": {
+    "en": "Fixed 'wrong password' errors on newer HTTPS Deco firmware (e.g. X50-5G v2, P9). The app now auto-detects and remembers the correct login protocol per device. Also fixed noisy base64 log errors for plain-text device nicknames and redacted passwords from diagnostic logs."
   }
 }

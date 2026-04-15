@@ -29,6 +29,13 @@ export class HttpClient {
   // Not readonly — may be upgraded from http:// to https:// on first redirect
   baseURL: string;
   private readonly timeout: number;
+  /**
+   * When true, doEncryptedPost will always use application/json for the
+   * encrypted POST body even over HTTPS. Set automatically when the first
+   * auth attempt detects a "no such callback" error, which indicates newer
+   * HTTPS firmware that needs JSON rather than form-urlencoded.
+   */
+  public forceJsonContentType: boolean = false;
 
   constructor(baseURL: string, timeout = 10000, logger: AppLogger = consoleLogger) {
     this.jar = new CookieJar();

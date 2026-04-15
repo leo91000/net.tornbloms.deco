@@ -118,6 +118,15 @@ class TplinkDecoDevice extends Device {
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(settings.hostname, this.makeLogger());
 
+        // Restore the previously-detected content-type preference so the first
+        // auth attempt on restart already uses the known-good encoding rather
+        // than retrying via auto-detect every time.
+        const savedForceJson = (this.getStoreValue('forceJsonContentType') as boolean) ?? false;
+        if (savedForceJson) {
+          this.api.c.forceJsonContentType = true;
+          this.log('Restored content-type preference: application/json (from store)');
+        }
+
         // Authenticate via the shared serialised auth so concurrent device
         // startups don't all hit the router at once.
         this.connected = await driver
@@ -133,6 +142,9 @@ class TplinkDecoDevice extends Device {
           });
 
         if (this.connected) {
+          // Persist the content-type preference that auth settled on so future
+          // restarts skip the auto-detect retry.
+          await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
           this.log('Successfully connected to TP-Link Deco');
         }
 
@@ -215,7 +227,13 @@ class TplinkDecoDevice extends Device {
       try {
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
+        // Clear stored content-type preference so fresh auto-detection runs with new credentials.
+        await this.setStoreValue('forceJsonContentType', false);
+        this.api.c.forceJsonContentType = false;
         this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
+        if (this.connected) {
+          await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
+        }
         this.log('API reinitialized with updated settings');
       } catch (error) {
         this.error('Failed to reinitialize API', error);
@@ -284,6 +302,8 @@ class TplinkDecoDevice extends Device {
         this.makeLogger(),
       );
       if (this.connected) {
+        // Persist the content-type preference that worked so restarts skip re-detection.
+        await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
         this.log('Re-authentication successful');
       } else {
         this.error('Re-authentication failed');
