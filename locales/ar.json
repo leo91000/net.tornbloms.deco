@@ -1,0 +1,34 @@
+{
+  "settings": {
+    "title": "إعدادات TP-Link Deco",
+    "subtitle": "إعدادات متقدمة",
+    "host": "المضيف",
+    "username": "اسم المستخدم",
+    "password": "كلمة المرور",
+    "interval_seconds": "ثوان بين التحديثات",
+    "consider_home": "عدد الثواني للانتظار قبل اعتبار جهاز التتبع غير موجود بعد عدم رؤيته.",
+    "timeout_seconds": "مهلة بالثواني",
+    "timeout_error_retries": "عدد محاولات استرجاع خطأ مهلة",
+    "verify_ssl": "تحقق من صلاحية شهادة SSL",
+    "client_prefix": "بادئة اسم العميل",
+    "client_postfix": "لاحقة اسم العميل",
+    "deco_prefix": "بادئة اسم Deco",
+    "deco_postfix": "لاحقة اسم Deco"
+  },
+  "flow": {
+    "reboot_deco": {
+      "title": "إعادة تشغيل جهاز Deco",
+      "description": "إعادة تشغيل جهاز TP-Link Deco.",
+      "message": "الجهاز قيد إعادة التشغيل."
+    }
+  },
+  "errors": {
+    "invalid_auth": "المصادقة غير صحيحة",
+    "invalid_host": "غير قادر على الاتصال بالمضيف.",
+    "timeout_connect": "انتهاء مهلة إنشاء الاتصال",
+    "unknown": "خطأ غير متوقع"
+  },
+  "abort": {
+    "reauth_successful": "تمت إعادة المصادقة بنجاح"
+  }
+}

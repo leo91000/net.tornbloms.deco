@@ -12,7 +12,8 @@
     "sv": "CPU-användning",
     "pl": "Zużycie CPU",
     "ru": "Использование ЦП",
-    "ko": "CPU 사용량"
+    "ko": "CPU 사용량",
+    "ar": "استخدام وحدة المعالجة المركزية"
   },
   "units": {
     "en": "%",
@@ -26,7 +27,8 @@
     "sv": "%",
     "pl": "%",
     "ru": "%",
-    "ko": "%"
+    "ko": "%",
+    "ar": "٪"
   },
   "getable": true,
   "setable": false,
@@ -42,7 +44,8 @@
     "sv": "Nuvarande CPU-användning",
     "pl": "Bieżące zużycie CPU",
     "ru": "Текущее использование ЦП",
-    "ko": "현재 CPU 사용량"
+    "ko": "현재 CPU 사용량",
+    "ar": "الاستخدام الحالي لوحدة المعالجة المركزية"
   },
   "insights": true,
   "chartType": "spline",

@@ -13,7 +13,8 @@
       "sv": "Inloggningsdetaljer",
       "pl": "Szczegóły logowania",
       "ru": "Данные для входа",
-      "ko": "로그인 정보"
+      "ko": "로그인 정보",
+      "ar": "تفاصيل تسجيل الدخول"
     },
     "children": [
       {
@@ -31,7 +32,8 @@
           "sv": "Värdnamn/IP",
           "pl": "Nazwa hosta/IP",
           "ru": "Имя хоста/IP",
-          "ko": "호스트네임/IP"
+          "ko": "호스트네임/IP",
+          "ar": "اسم المضيف/IP"
         },
         "value": "192.168.68.1",
         "required": true,
@@ -47,7 +49,8 @@
           "sv": "Värdnamnet eller IP-adressen till routern.",
           "pl": "Nazwa hosta lub IP routera.",
           "ru": "Имя хоста или IP адрес роутера.",
-          "ko": "라우터의 호스트네임 또는 IP."
+          "ko": "라우터의 호스트네임 또는 IP.",
+          "ar": "اسم المضيف أو عنوان IP لجهاز التوجيه."
         }
       },
       {
@@ -65,7 +68,8 @@
           "sv": "Lösenord",
           "pl": "Hasło",
           "ru": "Пароль",
-          "ko": "비밀번호"
+          "ko": "비밀번호",
+          "ar": "كلمة المرور"
         },
         "value": "Secret",
         "required": true,
@@ -81,7 +85,8 @@
           "sv": "Ägarens TP-Link-lösenord.",
           "pl": "Hasło TP-Link właściciela.",
           "ru": "Пароль TP-Link владельца.",
-          "ko": "소유자의 TP-Link 비밀번호."
+          "ko": "소유자의 TP-Link 비밀번호.",
+          "ar": "كلمة مرور TP-Link الخاصة بالمالك."
         }
       }
     ]
@@ -100,7 +105,8 @@
       "sv": "Timers",
       "pl": "Timery",
       "ru": "Таймеры",
-      "ko": "타이머"
+      "ko": "타이머",
+      "ar": "المؤقتات"
     },
     "children": [
       {
@@ -118,7 +124,8 @@
           "sv": "Fråga routern varje",
           "pl": "Zapytaj router co",
           "ru": "Запрос роутера каждые",
-          "ko": "라우터를 쿼리할 간격"
+          "ko": "라우터를 쿼리할 간격",
+          "ar": "استعلام عن جهاز التوجيه كل"
         },
         "value": 30,
         "min": 1,
@@ -138,7 +145,8 @@
           "sv": "sekunder",
           "pl": "sekund",
           "ru": "секунд",
-          "ko": "초"
+          "ko": "초",
+          "ar": "ثوانٍ"
         },
         "hint": {
           "en": "Value in seconds, dont set too low as it might cause stability issues on your network",
@@ -152,7 +160,8 @@
           "sv": "Värde i sekunder, ställ inte för lågt eftersom det kan orsaka stabilitetsproblem i ditt nätverk",
           "pl": "Wartość w sekundach, nie ustawiaj zbyt nisko, ponieważ może to powodować problemy ze stabilnością sieci",
           "ru": "Значение в секундах, не устанавливайте слишком низкое значение, так как это может вызвать проблемы со стабильностью в вашей сети",
-          "ko": "초 단위 값, 너무 낮게 설정하면 네트워크에 안정성 문제가 발생할 수 있습니다"
+          "ko": "초 단위 값, 너무 낮게 설정하면 네트워크에 안정성 문제가 발생할 수 있습니다",
+          "ar": "القيمة بالثواني، لا تضبطها على قيمة منخفضة جدًا لأنها قد تسبب مشاكل في استقرار الشبكة لديك."
         }
       }
     ]
@@ -171,7 +180,8 @@
       "sv": "Enhetsinställningar",
       "pl": "Ustawienia urządzenia",
       "ru": "Настройки устройства",
-      "ko": "장치 설정"
+      "ko": "장치 설정",
+      "ar": "إعدادات الجهاز"
     },
     "children": [
       {
@@ -189,7 +199,8 @@
           "sv": "Enhetsmodell:",
           "pl": "Model urządzenia:",
           "ru": "Модель устройства:",
-          "ko": "장치 모델:"
+          "ko": "장치 모델:",
+          "ar": "طراز الجهاز:"
         },
         "hint": {
           "en": "Model name of the device",
@@ -203,7 +214,8 @@
           "sv": "Modellnamn på enheten",
           "pl": "Nazwa modelu urządzenia",
           "ru": "Название модели устройства",
-          "ko": "장치 모델 이름"
+          "ko": "장치 모델 이름",
+          "ar": "اسم طراز الجهاز"
         }
       },
       {
@@ -221,7 +233,8 @@
           "sv": "Hårdvaruversion:",
           "pl": "Wersja sprzętu:",
           "ru": "Версия оборудования:",
-          "ko": "하드웨어 버전:"
+          "ko": "하드웨어 버전:",
+          "ar": "إصدار الجهاز:"
         },
         "hint": {
           "en": "Hardware version of the device",
@@ -235,7 +248,8 @@
           "sv": "Hårdvaruversion av enheten",
           "pl": "Wersja sprzętu urządzenia",
           "ru": "Версия оборудования устройства",
-          "ko": "장치의 하드웨어 버전"
+          "ko": "장치의 하드웨어 버전",
+          "ar": "إصدار الجهاز المادي"
         }
       },
       {
@@ -253,7 +267,8 @@
           "sv": "Firmware-version:",
           "pl": "Wersja oprogramowania:",
           "ru": "Версия прошивки:",
-          "ko": "펌웨어 버전:"
+          "ko": "펌웨어 버전:",
+          "ar": "إصدار البرنامج الثابت:"
         },
         "hint": {
           "en": "Firmware version of the device",
@@ -267,7 +282,8 @@
           "sv": "Firmware-version av enheten",
           "pl": "Wersja oprogramowania sprzętowego urządzenia",
           "ru": "Версия прошивки устройства",
-          "ko": "장치의 펌웨어 버전"
+          "ko": "장치의 펌웨어 버전",
+          "ar": "إصدار البرنامج الثابت للجهاز"
         }
       },
       {
@@ -285,7 +301,8 @@
           "sv": "Maskinvaru-id:",
           "pl": "Identyfikator sprzętu:",
           "ru": "Идентификатор оборудования:",
-          "ko": "하드웨어 ID:"
+          "ko": "하드웨어 ID:",
+          "ar": "معرّف الجهاز:"
         },
         "hint": {
           "en": "Id of the device",
@@ -299,7 +316,8 @@
           "sv": "Id för enheten",
           "pl": "Identyfikator urządzenia",
           "ru": "Идентификатор устройства",
-          "ko": "장치 ID"
+          "ko": "장치 ID",
+          "ar": "معرّف الجهاز"
         }
       },
       {
@@ -317,7 +335,8 @@
           "sv": "Mac-adress:",
           "pl": "Adres Mac:",
           "ru": "Адрес Mac:",
-          "ko": "맥 주소:"
+          "ko": "맥 주소:",
+          "ar": "عنوان MAC:"
         },
         "hint": {
           "en": "Mac address of the device",
@@ -331,7 +350,8 @@
           "sv": "MAC-adress för enheten",
           "pl": "Adres Mac urządzenia",
           "ru": "Mac адрес устройства",
-          "ko": "장치의 맥 주소"
+          "ko": "장치의 맥 주소",
+          "ar": "عنوان MAC للجهاز"
         }
       },
       {
@@ -349,7 +369,8 @@
           "sv": "Roll:",
           "pl": "Rola:",
           "ru": "Роль:",
-          "ko": "역할:"
+          "ko": "역할:",
+          "ar": "الدور:"
         },
         "hint": {
           "en": "Role of the device",
@@ -363,7 +384,8 @@
           "sv": "Enhetens roll",
           "pl": "Rola urządzenia",
           "ru": "Роль устройства",
-          "ko": "장치의 역할"
+          "ko": "장치의 역할",
+          "ar": "دور الجهاز"
         }
       }
     ]
@@ -371,18 +393,54 @@
   {
     "type": "group",
     "label": {
-      "en": "Connected Clients"
+      "en": "Connected Clients",
+      "nl": "Verbonden apparaten",
+      "da": "Forbundne enheder",
+      "de": "Verbundene Geräte",
+      "es": "Clientes conectados",
+      "fr": "Clients connectés",
+      "it": "Clienti connessi",
+      "no": "Tilkoblede enheter",
+      "sv": "Anslutna klienter",
+      "pl": "Podłączone urządzenia",
+      "ru": "Подключенные устройства",
+      "ko": "연결된 클라이언트",
+      "ar": "الأجهزة المتصلة"
     },
     "children": [
       {
         "id": "clients",
         "type": "textarea",
         "label": {
-          "en": "Name"
+          "en": "Name",
+          "nl": "Naam",
+          "da": "Navn",
+          "de": "Name",
+          "es": "Nombre",
+          "fr": "Nom",
+          "it": "Nome",
+          "no": "Navn",
+          "sv": "Namn",
+          "pl": "Nazwa",
+          "ru": "Имя",
+          "ko": "이름",
+          "ar": "الاسم"
         },
         "value": "Initial clients",
         "hint": {
-          "en": "The name of the connected clients."
+          "en": "The name of the connected clients.",
+          "nl": "De naam van de verbonden apparaten.",
+          "da": "Navnet på de tilsluttede klienter.",
+          "de": "Der Name der verbundenen Clients.",
+          "es": "El nombre de los clientes conectados.",
+          "fr": "Le nom des clients connectés.",
+          "it": "Il nome dei clienti connessi.",
+          "no": "Navnet på de tilkoblede klientene.",
+          "sv": "Namnet på de anslutna klienterna.",
+          "pl": "Nazwa podłączonych klientów.",
+          "ru": "Имя подключенных клиентов.",
+          "ko": "연결된 클라이언트의 이름.",
+          "ar": "اسم الأجهزة المتصلة."
         }
       }
     ]

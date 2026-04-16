@@ -1,0 +1,163 @@
+{
+  "title": {
+    "en": "A new client connected for the first time",
+    "nl": "Een nieuwe client heeft voor het eerst verbinding gemaakt",
+    "da": "En ny klient oprettede forbindelse for første gang",
+    "de": "Ein neuer Client hat sich zum ersten Mal verbunden",
+    "es": "Un nuevo cliente se conectó por primera vez",
+    "fr": "Un nouveau client s'est connecté pour la première fois",
+    "it": "Un nuovo client si è connesso per la prima volta",
+    "no": "En ny klient koblet til for første gang",
+    "sv": "En ny klient anslöt för första gången",
+    "pl": "Nowy klient połączył się po raz pierwszy",
+    "ru": "Новый клиент подключился впервые",
+    "ko": "새 클라이언트가 처음으로 연결됨",
+    "ar": "اتصل عميل جديد لأول مرة"
+  },
+  "highlight": true,
+  "tokens": [
+    {
+      "type": "string",
+      "name": "name",
+      "title": {
+        "en": "name",
+        "nl": "naam",
+        "da": "navn",
+        "de": "Name",
+        "es": "nombre",
+        "fr": "nom",
+        "it": "nome",
+        "no": "navn",
+        "sv": "namn",
+        "pl": "imię",
+        "ru": "имя",
+        "ko": "이름",
+        "ar": "الاسم"
+      },
+      "example": {
+        "en": "New Phone",
+        "nl": "Nieuwe telefoon",
+        "da": "Ny telefon",
+        "de": "Neues Telefon",
+        "es": "Nuevo teléfono",
+        "fr": "Nouveau téléphone",
+        "it": "Nuovo telefono",
+        "no": "Ny telefon",
+        "sv": "Ny telefon",
+        "pl": "Nowy telefon",
+        "ru": "Новый телефон",
+        "ko": "새 전화기",
+        "ar": "هاتف جديد"
+      }
+    },
+    {
+      "type": "string",
+      "name": "mac",
+      "title": {
+        "en": "mac address",
+        "nl": "mac adres",
+        "da": "mac adresse",
+        "de": "MAC-Adresse",
+        "es": "dirección MAC",
+        "fr": "adresse MAC",
+        "it": "indirizzo MAC",
+        "no": "MAC-adresse",
+        "sv": "MAC-adress",
+        "pl": "adres MAC",
+        "ru": "MAC-адрес",
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
+      },
+      "example": {
+        "en": "A1:B2:C3:D4:E5:F6",
+        "nl": "A1:B2:C3:D4:E5:F6",
+        "da": "A1:B2:C3:D4:E5:F6",
+        "de": "A1:B2:C3:D4:E5:F6",
+        "es": "A1:B2:C3:D4:E5:F6",
+        "fr": "A1:B2:C3:D4:E5:F6",
+        "it": "A1:B2:C3:D4:E5:F6",
+        "no": "A1:B2:C3:D4:E5:F6",
+        "sv": "A1:B2:C3:D4:E5:F6",
+        "pl": "A1:B2:C3:D4:E5:F6",
+        "ru": "A1:B2:C3:D4:E5:F6",
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
+      }
+    },
+    {
+      "type": "string",
+      "name": "ipaddr",
+      "title": {
+        "en": "ip address",
+        "nl": "ip adres",
+        "da": "ip adresse",
+        "de": "IP-Adresse",
+        "es": "dirección IP",
+        "fr": "adresse IP",
+        "it": "indirizzo IP",
+        "no": "IP-adresse",
+        "sv": "IP-adress",
+        "pl": "adres IP",
+        "ru": "IP-адрес",
+        "ko": "IP 주소",
+        "ar": "عنوان IP"
+      },
+      "example": {
+        "en": "192.168.0.5",
+        "nl": "192.168.0.5",
+        "da": "192.168.0.5",
+        "de": "192.168.0.5",
+        "es": "192.168.0.5",
+        "fr": "192.168.0.5",
+        "it": "192.168.0.5",
+        "no": "192.168.0.5",
+        "sv": "192.168.0.5",
+        "pl": "192.168.0.5",
+        "ru": "192.168.0.5",
+        "ko": "192.168.0.5",
+        "ar": "192.168.0.5"
+      }
+    },
+    {
+      "type": "string",
+      "name": "connection_type",
+      "title": {
+        "en": "connection type",
+        "nl": "verbindingstype",
+        "da": "forbindelsestype",
+        "de": "Verbindungstyp",
+        "es": "tipo de conexión",
+        "fr": "type de connexion",
+        "it": "tipo di connessione",
+        "no": "tilkoblingstype",
+        "sv": "anslutningstyp",
+        "pl": "typ połączenia",
+        "ru": "тип соединения",
+        "ko": "연결 유형",
+        "ar": "نوع الاتصال"
+      },
+      "example": {
+        "en": "2.4G",
+        "nl": "2.4G",
+        "da": "2.4G",
+        "de": "2.4G",
+        "es": "2.4G",
+        "fr": "2.4G",
+        "it": "2.4G",
+        "no": "2.4G",
+        "sv": "2.4G",
+        "pl": "2.4G",
+        "ru": "2.4G",
+        "ko": "2.4G",
+        "ar": "2.4G"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=tplink_deco"
+    }
+  ]
+}

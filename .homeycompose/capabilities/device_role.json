@@ -12,7 +12,8 @@
     "no": "Enhetsrolle",
     "pl": "Rola urządzenia",
     "ru": "Роль устройства",
-    "ko": "장치 역할"
+    "ko": "장치 역할",
+    "ar": "دور الجهاز"
   },
   "getable": true,
   "setable": false,

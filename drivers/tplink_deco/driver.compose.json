@@ -12,7 +12,8 @@
     "no": "TP-Link Deco",
     "pl": "TP-Link Deco",
     "ru": "TP-Link Deco",
-    "ko": "TP-Link Deco"
+    "ko": "TP-Link Deco",
+    "ar": "ديكو من تي بي لينك"
   },
   "images": {
     "small": "{{driverAssetsPath}}/images/small.png",
@@ -37,7 +38,8 @@
           "no": "Legg til din IP-adresse eller vertsnavn og passord",
           "pl": "Dodaj swój adres IP lub nazwę hosta i hasło",
           "ru": "Добавьте ваш IP-адрес или имя хоста и пароль",
-          "ko": "IP 또는 호스트 이름과 비밀번호를 입력하세요"
+          "ko": "IP 또는 호스트 이름과 비밀번호를 입력하세요",
+          "ar": "أضف عنوان IP أو اسم المضيف وكلمة المرور الخاصة بك"
         },
         "usernameLabel": {
           "en": "Hostname / IP",
@@ -51,7 +53,8 @@
           "no": "Vertsnavn / IP-adresse",
           "pl": "Nazwa hosta / Adres IP",
           "ru": "Имя хоста / IP-адрес",
-          "ko": "호스트 이름 / IP"
+          "ko": "호스트 이름 / IP",
+          "ar": "اسم المضيف / عنوان IP"
         },
         "usernamePlaceholder": "tplinkdeco.net",
         "passwordLabel": {
@@ -66,7 +69,8 @@
           "no": "Passord",
           "pl": "Hasło",
           "ru": "Пароль",
-          "ko": "비밀번호"
+          "ko": "비밀번호",
+          "ar": "كلمة المرور"
         },
         "passwordPlaceholder": {
           "en": "Password",
@@ -80,7 +84,8 @@
           "no": "Passord",
           "pl": "Hasło",
           "ru": "Пароль",
-          "ko": "비밀번호"
+          "ko": "비밀번호",
+          "ar": "كلمة المرور"
         }
       }
     },
@@ -114,6 +119,10 @@
     "device_role",
     "reboot"
   ],
-  "platforms": ["local"],
-  "connectivity": ["lan"]
+  "platforms": [
+    "local"
+  ],
+  "connectivity": [
+    "lan"
+  ]
 }

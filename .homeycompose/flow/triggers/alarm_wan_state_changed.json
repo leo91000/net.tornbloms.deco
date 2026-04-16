@@ -11,7 +11,8 @@
     "sv": "WAN-status ändrad",
     "pl": "Status WAN zmieniony",
     "ru": "Состояние WAN изменено",
-    "ko": "WAN 상태 변경됨"
+    "ko": "WAN 상태 변경됨",
+    "ar": "تم تغيير حالة WAN"
   },
   "highlight": true,
   "args": [
@@ -37,7 +38,8 @@
         "sv": "WAN-tillstånd",
         "pl": "Stan WAN",
         "ru": "Состояние WAN",
-        "ko": "WAN 상태"
+        "ko": "WAN 상태",
+        "ar": "حالة WAN"
       }
     }
   ]

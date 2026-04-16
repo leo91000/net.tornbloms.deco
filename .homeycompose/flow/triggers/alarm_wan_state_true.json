@@ -11,7 +11,8 @@
     "sv": "WAN-status online",
     "pl": "Status WAN online",
     "ru": "WAN статус онлайн",
-    "ko": "WAN 상태 온라인"
+    "ko": "WAN 상태 온라인",
+    "ar": "حالة WAN متصلة"
   },
   "args": [
     {
@@ -36,7 +37,8 @@
         "sv": "WAN-status",
         "pl": "Stan WAN",
         "ru": "WAN состояние",
-        "ko": "WAN 상태"
+        "ko": "WAN 상태",
+        "ar": "حالة WAN"
       }
     }
   ]

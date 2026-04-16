@@ -12,7 +12,8 @@
     "sv": "LAN IP-adress",
     "pl": "Adres IP LAN",
     "ru": "LAN IP-адрес",
-    "ko": "LAN IP 주소"
+    "ko": "LAN IP 주소",
+    "ar": "عنوان IP للشبكة المحلية (LAN)"
   },
   "getable": true,
   "setable": false,

@@ -12,7 +12,8 @@
     "sv": "Signal 2,4 GHz",
     "pl": "Sygnał 2,4 GHz",
     "ru": "Сигнал 2,4 ГГц",
-    "ko": "신호 2.4 GHz"
+    "ko": "신호 2.4 GHz",
+    "ar": "إشارة 2.4 جيجاهرتز"
   },
   "getable": true,
   "setable": false,

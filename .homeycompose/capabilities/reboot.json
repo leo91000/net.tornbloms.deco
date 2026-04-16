@@ -12,7 +12,8 @@
     "sv": "Starta om",
     "pl": "Restart",
     "ru": "Перезагрузка",
-    "ko": "재부팅"
+    "ko": "재부팅",
+    "ar": "إعادة تشغيل"
   },
   "insightsTitleTrue": {
     "en": "Router restarted",
@@ -26,7 +27,8 @@
     "sv": "Router omstartad",
     "pl": "Router uruchomiony ponownie",
     "ru": "Маршрутизатор перезагружен",
-    "ko": "라우터가 재부팅되었습니다"
+    "ko": "라우터가 재부팅되었습니다",
+    "ar": "تم إعادة تشغيل جهاز التوجيه"
   },
   "insightsTitleFalse": {
     "en": "Router UP",
@@ -40,7 +42,8 @@
     "sv": "Router UPPE",
     "pl": "Router WŁĄCZONY",
     "ru": "Маршрутизатор ВКЛЮЧЕН",
-    "ko": "라우터 작동 중"
+    "ko": "라우터 작동 중",
+    "ar": "جهاز التوجيه يعمل"
   },
   "uiQuickAction": false,
   "uiComponent": "button",

@@ -1,0 +1,197 @@
+{
+  "title": {
+    "en": "A client changed Deco node",
+    "nl": "Een client heeft van Deco-knooppunt gewisseld",
+    "da": "En klient skiftede Deco-knudepunkt",
+    "de": "Ein Client hat den Deco-Knoten gewechselt",
+    "es": "Un cliente cambió de nodo Deco",
+    "fr": "Un client a changé de nœud Deco",
+    "it": "Un client ha cambiato nodo Deco",
+    "no": "En klient byttet Deco-node",
+    "sv": "En klient bytte Deco-nod",
+    "pl": "Klient zmienił węzeł Deco",
+    "ru": "Клиент сменил узел Deco",
+    "ko": "클라이언트가 Deco 노드를 변경함",
+    "ar": "قام أحد العملاء بتغيير عقدة Deco"
+  },
+  "titleFormatted": {
+    "en": "[[client]] changed Deco node",
+    "nl": "[[client]] heeft van Deco-knooppunt gewisseld",
+    "da": "[[client]] skiftede Deco-knudepunkt",
+    "de": "[[client]] hat den Deco-Knoten gewechselt",
+    "es": "[[client]] cambió de nodo Deco",
+    "fr": "[[client]] a changé de nœud Deco",
+    "it": "[[client]] ha cambiato nodo Deco",
+    "no": "[[client]] byttet Deco-node",
+    "sv": "[[client]] bytte Deco-nod",
+    "pl": "[[client]] zmienił węzeł Deco",
+    "ru": "[[client]] сменил узел Deco",
+    "ko": "[[client]]이(가) Deco 노드를 변경했습니다",
+    "ar": "قام [[client]] بتغيير عقدة Deco"
+  },
+  "highlight": true,
+  "tokens": [
+    {
+      "type": "string",
+      "name": "name",
+      "title": {
+        "en": "client name",
+        "nl": "clientnaam",
+        "da": "klientnavn",
+        "de": "Client-Name",
+        "es": "nombre del cliente",
+        "fr": "nom du client",
+        "it": "nome del client",
+        "no": "klientnavn",
+        "sv": "klientnamn",
+        "pl": "nazwa klienta",
+        "ru": "имя клиента",
+        "ko": "클라이언트 이름",
+        "ar": "اسم العميل"
+      },
+      "example": {
+        "en": "iPhone",
+        "nl": "iPhone",
+        "da": "iPhone",
+        "de": "iPhone",
+        "es": "iPhone",
+        "fr": "iPhone",
+        "it": "iPhone",
+        "no": "iPhone",
+        "sv": "iPhone",
+        "pl": "iPhone",
+        "ru": "iPhone",
+        "ko": "iPhone",
+        "ar": "آيفون"
+      }
+    },
+    {
+      "type": "string",
+      "name": "mac",
+      "title": {
+        "en": "mac address",
+        "nl": "mac adres",
+        "da": "mac adresse",
+        "de": "MAC-Adresse",
+        "es": "dirección MAC",
+        "fr": "adresse MAC",
+        "it": "indirizzo MAC",
+        "no": "MAC-adresse",
+        "sv": "MAC-adress",
+        "pl": "adres MAC",
+        "ru": "MAC-адрес",
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
+      },
+      "example": {
+        "en": "A1:B2:C3:D4:E5:F6",
+        "nl": "A1:B2:C3:D4:E5:F6",
+        "da": "A1:B2:C3:D4:E5:F6",
+        "de": "A1:B2:C3:D4:E5:F6",
+        "es": "A1:B2:C3:D4:E5:F6",
+        "fr": "A1:B2:C3:D4:E5:F6",
+        "it": "A1:B2:C3:D4:E5:F6",
+        "no": "A1:B2:C3:D4:E5:F6",
+        "sv": "A1:B2:C3:D4:E5:F6",
+        "pl": "A1:B2:C3:D4:E5:F6",
+        "ru": "A1:B2:C3:D4:E5:F6",
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
+      }
+    },
+    {
+      "type": "string",
+      "name": "deco_node",
+      "title": {
+        "en": "new Deco node",
+        "nl": "nieuw Deco-knooppunt",
+        "da": "nyt Deco-knudepunkt",
+        "de": "neuer Deco-Knoten",
+        "es": "nuevo nodo Deco",
+        "fr": "nouveau nœud Deco",
+        "it": "nuovo nodo Deco",
+        "no": "ny Deco-node",
+        "sv": "ny Deco-nod",
+        "pl": "nowy węzeł Deco",
+        "ru": "новый узел Deco",
+        "ko": "새 Deco 노드",
+        "ar": "عقدة Deco جديدة"
+      },
+      "example": {
+        "en": "Deco X50 - Living room",
+        "nl": "Deco X50 - Woonkamer",
+        "da": "Deco X50 - Stue",
+        "de": "Deco X50 - Wohnzimmer",
+        "es": "Deco X50 - Sala de estar",
+        "fr": "Deco X50 - Salon",
+        "it": "Deco X50 - Soggiorno",
+        "no": "Deco X50 - Stue",
+        "sv": "Deco X50 - Vardagsrum",
+        "pl": "Deco X50 - Salon",
+        "ru": "Deco X50 - Гостиная",
+        "ko": "Deco X50 - 거실",
+        "ar": "Deco X50 - غرفة المعيشة"
+      }
+    },
+    {
+      "type": "string",
+      "name": "previous_node",
+      "title": {
+        "en": "previous Deco node",
+        "nl": "vorig Deco-knooppunt",
+        "da": "forrige Deco-knudepunkt",
+        "de": "vorheriger Deco-Knoten",
+        "es": "nodo Deco anterior",
+        "fr": "nœud Deco précédent",
+        "it": "nodo Deco precedente",
+        "no": "forrige Deco-node",
+        "sv": "föregående Deco-nod",
+        "pl": "poprzedni węzeł Deco",
+        "ru": "предыдущий узел Deco",
+        "ko": "이전 Deco 노드",
+        "ar": "العقدة السابقة لـ Deco"
+      },
+      "example": {
+        "en": "Deco X50 - Bedroom",
+        "nl": "Deco X50 - Slaapkamer",
+        "da": "Deco X50 - Soveværelse",
+        "de": "Deco X50 - Schlafzimmer",
+        "es": "Deco X50 - Dormitorio",
+        "fr": "Deco X50 - Chambre",
+        "it": "Deco X50 - Camera da letto",
+        "no": "Deco X50 - Soverom",
+        "sv": "Deco X50 - Sovrum",
+        "pl": "Deco X50 - Sypialnia",
+        "ru": "Deco X50 - Спальня",
+        "ko": "Deco X50 - 침실",
+        "ar": "Deco X50 - غرفة النوم"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=tplink_deco"
+    },
+    {
+      "name": "client",
+      "type": "autocomplete",
+      "placeholder": {
+        "en": "client",
+        "nl": "klant",
+        "da": "klient",
+        "de": "Kunde",
+        "es": "cliente",
+        "fr": "client",
+        "it": "cliente",
+        "no": "klient",
+        "sv": "klient",
+        "pl": "klient",
+        "ru": "клиент",
+        "ko": "클라이언트",
+        "ar": "عميل"
+      }
+    }
+  ]
+}

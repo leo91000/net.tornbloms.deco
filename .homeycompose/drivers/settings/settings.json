@@ -14,7 +14,8 @@
       "sv": "Värd",
       "pl": "Gospodarz",
       "ru": "Хост",
-      "ko": "호스트"
+      "ko": "호스트",
+      "ar": "المضيف"
     },
     "value": "http://192.168.0.1"
   },
@@ -33,7 +34,8 @@
       "sv": "Användarnamn",
       "pl": "Nazwa użytkownika",
       "ru": "Имя пользователя",
-      "ko": "사용자 이름"
+      "ko": "사용자 이름",
+      "ar": "اسم المستخدم"
     }
   },
   {
@@ -51,7 +53,8 @@
       "sv": "Lösenord",
       "pl": "Hasło",
       "ru": "Пароль",
-      "ko": "비밀번호"
+      "ko": "비밀번호",
+      "ar": "كلمة المرور"
     }
   },
   {
@@ -69,7 +72,8 @@
       "sv": "Sekunder mellan uppdateringar",
       "pl": "Sekundy między aktualizacjami",
       "ru": "Секунды между обновлениями",
-      "ko": "업데이트 간격 (초)"
+      "ko": "업데이트 간격 (초)",
+      "ar": "الثواني بين التحديثات"
     },
     "value": 60,
     "min": 1
@@ -89,7 +93,8 @@
       "sv": "Sekunder att vänta innan man markerar en spårarenhet som inte hemma efter att den inte har setts.",
       "pl": "Sekundy czekania, aż śledzenie urządzenia zostanie oznaczone jako nieobecne po niewidzieniu.",
       "ru": "Секунды ожидания до пометки устройства как не дома после того, как оно не было замечено.",
-      "ko": "디바이스 추적기를 집에 있지 않음으로 표시하기까지 기다리는 시간 (초)."
+      "ko": "디바이스 추적기를 집에 있지 않음으로 표시하기까지 기다리는 시간 (초).",
+      "ar": "ثوانٍ للانتظار قبل اعتبار جهاز التتبع غير موجود بعد عدم رؤيته."
     },
     "value": 180,
     "min": 0
@@ -109,7 +114,8 @@
       "sv": "Timeout sekunder",
       "pl": "Sekundy limitu czasu",
       "ru": "Таймаут в секундах",
-      "ko": "타임아웃 시간 (초)"
+      "ko": "타임아웃 시간 (초)",
+      "ar": "ثواني المهلة الزمنية"
     },
     "value": 30,
     "min": 5
@@ -129,7 +135,8 @@
       "sv": "Timeout fel antal försök",
       "pl": "Liczba ponownych prób błędu limitu czasu",
       "ru": "Количество повторных попыток при ошибке таймаута",
-      "ko": "타임아웃 오류 재시도 횟수"
+      "ko": "타임아웃 오류 재시도 횟수",
+      "ar": "عدد محاولات إعادة المحاولة لخطأ انتهاء المهلة"
     },
     "value": 1,
     "min": 0
@@ -149,7 +156,8 @@
       "sv": "Verifiera att SSL-certifikatet är giltigt",
       "pl": "Zweryfikuj, czy certyfikat SSL jest ważny",
       "ru": "Проверьте, что SSL-сертификат действителен",
-      "ko": "SSL 인증서가 유효한지 확인하세요"
+      "ko": "SSL 인증서가 유효한지 확인하세요",
+      "ar": "تحقق من صلاحية شهادة SSL"
     },
     "value": true
   },
@@ -168,7 +176,8 @@
       "sv": "Klientnamn prefix",
       "pl": "Prefiks nazwy klienta",
       "ru": "Префикс имени клиента",
-      "ko": "클라이언트 이름 접두사"
+      "ko": "클라이언트 이름 접두사",
+      "ar": "بادئة اسم العميل"
     }
   },
   {
@@ -186,7 +195,8 @@
       "sv": "Klientnamn postfix",
       "pl": "Postfiks nazwy klienta",
       "ru": "Постфикс имени клиента",
-      "ko": "클라이언트 이름 접미사"
+      "ko": "클라이언트 이름 접미사",
+      "ar": "لاحقة اسم العميل"
     }
   },
   {
@@ -204,7 +214,8 @@
       "sv": "Deco namn prefix",
       "pl": "Prefiks nazwy Deco",
       "ru": "Префикс имени Deco",
-      "ko": "Deco 이름 접두사"
+      "ko": "Deco 이름 접두사",
+      "ar": "بادئة اسم Deco"
     }
   },
   {
@@ -222,7 +233,8 @@
       "sv": "Deco namn postfix",
       "pl": "Postfiks nazwy Deco",
       "ru": "Постфикс имени Deco",
-      "ko": "Deco 이름 접미사"
+      "ko": "Deco 이름 접미사",
+      "ar": "لاحقة اسم Deco"
     }
   }
 ]

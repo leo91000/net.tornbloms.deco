@@ -12,7 +12,8 @@
     "sv": "WAN IP-adress",
     "pl": "Adres IP WAN",
     "ru": "WAN IP-адрес",
-    "ko": "WAN IP 주소"
+    "ko": "WAN IP 주소",
+    "ar": "عنوان IP الخاص بـ WAN"
   },
   "getable": true,
   "setable": false,

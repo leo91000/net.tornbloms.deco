@@ -1,0 +1,98 @@
+{
+  "name": {
+    "en": "Client Presence",
+    "nl": "Clientaanwezigheid",
+    "da": "Klienttilstedeværelse",
+    "de": "Client-Präsenz",
+    "es": "Presencia del cliente",
+    "fr": "Présence du client",
+    "it": "Presenza del client",
+    "no": "Klienttilstedeværelse",
+    "sv": "Klientnärvaro",
+    "pl": "Obecność klienta",
+    "ru": "Присутствие клиента",
+    "ko": "클라이언트 존재 여부",
+    "ar": "وجود العميل"
+  },
+  "height": 88,
+  "api": {
+    "getStatus": {
+      "method": "GET",
+      "path": "/status"
+    },
+    "getClients": {
+      "method": "GET",
+      "path": "/clients"
+    }
+  },
+  "settings": [
+    {
+      "id": "client_mac",
+      "type": "text",
+      "label": {
+        "en": "Client MAC address",
+        "nl": "Client MAC-adres",
+        "da": "Klient MAC-adresse",
+        "de": "Client MAC-Adresse",
+        "es": "Dirección MAC del cliente",
+        "fr": "Adresse MAC du client",
+        "it": "Indirizzo MAC del client",
+        "no": "Klient MAC-adresse",
+        "sv": "Klientens MAC-adress",
+        "pl": "Adres MAC klienta",
+        "ru": "MAC-адрес клиента",
+        "ko": "클라이언트 MAC 주소",
+        "ar": "عنوان MAC الخاص بالعميل"
+      },
+      "placeholder": {
+        "en": "AA:BB:CC:DD:EE:FF",
+        "nl": "AA:BB:CC:DD:EE:FF",
+        "da": "AA:BB:CC:DD:EE:FF",
+        "de": "AA:BB:CC:DD:EE:FF",
+        "es": "AA:BB:CC:DD:EE:FF",
+        "fr": "AA:BB:CC:DD:EE:FF",
+        "it": "AA:BB:CC:DD:EE:FF",
+        "no": "AA:BB:CC:DD:EE:FF",
+        "sv": "AA:BB:CC:DD:EE:FF",
+        "pl": "AA:BB:CC:DD:EE:FF",
+        "ru": "AA:BB:CC:DD:EE:FF",
+        "ko": "AA:BB:CC:DD:EE:FF",
+        "ar": "AA:BB:CC:DD:EE:FF"
+      }
+    },
+    {
+      "id": "display_name",
+      "type": "text",
+      "label": {
+        "en": "Display name (optional override)",
+        "nl": "Weergavenaam (optioneel)",
+        "da": "Visningsnavn (valgfrit)",
+        "de": "Anzeigename (optional)",
+        "es": "Nombre para mostrar (opcional)",
+        "fr": "Nom d'affichage (optionnel)",
+        "it": "Nome visualizzato (opzionale)",
+        "no": "Visningsnavn (valgfritt)",
+        "sv": "Visningsnamn (valfritt)",
+        "pl": "Nazwa wyświetlana (opcjonalnie)",
+        "ru": "Отображаемое имя (необязательно)",
+        "ko": "표시 이름 (선택 사항)",
+        "ar": "اسم العرض (اختياري للتجاوز)"
+      },
+      "placeholder": {
+        "en": "e.g. My Phone",
+        "nl": "bijv. Mijn telefoon",
+        "da": "f.eks. Min telefon",
+        "de": "z.B. Mein Telefon",
+        "es": "p.ej. Mi teléfono",
+        "fr": "ex. Mon téléphone",
+        "it": "es. Il mio telefono",
+        "no": "f.eks. Min telefon",
+        "sv": "t.ex. Min telefon",
+        "pl": "np. Mój telefon",
+        "ru": "напр. Мой телефон",
+        "ko": "예: 내 전화기",
+        "ar": "مثلًا: هاتفي"
+      }
+    }
+  ]
+}

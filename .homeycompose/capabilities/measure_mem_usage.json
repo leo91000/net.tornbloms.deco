@@ -12,7 +12,8 @@
     "sv": "Minnesanvändning",
     "pl": "Użycie pamięci",
     "ru": "Использование памяти",
-    "ko": "메모리 사용량"
+    "ko": "메모리 사용량",
+    "ar": "استخدام الذاكرة"
   },
   "units": {
     "en": "%",
@@ -26,7 +27,8 @@
     "sv": "%",
     "pl": "%",
     "ru": "%",
-    "ko": "%"
+    "ko": "%",
+    "ar": "٪"
   },
   "getable": true,
   "setable": false,
@@ -42,7 +44,8 @@
     "sv": "Nuvarande minnesanvändning",
     "pl": "Aktualne użycie pamięci",
     "ru": "Текущее использование памяти",
-    "ko": "현재 메모리 사용량"
+    "ko": "현재 메모리 사용량",
+    "ar": "استخدام الذاكرة الحالي"
   },
   "insights": true,
   "chartType": "spline",

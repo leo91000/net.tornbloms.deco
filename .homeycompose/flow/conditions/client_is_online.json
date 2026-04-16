@@ -11,7 +11,8 @@
     "sv": "klienten är online",
     "pl": "klient jest online",
     "ru": "клиент в сети",
-    "ko": "클라이언트가 온라인 상태입니다"
+    "ko": "클라이언트가 온라인 상태입니다",
+    "ar": "العميل متصل بالإنترنت"
   },
   "titleFormatted": {
     "en": "[[client]] is online",
@@ -25,7 +26,8 @@
     "sv": "[[client]] är online",
     "pl": "[[client]] jest online",
     "ru": "[[client]] в сети",
-    "ko": "[[client]]가 온라인 상태입니다"
+    "ko": "[[client]]가 온라인 상태입니다",
+    "ar": "[[client]] متصل بالإنترنت"
   },
   "args": [
     {
@@ -48,7 +50,8 @@
         "sv": "klient",
         "pl": "klient",
         "ru": "клиент",
-        "ko": "클라이언트"
+        "ko": "클라이언트",
+        "ar": "عميل"
       }
     }
   ]

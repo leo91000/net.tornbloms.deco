@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      color: var(--homey-text-color, #1a1a1a);
+      padding: 16px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { --_text: #ffffff; --_subtle: rgba(255,255,255,0.55); }
+    }
+    @media (prefers-color-scheme: light) {
+      body { --_text: #1a1a1a; --_subtle: rgba(0,0,0,0.45); }
+    }
+
+    /* ── Status row ── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .dot.online  { background: #4cd964; box-shadow: 0 0 6px rgba(76,217,100,0.6); }
+    .dot.offline { background: #8e8e93; }
+    .dot.unknown { background: #8e8e93; opacity: 0.4; }
+
+    .status-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--homey-text-color, var(--_text));
+      opacity: 0.55;
+    }
+
+    /* ── Name ── */
+    .client-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--homey-text-color, var(--_text));
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+      margin-bottom: 3px;
+    }
+
+    /* ── Detail line ── */
+    .detail {
+      font-size: 13px;
+      color: var(--homey-text-color, var(--_subtle));
+      opacity: 0.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .detail span + span::before { content: ' · '; }
+
+    /* ── Unconfigured / browse state ── */
+    .setup {
+      text-align: center;
+    }
+    .setup-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--homey-text-color, var(--_text));
+    }
+    .setup-hint {
+      font-size: 12px;
+      opacity: 0.55;
+      color: var(--homey-text-color, var(--_text));
+      margin-bottom: 8px;
+    }
+    .client-list {
+      list-style: none;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .client-list li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(128,128,128,0.12);
+      font-size: 12px;
+    }
+    .client-list li:last-child { border-bottom: none; }
+    .client-list .c-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .client-list .c-mac  { font-family: monospace; opacity: 0.55; flex-shrink: 0; }
+
+    /* ── Error ── */
+    .error {
+      font-size: 13px;
+      opacity: 0.55;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    'use strict';
+
+    const root = document.getElementById('root');
+    let pollTimer = null;
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function timeAgo(ms) {
+      if (!ms) return '';
+      const diff = Date.now() - ms;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1)  return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24)  return hrs + 'h ago';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function renderStatus(data, displayName) {
+      const name = displayName || data.name || data.mac || '—';
+      const online = data.online;
+      const ip = data.ip || '';
+      const node = data.deco_node || '';
+      const last = online ? '' : timeAgo(data.lastSeen);
+
+      root.innerHTML = `
+        <div class="status-row">
+          <span class="dot ${online ? 'online' : 'offline'}"></span>
+          <span class="status-label">${online ? 'Online' : 'Offline'}</span>
+        </div>
+        <div class="client-name" title="${name}">${name}</div>
+        <div class="detail">
+          ${ip       ? `<span>${ip}</span>` : ''}
+          ${node     ? `<span>${node}</span>` : ''}
+          ${last     ? `<span>${last}</span>` : ''}
+        </div>
+      `;
+    }
+
+    function renderNotFound(mac) {
+      root.innerHTML = `
+        <div class="status-row">
+          <span class="dot unknown"></span>
+          <span class="status-label">Unknown</span>
+        </div>
+        <div class="client-name" title="${mac}">${mac}</div>
+        <div class="detail"><span>Not seen yet</span></div>
+      `;
+    }
+
+    function renderError(msg) {
+      root.innerHTML = `<div class="error">${msg}</div>`;
+    }
+
+    function renderSetup(clients) {
+      if (!clients || clients.length === 0) {
+        root.innerHTML = `
+          <div class="setup">
+            <div class="setup-title">Configure widget</div>
+            <div class="setup-hint">Enter a MAC address in widget settings.<br>No clients have been seen yet.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const items = clients.slice(0, 20).map(c => `
+        <li>
+          <span class="dot ${c.online ? 'online' : 'offline'}" style="flex-shrink:0"></span>
+          <span class="c-name" title="${c.name}">${c.name}</span>
+          <span class="c-mac">${c.mac}</span>
+        </li>
+      `).join('');
+
+      root.innerHTML = `
+        <div class="setup">
+          <div class="setup-title">Configure widget</div>
+          <div class="setup-hint">Copy a MAC address into widget settings:</div>
+          <ul class="client-list">${items}</ul>
+        </div>
+      `;
+    }
+
+    // ── Main logic ──────────────────────────────────────────────────────────
+
+    async function refresh(mac, displayName) {
+      try {
+        const data = await Homey.api('GET', '/status', { mac });
+        if (data && data.found) {
+          renderStatus(data, displayName);
+        } else {
+          renderNotFound(mac);
+        }
+      } catch (err) {
+        renderError('Could not load status');
+      }
+    }
+
+    async function init() {
+      try {
+        const settings = await Homey.getSettings();
+        const mac = (settings.client_mac || '').trim();
+        const displayName = (settings.display_name || '').trim();
+
+        if (!mac) {
+          // Show setup guide with known clients
+          try {
+            const clients = await Homey.api('GET', '/clients', {});
+            renderSetup(clients);
+          } catch (_) {
+            renderSetup([]);
+          }
+          // Resize for the setup view (taller when showing client list)
+          Homey.setHeight(160);
+          return;
+        }
+
+        // Normal mode — show presence for the configured client
+        Homey.setHeight(88);
+        await refresh(mac, displayName);
+
+        // Poll every 30 s (matches the device's polling interval)
+        clearInterval(pollTimer);
+        pollTimer = setInterval(() => refresh(mac, displayName), 30000);
+      } catch (err) {
+        renderError('Widget error');
+      }
+
+      Homey.ready();
+    }
+
+    // Re-init when settings change
+    Homey.on('settings.set', () => {
+      clearInterval(pollTimer);
+      init();
+    });
+
+    init();
+  </script>
+</body>
+</html>

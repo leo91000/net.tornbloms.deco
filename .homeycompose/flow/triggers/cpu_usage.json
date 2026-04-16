@@ -12,7 +12,8 @@
     "sv": "CPU-användning",
     "pl": "Zużycie CPU",
     "ru": "Использование ЦП",
-    "ko": "CPU 사용량"
+    "ko": "CPU 사용량",
+    "ar": "استخدام وحدة المعالجة المركزية"
   },
   "titleFormatted": {
     "en": "CPU Usage is [[cpu_usage]]",
@@ -26,7 +27,8 @@
     "sv": "CPU-användningen är [[cpu_usage]]",
     "pl": "Zużycie CPU wynosi [[cpu_usage]]",
     "ru": "Использование ЦП составляет [[cpu_usage]]",
-    "ko": "CPU 사용량은 [[cpu_usage]]입니다"
+    "ko": "CPU 사용량은 [[cpu_usage]]입니다",
+    "ar": "استخدام وحدة المعالجة المركزية هو [[cpu_usage]]"
   },
   "hint": {
     "en": "The CPU usage of the router.",
@@ -40,7 +42,8 @@
     "sv": "CPU-användningen för routern.",
     "pl": "Zużycie CPU routera.",
     "ru": "Использование ЦП маршрутизатора.",
-    "ko": "라우터의 CPU 사용량."
+    "ko": "라우터의 CPU 사용량.",
+    "ar": "استخدام وحدة المعالجة المركزية للموجه."
   },
   "args": [
     {

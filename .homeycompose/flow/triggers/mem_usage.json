@@ -12,7 +12,8 @@
     "sv": "Minnesanvändning",
     "pl": "Zużycie Pamięci",
     "ru": "Использование Памяти",
-    "ko": "메모리 사용량"
+    "ko": "메모리 사용량",
+    "ar": "استخدام الذاكرة"
   },
   "titleFormatted": {
     "en": "Memory Usage is [[mem_usage]]",
@@ -26,7 +27,8 @@
     "sv": "Minnesanvändningen är [[mem_usage]]",
     "pl": "Zużycie pamięci wynosi [[mem_usage]]",
     "ru": "Использование памяти составляет [[mem_usage]]",
-    "ko": "메모리 사용량은 [[mem_usage]]입니다"
+    "ko": "메모리 사용량은 [[mem_usage]]입니다",
+    "ar": "استخدام الذاكرة هو [[mem_usage]]"
   },
   "hint": {
     "en": "The memory usage of the router.",
@@ -40,7 +42,8 @@
     "sv": "Minnesanvändningen av routern.",
     "pl": "Zużycie pamięci przez router.",
     "ru": "Использование памяти роутера.",
-    "ko": "라우터의 메모리 사용량."
+    "ko": "라우터의 메모리 사용량.",
+    "ar": "استخدام الذاكرة لجهاز التوجيه."
   },
   "args": [
     {

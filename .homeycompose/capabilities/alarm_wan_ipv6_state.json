@@ -14,7 +14,8 @@
     "sv": "WAN Frånkopplad (ipv6)",
     "pl": "WAN Odłączony (ipv6)",
     "ru": "WAN Отключен (ipv6)",
-    "ko": "WAN 연결 끊김 (ipv6)"
+    "ko": "WAN 연결 끊김 (ipv6)",
+    "ar": "WAN غير متصل (ipv6)"
   },
   "getable": true,
   "setable": false,
@@ -31,7 +32,8 @@
     "sv": "WAN Frånkopplad (ipv6)",
     "pl": "WAN Odłączony (ipv6)",
     "ru": "WAN Отключен (ipv6)",
-    "ko": "WAN 연결 끊김 (ipv6)"
+    "ko": "WAN 연결 끊김 (ipv6)",
+    "ar": "تم فصل WAN (IPv6)"
   },
   "insightsTitleFalse": {
     "en": "WAN connected (ipv6)",
@@ -45,7 +47,8 @@
     "sv": "WAN Ansluten (ipv6)",
     "pl": "WAN Połączony (ipv6)",
     "ru": "WAN Подключен (ipv6)",
-    "ko": "WAN 연결됨 (ipv6)"
+    "ko": "WAN 연결됨 (ipv6)",
+    "ar": "متصل بـ WAN (IPv6)"
   },
   "icon": "./assets/capabilities/alarm_wan.svg"
 }

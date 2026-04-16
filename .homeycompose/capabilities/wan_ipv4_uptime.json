@@ -12,7 +12,8 @@
     "sv": "Online Varaktighet",
     "pl": "Czas Online",
     "ru": "Время в сети",
-    "ko": "온라인 지속 시간"
+    "ko": "온라인 지속 시간",
+    "ar": "مدة الاتصال بالإنترنت"
   },
   "getable": true,
   "setable": false,

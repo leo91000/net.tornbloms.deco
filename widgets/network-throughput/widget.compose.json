@@ -1,0 +1,25 @@
+{
+  "name": {
+    "en": "Network Throughput",
+    "nl": "Netwerkthroughput",
+    "da": "Netværksgennemstrømning",
+    "de": "Netzwerkdurchsatz",
+    "es": "Rendimiento de red",
+    "fr": "Débit réseau",
+    "it": "Velocità di rete",
+    "no": "Nettverksgjennomstrømning",
+    "sv": "Nätverkshastighet",
+    "pl": "Przepustowość sieci",
+    "ru": "Пропускная способность сети",
+    "ko": "네트워크 처리량",
+    "ar": "معدل نقل الشبكة"
+  },
+  "height": 80,
+  "api": {
+    "getStats": {
+      "method": "GET",
+      "path": "/stats"
+    }
+  },
+  "settings": []
+}

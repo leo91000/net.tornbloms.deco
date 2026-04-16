@@ -12,7 +12,8 @@
     "sv": "Signal 5 GHz",
     "pl": "Sygnał 5 GHz",
     "ru": "Сигнал 5 ГГц",
-    "ko": "신호 5 GHz"
+    "ko": "신호 5 GHz",
+    "ar": "إشارة 5 جيجاهرتز"
   },
   "getable": true,
   "setable": false,

@@ -11,7 +11,8 @@
     "sv": "En klient blev...",
     "pl": "Klient stał się...",
     "ru": "Клиент стал...",
-    "ko": "클라이언트가 되었습니다..."
+    "ko": "클라이언트가 되었습니다...",
+    "ar": "أصبح أحد العملاء..."
   },
   "titleFormatted": {
     "en": "[[client]] became [[status]]",
@@ -25,7 +26,8 @@
     "sv": "[[client]] blev [[status]]",
     "pl": "[[client]] stał się [[status]]",
     "ru": "[[client]] стал [[status]]",
-    "ko": "[[client]]가 [[status]]가 되었습니다"
+    "ko": "[[client]]가 [[status]]가 되었습니다",
+    "ar": "أصبح [[client]] [[status]]"
   },
   "highlight": true,
   "tokens": [
@@ -44,7 +46,8 @@
         "sv": "namn",
         "pl": "imię",
         "ru": "имя",
-        "ko": "이름"
+        "ko": "이름",
+        "ar": "الاسم"
       },
       "example": {
         "en": "PC",
@@ -58,7 +61,8 @@
         "sv": "PC",
         "pl": "PC",
         "ru": "ПК",
-        "ko": "PC"
+        "ko": "PC",
+        "ar": "الكمبيوتر الشخصي"
       }
     },
     {
@@ -76,7 +80,8 @@
         "sv": "IP-adress",
         "pl": "adres IP",
         "ru": "IP-адрес",
-        "ko": "IP 주소"
+        "ko": "IP 주소",
+        "ar": "عنوان IP"
       },
       "example": {
         "en": "192.168.0.2",
@@ -90,7 +95,8 @@
         "sv": "192.168.0.2",
         "pl": "192.168.0.2",
         "ru": "192.168.0.2",
-        "ko": "192.168.0.2"
+        "ko": "192.168.0.2",
+        "ar": "192.168.0.2"
       }
     },
     {
@@ -108,7 +114,8 @@
         "sv": "MAC-adress",
         "pl": "adres MAC",
         "ru": "MAC-адрес",
-        "ko": "MAC 주소"
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
       },
       "example": {
         "en": "A1:B2:C3:D4:E5:F6",
@@ -122,7 +129,8 @@
         "sv": "A1:B2:C3:D4:E5:F6",
         "pl": "A1:B2:C3:D4:E5:F6",
         "ru": "A1:B2:C3:D4:E5:F6",
-        "ko": "A1:B2:C3:D4:E5:F6"
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
       }
     },
     {
@@ -140,7 +148,8 @@
         "sv": "anslutningstyp",
         "pl": "typ połączenia",
         "ru": "тип соединения",
-        "ko": "연결 유형"
+        "ko": "연결 유형",
+        "ar": "نوع الاتصال"
       },
       "example": {
         "en": "5G",
@@ -154,7 +163,8 @@
         "sv": "5G",
         "pl": "5G",
         "ru": "5G",
-        "ko": "5G"
+        "ko": "5G",
+        "ar": "5G"
       }
     },
     {
@@ -172,7 +182,8 @@
         "sv": "nätverk",
         "pl": "sieć",
         "ru": "сеть",
-        "ko": "네트워크"
+        "ko": "네트워크",
+        "ar": "شبكة"
       },
       "example": {
         "en": "main",
@@ -186,7 +197,8 @@
         "sv": "main",
         "pl": "main",
         "ru": "main",
-        "ko": "main"
+        "ko": "main",
+        "ar": "الرئيسية"
       }
     },
     {
@@ -204,7 +216,8 @@
         "sv": "nedladdningshastighet (KB/s)",
         "pl": "prędkość pobierania (KB/s)",
         "ru": "скорость загрузки (KB/s)",
-        "ko": "다운로드 속도 (KB/s)"
+        "ko": "다운로드 속도 (KB/s)",
+        "ar": "سرعة التنزيل (كيلوبايت/ثانية)"
       },
       "example": 1024
     },
@@ -223,7 +236,8 @@
         "sv": "uppladdningshastighet (KB/s)",
         "pl": "prędkość wysyłania (KB/s)",
         "ru": "скорость отдачи (KB/s)",
-        "ko": "업로드 속도 (KB/s)"
+        "ko": "업로드 속도 (KB/s)",
+        "ar": "سرعة الرفع (كيلوبايت/ثانية)"
       },
       "example": 512
     }
@@ -249,7 +263,8 @@
         "sv": "klient",
         "pl": "klient",
         "ru": "клиент",
-        "ko": "클라이언트"
+        "ko": "클라이언트",
+        "ar": "عميل"
       }
     },
     {
@@ -270,7 +285,8 @@
             "sv": "online",
             "pl": "online",
             "ru": "в сети",
-            "ko": "온라인"
+            "ko": "온라인",
+            "ar": "متصل"
           }
         },
         {
@@ -287,7 +303,8 @@
             "sv": "offline",
             "pl": "offline",
             "ru": "офлайн",
-            "ko": "오프라인"
+            "ko": "오프라인",
+            "ar": "غير متصل بالإنترنت"
           }
         }
       ]

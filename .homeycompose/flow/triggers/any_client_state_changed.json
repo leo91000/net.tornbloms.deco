@@ -1,0 +1,254 @@
+{
+  "title": {
+    "en": "Any client changed status",
+    "nl": "Een willekeurige client heeft de status gewijzigd",
+    "da": "En vilkårlig klient ændrede status",
+    "de": "Ein beliebiger Client hat den Status gewechselt",
+    "es": "Cualquier cliente cambió de estado",
+    "fr": "N'importe quel client a changé d'état",
+    "it": "Un qualsiasi client ha cambiato stato",
+    "no": "En tilfeldig klient endret status",
+    "sv": "En valfri klient ändrade status",
+    "pl": "Dowolny klient zmienił stan",
+    "ru": "Любой клиент изменил статус",
+    "ko": "임의의 클라이언트 상태 변경됨",
+    "ar": "هل قام أي عميل بتغيير الحالة؟"
+  },
+  "titleFormatted": {
+    "en": "Any client became [[status]]",
+    "nl": "Een willekeurige client werd [[status]]",
+    "da": "En vilkårlig klient blev [[status]]",
+    "de": "Ein beliebiger Client wurde [[status]]",
+    "es": "Cualquier cliente se convirtió en [[status]]",
+    "fr": "N'importe quel client est devenu [[status]]",
+    "it": "Un qualsiasi client è diventato [[status]]",
+    "no": "En tilfeldig klient ble [[status]]",
+    "sv": "En valfri klient blev [[status]]",
+    "pl": "Dowolny klient stał się [[status]]",
+    "ru": "Любой клиент стал [[status]]",
+    "ko": "임의의 클라이언트가 [[status]]가 되었습니다",
+    "ar": "أي عميل أصبح [[status]]"
+  },
+  "highlight": true,
+  "tokens": [
+    {
+      "type": "string",
+      "name": "name",
+      "title": {
+        "en": "name",
+        "nl": "naam",
+        "da": "navn",
+        "de": "Name",
+        "es": "nombre",
+        "fr": "nom",
+        "it": "nome",
+        "no": "navn",
+        "sv": "namn",
+        "pl": "imię",
+        "ru": "имя",
+        "ko": "이름",
+        "ar": "الاسم"
+      },
+      "example": {
+        "en": "PC",
+        "nl": "PC",
+        "da": "PC",
+        "de": "PC",
+        "es": "PC",
+        "fr": "PC",
+        "it": "PC",
+        "no": "PC",
+        "sv": "PC",
+        "pl": "PC",
+        "ru": "ПК",
+        "ko": "PC",
+        "ar": "الكمبيوتر"
+      }
+    },
+    {
+      "type": "string",
+      "name": "mac",
+      "title": {
+        "en": "mac address",
+        "nl": "mac adres",
+        "da": "mac adresse",
+        "de": "MAC-Adresse",
+        "es": "dirección MAC",
+        "fr": "adresse MAC",
+        "it": "indirizzo MAC",
+        "no": "MAC-adresse",
+        "sv": "MAC-adress",
+        "pl": "adres MAC",
+        "ru": "MAC-адрес",
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
+      },
+      "example": {
+        "en": "A1:B2:C3:D4:E5:F6",
+        "nl": "A1:B2:C3:D4:E5:F6",
+        "da": "A1:B2:C3:D4:E5:F6",
+        "de": "A1:B2:C3:D4:E5:F6",
+        "es": "A1:B2:C3:D4:E5:F6",
+        "fr": "A1:B2:C3:D4:E5:F6",
+        "it": "A1:B2:C3:D4:E5:F6",
+        "no": "A1:B2:C3:D4:E5:F6",
+        "sv": "A1:B2:C3:D4:E5:F6",
+        "pl": "A1:B2:C3:D4:E5:F6",
+        "ru": "A1:B2:C3:D4:E5:F6",
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
+      }
+    },
+    {
+      "type": "string",
+      "name": "ipaddr",
+      "title": {
+        "en": "ip address",
+        "nl": "ip adres",
+        "da": "ip adresse",
+        "de": "IP-Adresse",
+        "es": "dirección IP",
+        "fr": "adresse IP",
+        "it": "indirizzo IP",
+        "no": "IP-adresse",
+        "sv": "IP-adress",
+        "pl": "adres IP",
+        "ru": "IP-адрес",
+        "ko": "IP 주소",
+        "ar": "عنوان IP"
+      },
+      "example": {
+        "en": "192.168.0.2",
+        "nl": "192.168.0.2",
+        "da": "192.168.0.2",
+        "de": "192.168.0.2",
+        "es": "192.168.0.2",
+        "fr": "192.168.0.2",
+        "it": "192.168.0.2",
+        "no": "192.168.0.2",
+        "sv": "192.168.0.2",
+        "pl": "192.168.0.2",
+        "ru": "192.168.0.2",
+        "ko": "192.168.0.2",
+        "ar": "192.168.0.2"
+      }
+    },
+    {
+      "type": "string",
+      "name": "status",
+      "title": {
+        "en": "status",
+        "nl": "status",
+        "da": "status",
+        "de": "Status",
+        "es": "estado",
+        "fr": "état",
+        "it": "stato",
+        "no": "status",
+        "sv": "status",
+        "pl": "stan",
+        "ru": "статус",
+        "ko": "상태",
+        "ar": "الحالة"
+      },
+      "example": {
+        "en": "online",
+        "nl": "online",
+        "da": "online",
+        "de": "online",
+        "es": "online",
+        "fr": "en ligne",
+        "it": "online",
+        "no": "online",
+        "sv": "online",
+        "pl": "online",
+        "ru": "в сети",
+        "ko": "온라인",
+        "ar": "متصل بالإنترنت"
+      }
+    },
+    {
+      "type": "string",
+      "name": "connection_type",
+      "title": {
+        "en": "connection type",
+        "nl": "verbindingstype",
+        "da": "forbindelsestype",
+        "de": "Verbindungstyp",
+        "es": "tipo de conexión",
+        "fr": "type de connexion",
+        "it": "tipo di connessione",
+        "no": "tilkoblingstype",
+        "sv": "anslutningstyp",
+        "pl": "typ połączenia",
+        "ru": "тип соединения",
+        "ko": "연결 유형",
+        "ar": "نوع الاتصال"
+      },
+      "example": {
+        "en": "5G",
+        "nl": "5G",
+        "da": "5G",
+        "de": "5G",
+        "es": "5G",
+        "fr": "5G",
+        "it": "5G",
+        "no": "5G",
+        "sv": "5G",
+        "pl": "5G",
+        "ru": "5G",
+        "ko": "5G",
+        "ar": "5G"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "device",
+      "type": "device",
+      "filter": "driver_id=tplink_deco"
+    },
+    {
+      "name": "status",
+      "type": "dropdown",
+      "values": [
+        {
+          "id": "online",
+          "title": {
+            "en": "online",
+            "nl": "online",
+            "da": "på nettet",
+            "de": "online",
+            "es": "en línea",
+            "fr": "en ligne",
+            "it": "online",
+            "no": "på nett",
+            "sv": "online",
+            "pl": "online",
+            "ru": "в сети",
+            "ko": "온라인",
+            "ar": "متصل"
+          }
+        },
+        {
+          "id": "offline",
+          "title": {
+            "en": "offline",
+            "nl": "offline",
+            "da": "offline",
+            "de": "offline",
+            "es": "fuera de línea",
+            "fr": "hors ligne",
+            "it": "offline",
+            "no": "frakoblet",
+            "sv": "offline",
+            "pl": "offline",
+            "ru": "офлайн",
+            "ko": "오프라인",
+            "ar": "غير متصل بالإنترنت"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -12,7 +12,8 @@
     "sv": "Backhaul-anslutning",
     "pl": "Połączenie backhaul",
     "ru": "Соединение обратного канала",
-    "ko": "백홀 연결"
+    "ko": "백홀 연결",
+    "ar": "اتصال الشبكة الخلفية"
   },
   "getable": true,
   "setable": false,

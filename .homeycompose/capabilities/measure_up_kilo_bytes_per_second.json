@@ -12,7 +12,8 @@
     "sv": "Uppladdningshastighet",
     "pl": "Prędkość przesyłania",
     "ru": "Скорость загрузки",
-    "ko": "업로드 속도"
+    "ko": "업로드 속도",
+    "ar": "سرعة الرفع"
   },
   "units": {
     "en": "KB/s",
@@ -26,7 +27,8 @@
     "sv": "KB/s",
     "pl": "KB/s",
     "ru": "KB/s",
-    "ko": "KB/s"
+    "ko": "KB/s",
+    "ar": "كيلوبايت/ثانية"
   },
   "getable": true,
   "setable": false,
@@ -42,7 +44,8 @@
     "sv": "Kilobyte per sekund (KB/s)",
     "pl": "Kilobajty na sekundę (KB/s)",
     "ru": "Килобайты в секунду (KB/s)",
-    "ko": "킬로바이트/초 (KB/s)"
+    "ko": "킬로바이트/초 (KB/s)",
+    "ar": "كيلو بايت في الثانية (KB/s)"
   },
   "insights": true,
   "chartType": "spline",

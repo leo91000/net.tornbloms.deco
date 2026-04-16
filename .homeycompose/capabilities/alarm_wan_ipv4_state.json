@@ -14,7 +14,8 @@
     "sv": "WAN bortkopplad (ipv4)",
     "pl": "WAN odłączony (ipv4)",
     "ru": "WAN отключен (ipv4)",
-    "ko": "WAN 연결 해제됨 (ipv4)"
+    "ko": "WAN 연결 해제됨 (ipv4)",
+    "ar": "WAN غير متصل (ipv4)"
   },
   "getable": true,
   "setable": false,
@@ -31,7 +32,8 @@
     "sv": "WAN bortkopplad (ipv4)",
     "pl": "WAN odłączony (ipv4)",
     "ru": "WAN отключен (ipv4)",
-    "ko": "WAN 연결 해제됨 (ipv4)"
+    "ko": "WAN 연결 해제됨 (ipv4)",
+    "ar": "تم فصل WAN (بروتوكول ipv4)"
   },
   "insightsTitleFalse": {
     "en": "WAN connected (ipv4)",
@@ -45,7 +47,8 @@
     "sv": "WAN ansluten (ipv4)",
     "pl": "WAN podłączony (ipv4)",
     "ru": "WAN подключен (ipv4)",
-    "ko": "WAN 연결됨 (ipv4)"
+    "ko": "WAN 연결됨 (ipv4)",
+    "ar": "متصل بـ WAN (IPv4)"
   },
   "icon": "./assets/capabilities/alarm_wan.svg"
 }

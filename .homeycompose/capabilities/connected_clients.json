@@ -12,7 +12,8 @@
     "sv": "Anslutna Klienter",
     "pl": "Połączone Klienci",
     "ru": "Подключенные Клиенты",
-    "ko": "연결된 클라이언트"
+    "ko": "연결된 클라이언트",
+    "ar": "الأجهزة المتصلة"
   },
   "units": {
     "en": "pcs",
@@ -26,7 +27,8 @@
     "sv": "st",
     "pl": "szt",
     "ru": "шт",
-    "ko": "개"
+    "ko": "개",
+    "ar": "قطع"
   },
   "getable": true,
   "setable": false,

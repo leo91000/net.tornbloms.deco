@@ -14,7 +14,8 @@
     "sv": "Frånkopplad från mesh",
     "pl": "Odłączono od siatki",
     "ru": "Отключено от mesh-сети",
-    "ko": "메시와 연결 끊김"
+    "ko": "메시와 연결 끊김",
+    "ar": "تم فصل الاتصال عن الشبكة المتداخلة"
   },
   "getable": true,
   "setable": false,
@@ -31,7 +32,8 @@
     "sv": "Frånkopplad från mesh",
     "pl": "Odłączono od siatki",
     "ru": "Отключено от mesh-сети",
-    "ko": "메시와 연결 끊김"
+    "ko": "메시와 연결 끊김",
+    "ar": "تم فصل الاتصال عن الشبكة المتداخلة"
   },
   "insightsTitleFalse": {
     "en": "Connected to Mesh",
@@ -45,7 +47,8 @@
     "sv": "Ansluten till mesh",
     "pl": "Połączono z siatką",
     "ru": "Подключено к mesh-сети",
-    "ko": "메시에 연결됨"
+    "ko": "메시에 연결됨",
+    "ar": "متصل بالشبكة المتداخلة"
   },
   "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
 }
