@@ -1,8 +1,8 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.4.19",
-  "compatibility": ">=12.0.0",
+  "version": "1.4.22",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
     "local"
@@ -143,7 +143,8 @@
           "sv": "WAN-status ändrad",
           "pl": "Status WAN zmieniony",
           "ru": "Состояние WAN изменено",
-          "ko": "WAN 상태 변경됨"
+          "ko": "WAN 상태 변경됨",
+          "ar": "تم تغيير حالة WAN"
         },
         "highlight": true,
         "args": [
@@ -169,7 +170,8 @@
               "sv": "WAN-tillstånd",
               "pl": "Stan WAN",
               "ru": "Состояние WAN",
-              "ko": "WAN 상태"
+              "ko": "WAN 상태",
+              "ar": "حالة WAN"
             }
           }
         ],
@@ -188,7 +190,8 @@
           "sv": "WAN-status offline",
           "pl": "Status WAN offline",
           "ru": "WAN оффлайн",
-          "ko": "WAN 상태 오프라인"
+          "ko": "WAN 상태 오프라인",
+          "ar": "حالة WAN غير متصل بالإنترنت"
         },
         "args": [
           {
@@ -213,7 +216,8 @@
               "sv": "WAN-status",
               "pl": "Stan WAN",
               "ru": "Состояние WAN",
-              "ko": "WAN 상태"
+              "ko": "WAN 상태",
+              "ar": "حالة WAN"
             }
           }
         ],
@@ -232,7 +236,8 @@
           "sv": "WAN-status online",
           "pl": "Status WAN online",
           "ru": "WAN статус онлайн",
-          "ko": "WAN 상태 온라인"
+          "ko": "WAN 상태 온라인",
+          "ar": "حالة WAN متصلة"
         },
         "args": [
           {
@@ -257,7 +262,8 @@
               "sv": "WAN-status",
               "pl": "Stan WAN",
               "ru": "WAN состояние",
-              "ko": "WAN 상태"
+              "ko": "WAN 상태",
+              "ar": "حالة WAN"
             }
           }
         ],
@@ -265,32 +271,34 @@
       },
       {
         "title": {
-          "en": "A client became...",
-          "nl": "Een klant werd...",
-          "da": "En klient blev...",
-          "de": "Ein Kunde wurde...",
-          "es": "Un cliente se convirtió en...",
-          "fr": "Un client est devenu...",
-          "it": "Un cliente è diventato...",
-          "no": "En klient ble...",
-          "sv": "En klient blev...",
-          "pl": "Klient stał się...",
-          "ru": "Клиент стал...",
-          "ko": "클라이언트가 되었습니다..."
+          "en": "Any client changed status",
+          "nl": "Een willekeurige client heeft de status gewijzigd",
+          "da": "En vilkårlig klient ændrede status",
+          "de": "Ein beliebiger Client hat den Status gewechselt",
+          "es": "Cualquier cliente cambió de estado",
+          "fr": "N'importe quel client a changé d'état",
+          "it": "Un qualsiasi client ha cambiato stato",
+          "no": "En tilfeldig klient endret status",
+          "sv": "En valfri klient ändrade status",
+          "pl": "Dowolny klient zmienił stan",
+          "ru": "Любой клиент изменил статус",
+          "ko": "임의의 클라이언트 상태 변경됨",
+          "ar": "هل قام أي عميل بتغيير الحالة؟"
         },
         "titleFormatted": {
-          "en": "[[client]] became [[status]]",
-          "nl": "[[client]] werd [[status]]",
-          "da": "[[client]] blev [[status]]",
-          "de": "[[client]] wurde [[status]]",
-          "es": "[[client]] se convirtió en [[status]]",
-          "fr": "[[client]] est devenu [[status]]",
-          "it": "[[client]] è diventato [[status]]",
-          "no": "[[client]] ble [[status]]",
-          "sv": "[[client]] blev [[status]]",
-          "pl": "[[client]] stał się [[status]]",
-          "ru": "[[client]] стал [[status]]",
-          "ko": "[[client]]가 [[status]]가 되었습니다"
+          "en": "Any client became [[status]]",
+          "nl": "Een willekeurige client werd [[status]]",
+          "da": "En vilkårlig klient blev [[status]]",
+          "de": "Ein beliebiger Client wurde [[status]]",
+          "es": "Cualquier cliente se convirtió en [[status]]",
+          "fr": "N'importe quel client est devenu [[status]]",
+          "it": "Un qualsiasi client è diventato [[status]]",
+          "no": "En tilfeldig klient ble [[status]]",
+          "sv": "En valfri klient blev [[status]]",
+          "pl": "Dowolny klient stał się [[status]]",
+          "ru": "Любой клиент стал [[status]]",
+          "ko": "임의의 클라이언트가 [[status]]가 되었습니다",
+          "ar": "أي عميل أصبح [[status]]"
         },
         "highlight": true,
         "tokens": [
@@ -309,7 +317,8 @@
               "sv": "namn",
               "pl": "imię",
               "ru": "имя",
-              "ko": "이름"
+              "ko": "이름",
+              "ar": "الاسم"
             },
             "example": {
               "en": "PC",
@@ -323,39 +332,8 @@
               "sv": "PC",
               "pl": "PC",
               "ru": "ПК",
-              "ko": "PC"
-            }
-          },
-          {
-            "type": "string",
-            "name": "ipaddr",
-            "title": {
-              "en": "ip address",
-              "nl": "ip adres",
-              "da": "ip adresse",
-              "de": "IP-Adresse",
-              "es": "dirección IP",
-              "fr": "adresse IP",
-              "it": "indirizzo IP",
-              "no": "IP-adresse",
-              "sv": "IP-adress",
-              "pl": "adres IP",
-              "ru": "IP-адрес",
-              "ko": "IP 주소"
-            },
-            "example": {
-              "en": "192.168.0.2",
-              "nl": "192.168.0.2",
-              "da": "192.168.0.2",
-              "de": "192.168.0.2",
-              "es": "192.168.0.2",
-              "fr": "192.168.0.2",
-              "it": "192.168.0.2",
-              "no": "192.168.0.2",
-              "sv": "192.168.0.2",
-              "pl": "192.168.0.2",
-              "ru": "192.168.0.2",
-              "ko": "192.168.0.2"
+              "ko": "PC",
+              "ar": "الكمبيوتر"
             }
           },
           {
@@ -373,7 +351,8 @@
               "sv": "MAC-adress",
               "pl": "adres MAC",
               "ru": "MAC-адрес",
-              "ko": "MAC 주소"
+              "ko": "MAC 주소",
+              "ar": "عنوان MAC"
             },
             "example": {
               "en": "A1:B2:C3:D4:E5:F6",
@@ -387,7 +366,76 @@
               "sv": "A1:B2:C3:D4:E5:F6",
               "pl": "A1:B2:C3:D4:E5:F6",
               "ru": "A1:B2:C3:D4:E5:F6",
-              "ko": "A1:B2:C3:D4:E5:F6"
+              "ko": "A1:B2:C3:D4:E5:F6",
+              "ar": "A1:B2:C3:D4:E5:F6"
+            }
+          },
+          {
+            "type": "string",
+            "name": "ipaddr",
+            "title": {
+              "en": "ip address",
+              "nl": "ip adres",
+              "da": "ip adresse",
+              "de": "IP-Adresse",
+              "es": "dirección IP",
+              "fr": "adresse IP",
+              "it": "indirizzo IP",
+              "no": "IP-adresse",
+              "sv": "IP-adress",
+              "pl": "adres IP",
+              "ru": "IP-адрес",
+              "ko": "IP 주소",
+              "ar": "عنوان IP"
+            },
+            "example": {
+              "en": "192.168.0.2",
+              "nl": "192.168.0.2",
+              "da": "192.168.0.2",
+              "de": "192.168.0.2",
+              "es": "192.168.0.2",
+              "fr": "192.168.0.2",
+              "it": "192.168.0.2",
+              "no": "192.168.0.2",
+              "sv": "192.168.0.2",
+              "pl": "192.168.0.2",
+              "ru": "192.168.0.2",
+              "ko": "192.168.0.2",
+              "ar": "192.168.0.2"
+            }
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "title": {
+              "en": "status",
+              "nl": "status",
+              "da": "status",
+              "de": "Status",
+              "es": "estado",
+              "fr": "état",
+              "it": "stato",
+              "no": "status",
+              "sv": "status",
+              "pl": "stan",
+              "ru": "статус",
+              "ko": "상태",
+              "ar": "الحالة"
+            },
+            "example": {
+              "en": "online",
+              "nl": "online",
+              "da": "online",
+              "de": "online",
+              "es": "online",
+              "fr": "en ligne",
+              "it": "online",
+              "no": "online",
+              "sv": "online",
+              "pl": "online",
+              "ru": "в сети",
+              "ko": "온라인",
+              "ar": "متصل بالإنترنت"
             }
           },
           {
@@ -405,7 +453,8 @@
               "sv": "anslutningstyp",
               "pl": "typ połączenia",
               "ru": "тип соединения",
-              "ko": "연결 유형"
+              "ko": "연결 유형",
+              "ar": "نوع الاتصال"
             },
             "example": {
               "en": "5G",
@@ -419,7 +468,591 @@
               "sv": "5G",
               "pl": "5G",
               "ru": "5G",
-              "ko": "5G"
+              "ko": "5G",
+              "ar": "5G"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "status",
+            "type": "dropdown",
+            "values": [
+              {
+                "id": "online",
+                "title": {
+                  "en": "online",
+                  "nl": "online",
+                  "da": "på nettet",
+                  "de": "online",
+                  "es": "en línea",
+                  "fr": "en ligne",
+                  "it": "online",
+                  "no": "på nett",
+                  "sv": "online",
+                  "pl": "online",
+                  "ru": "в сети",
+                  "ko": "온라인",
+                  "ar": "متصل"
+                }
+              },
+              {
+                "id": "offline",
+                "title": {
+                  "en": "offline",
+                  "nl": "offline",
+                  "da": "offline",
+                  "de": "offline",
+                  "es": "fuera de línea",
+                  "fr": "hors ligne",
+                  "it": "offline",
+                  "no": "frakoblet",
+                  "sv": "offline",
+                  "pl": "offline",
+                  "ru": "офлайн",
+                  "ko": "오프라인",
+                  "ar": "غير متصل بالإنترنت"
+                }
+              }
+            ]
+          }
+        ],
+        "id": "any_client_state_changed"
+      },
+      {
+        "title": {
+          "en": "A new client connected for the first time",
+          "nl": "Een nieuwe client heeft voor het eerst verbinding gemaakt",
+          "da": "En ny klient oprettede forbindelse for første gang",
+          "de": "Ein neuer Client hat sich zum ersten Mal verbunden",
+          "es": "Un nuevo cliente se conectó por primera vez",
+          "fr": "Un nouveau client s'est connecté pour la première fois",
+          "it": "Un nuovo client si è connesso per la prima volta",
+          "no": "En ny klient koblet til for første gang",
+          "sv": "En ny klient anslöt för första gången",
+          "pl": "Nowy klient połączył się po raz pierwszy",
+          "ru": "Новый клиент подключился впервые",
+          "ko": "새 클라이언트가 처음으로 연결됨",
+          "ar": "اتصل عميل جديد لأول مرة"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "type": "string",
+            "name": "name",
+            "title": {
+              "en": "name",
+              "nl": "naam",
+              "da": "navn",
+              "de": "Name",
+              "es": "nombre",
+              "fr": "nom",
+              "it": "nome",
+              "no": "navn",
+              "sv": "namn",
+              "pl": "imię",
+              "ru": "имя",
+              "ko": "이름",
+              "ar": "الاسم"
+            },
+            "example": {
+              "en": "New Phone",
+              "nl": "Nieuwe telefoon",
+              "da": "Ny telefon",
+              "de": "Neues Telefon",
+              "es": "Nuevo teléfono",
+              "fr": "Nouveau téléphone",
+              "it": "Nuovo telefono",
+              "no": "Ny telefon",
+              "sv": "Ny telefon",
+              "pl": "Nowy telefon",
+              "ru": "Новый телефон",
+              "ko": "새 전화기",
+              "ar": "هاتف جديد"
+            }
+          },
+          {
+            "type": "string",
+            "name": "mac",
+            "title": {
+              "en": "mac address",
+              "nl": "mac adres",
+              "da": "mac adresse",
+              "de": "MAC-Adresse",
+              "es": "dirección MAC",
+              "fr": "adresse MAC",
+              "it": "indirizzo MAC",
+              "no": "MAC-adresse",
+              "sv": "MAC-adress",
+              "pl": "adres MAC",
+              "ru": "MAC-адрес",
+              "ko": "MAC 주소",
+              "ar": "عنوان MAC"
+            },
+            "example": {
+              "en": "A1:B2:C3:D4:E5:F6",
+              "nl": "A1:B2:C3:D4:E5:F6",
+              "da": "A1:B2:C3:D4:E5:F6",
+              "de": "A1:B2:C3:D4:E5:F6",
+              "es": "A1:B2:C3:D4:E5:F6",
+              "fr": "A1:B2:C3:D4:E5:F6",
+              "it": "A1:B2:C3:D4:E5:F6",
+              "no": "A1:B2:C3:D4:E5:F6",
+              "sv": "A1:B2:C3:D4:E5:F6",
+              "pl": "A1:B2:C3:D4:E5:F6",
+              "ru": "A1:B2:C3:D4:E5:F6",
+              "ko": "A1:B2:C3:D4:E5:F6",
+              "ar": "A1:B2:C3:D4:E5:F6"
+            }
+          },
+          {
+            "type": "string",
+            "name": "ipaddr",
+            "title": {
+              "en": "ip address",
+              "nl": "ip adres",
+              "da": "ip adresse",
+              "de": "IP-Adresse",
+              "es": "dirección IP",
+              "fr": "adresse IP",
+              "it": "indirizzo IP",
+              "no": "IP-adresse",
+              "sv": "IP-adress",
+              "pl": "adres IP",
+              "ru": "IP-адрес",
+              "ko": "IP 주소",
+              "ar": "عنوان IP"
+            },
+            "example": {
+              "en": "192.168.0.5",
+              "nl": "192.168.0.5",
+              "da": "192.168.0.5",
+              "de": "192.168.0.5",
+              "es": "192.168.0.5",
+              "fr": "192.168.0.5",
+              "it": "192.168.0.5",
+              "no": "192.168.0.5",
+              "sv": "192.168.0.5",
+              "pl": "192.168.0.5",
+              "ru": "192.168.0.5",
+              "ko": "192.168.0.5",
+              "ar": "192.168.0.5"
+            }
+          },
+          {
+            "type": "string",
+            "name": "connection_type",
+            "title": {
+              "en": "connection type",
+              "nl": "verbindingstype",
+              "da": "forbindelsestype",
+              "de": "Verbindungstyp",
+              "es": "tipo de conexión",
+              "fr": "type de connexion",
+              "it": "tipo di connessione",
+              "no": "tilkoblingstype",
+              "sv": "anslutningstyp",
+              "pl": "typ połączenia",
+              "ru": "тип соединения",
+              "ko": "연결 유형",
+              "ar": "نوع الاتصال"
+            },
+            "example": {
+              "en": "2.4G",
+              "nl": "2.4G",
+              "da": "2.4G",
+              "de": "2.4G",
+              "es": "2.4G",
+              "fr": "2.4G",
+              "it": "2.4G",
+              "no": "2.4G",
+              "sv": "2.4G",
+              "pl": "2.4G",
+              "ru": "2.4G",
+              "ko": "2.4G",
+              "ar": "2.4G"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          }
+        ],
+        "id": "client_first_seen"
+      },
+      {
+        "title": {
+          "en": "A client changed Deco node",
+          "nl": "Een client heeft van Deco-knooppunt gewisseld",
+          "da": "En klient skiftede Deco-knudepunkt",
+          "de": "Ein Client hat den Deco-Knoten gewechselt",
+          "es": "Un cliente cambió de nodo Deco",
+          "fr": "Un client a changé de nœud Deco",
+          "it": "Un client ha cambiato nodo Deco",
+          "no": "En klient byttet Deco-node",
+          "sv": "En klient bytte Deco-nod",
+          "pl": "Klient zmienił węzeł Deco",
+          "ru": "Клиент сменил узел Deco",
+          "ko": "클라이언트가 Deco 노드를 변경함",
+          "ar": "قام أحد العملاء بتغيير عقدة Deco"
+        },
+        "titleFormatted": {
+          "en": "[[client]] changed Deco node",
+          "nl": "[[client]] heeft van Deco-knooppunt gewisseld",
+          "da": "[[client]] skiftede Deco-knudepunkt",
+          "de": "[[client]] hat den Deco-Knoten gewechselt",
+          "es": "[[client]] cambió de nodo Deco",
+          "fr": "[[client]] a changé de nœud Deco",
+          "it": "[[client]] ha cambiato nodo Deco",
+          "no": "[[client]] byttet Deco-node",
+          "sv": "[[client]] bytte Deco-nod",
+          "pl": "[[client]] zmienił węzeł Deco",
+          "ru": "[[client]] сменил узел Deco",
+          "ko": "[[client]]이(가) Deco 노드를 변경했습니다",
+          "ar": "قام [[client]] بتغيير عقدة Deco"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "type": "string",
+            "name": "name",
+            "title": {
+              "en": "client name",
+              "nl": "clientnaam",
+              "da": "klientnavn",
+              "de": "Client-Name",
+              "es": "nombre del cliente",
+              "fr": "nom du client",
+              "it": "nome del client",
+              "no": "klientnavn",
+              "sv": "klientnamn",
+              "pl": "nazwa klienta",
+              "ru": "имя клиента",
+              "ko": "클라이언트 이름",
+              "ar": "اسم العميل"
+            },
+            "example": {
+              "en": "iPhone",
+              "nl": "iPhone",
+              "da": "iPhone",
+              "de": "iPhone",
+              "es": "iPhone",
+              "fr": "iPhone",
+              "it": "iPhone",
+              "no": "iPhone",
+              "sv": "iPhone",
+              "pl": "iPhone",
+              "ru": "iPhone",
+              "ko": "iPhone",
+              "ar": "آيفون"
+            }
+          },
+          {
+            "type": "string",
+            "name": "mac",
+            "title": {
+              "en": "mac address",
+              "nl": "mac adres",
+              "da": "mac adresse",
+              "de": "MAC-Adresse",
+              "es": "dirección MAC",
+              "fr": "adresse MAC",
+              "it": "indirizzo MAC",
+              "no": "MAC-adresse",
+              "sv": "MAC-adress",
+              "pl": "adres MAC",
+              "ru": "MAC-адрес",
+              "ko": "MAC 주소",
+              "ar": "عنوان MAC"
+            },
+            "example": {
+              "en": "A1:B2:C3:D4:E5:F6",
+              "nl": "A1:B2:C3:D4:E5:F6",
+              "da": "A1:B2:C3:D4:E5:F6",
+              "de": "A1:B2:C3:D4:E5:F6",
+              "es": "A1:B2:C3:D4:E5:F6",
+              "fr": "A1:B2:C3:D4:E5:F6",
+              "it": "A1:B2:C3:D4:E5:F6",
+              "no": "A1:B2:C3:D4:E5:F6",
+              "sv": "A1:B2:C3:D4:E5:F6",
+              "pl": "A1:B2:C3:D4:E5:F6",
+              "ru": "A1:B2:C3:D4:E5:F6",
+              "ko": "A1:B2:C3:D4:E5:F6",
+              "ar": "A1:B2:C3:D4:E5:F6"
+            }
+          },
+          {
+            "type": "string",
+            "name": "deco_node",
+            "title": {
+              "en": "new Deco node",
+              "nl": "nieuw Deco-knooppunt",
+              "da": "nyt Deco-knudepunkt",
+              "de": "neuer Deco-Knoten",
+              "es": "nuevo nodo Deco",
+              "fr": "nouveau nœud Deco",
+              "it": "nuovo nodo Deco",
+              "no": "ny Deco-node",
+              "sv": "ny Deco-nod",
+              "pl": "nowy węzeł Deco",
+              "ru": "новый узел Deco",
+              "ko": "새 Deco 노드",
+              "ar": "عقدة Deco جديدة"
+            },
+            "example": {
+              "en": "Deco X50 - Living room",
+              "nl": "Deco X50 - Woonkamer",
+              "da": "Deco X50 - Stue",
+              "de": "Deco X50 - Wohnzimmer",
+              "es": "Deco X50 - Sala de estar",
+              "fr": "Deco X50 - Salon",
+              "it": "Deco X50 - Soggiorno",
+              "no": "Deco X50 - Stue",
+              "sv": "Deco X50 - Vardagsrum",
+              "pl": "Deco X50 - Salon",
+              "ru": "Deco X50 - Гостиная",
+              "ko": "Deco X50 - 거실",
+              "ar": "Deco X50 - غرفة المعيشة"
+            }
+          },
+          {
+            "type": "string",
+            "name": "previous_node",
+            "title": {
+              "en": "previous Deco node",
+              "nl": "vorig Deco-knooppunt",
+              "da": "forrige Deco-knudepunkt",
+              "de": "vorheriger Deco-Knoten",
+              "es": "nodo Deco anterior",
+              "fr": "nœud Deco précédent",
+              "it": "nodo Deco precedente",
+              "no": "forrige Deco-node",
+              "sv": "föregående Deco-nod",
+              "pl": "poprzedni węzeł Deco",
+              "ru": "предыдущий узел Deco",
+              "ko": "이전 Deco 노드",
+              "ar": "العقدة السابقة لـ Deco"
+            },
+            "example": {
+              "en": "Deco X50 - Bedroom",
+              "nl": "Deco X50 - Slaapkamer",
+              "da": "Deco X50 - Soveværelse",
+              "de": "Deco X50 - Schlafzimmer",
+              "es": "Deco X50 - Dormitorio",
+              "fr": "Deco X50 - Chambre",
+              "it": "Deco X50 - Camera da letto",
+              "no": "Deco X50 - Soverom",
+              "sv": "Deco X50 - Sovrum",
+              "pl": "Deco X50 - Sypialnia",
+              "ru": "Deco X50 - Спальня",
+              "ko": "Deco X50 - 침실",
+              "ar": "Deco X50 - غرفة النوم"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "placeholder": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            }
+          }
+        ],
+        "id": "client_node_changed"
+      },
+      {
+        "title": {
+          "en": "A client became...",
+          "nl": "Een klant werd...",
+          "da": "En klient blev...",
+          "de": "Ein Kunde wurde...",
+          "es": "Un cliente se convirtió en...",
+          "fr": "Un client est devenu...",
+          "it": "Un cliente è diventato...",
+          "no": "En klient ble...",
+          "sv": "En klient blev...",
+          "pl": "Klient stał się...",
+          "ru": "Клиент стал...",
+          "ko": "클라이언트가 되었습니다...",
+          "ar": "أصبح أحد العملاء..."
+        },
+        "titleFormatted": {
+          "en": "[[client]] became [[status]]",
+          "nl": "[[client]] werd [[status]]",
+          "da": "[[client]] blev [[status]]",
+          "de": "[[client]] wurde [[status]]",
+          "es": "[[client]] se convirtió en [[status]]",
+          "fr": "[[client]] est devenu [[status]]",
+          "it": "[[client]] è diventato [[status]]",
+          "no": "[[client]] ble [[status]]",
+          "sv": "[[client]] blev [[status]]",
+          "pl": "[[client]] stał się [[status]]",
+          "ru": "[[client]] стал [[status]]",
+          "ko": "[[client]]가 [[status]]가 되었습니다",
+          "ar": "أصبح [[client]] [[status]]"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "type": "string",
+            "name": "name",
+            "title": {
+              "en": "name",
+              "nl": "naam",
+              "da": "navn",
+              "de": "Name",
+              "es": "nombre",
+              "fr": "nom",
+              "it": "nome",
+              "no": "navn",
+              "sv": "namn",
+              "pl": "imię",
+              "ru": "имя",
+              "ko": "이름",
+              "ar": "الاسم"
+            },
+            "example": {
+              "en": "PC",
+              "nl": "PC",
+              "da": "PC",
+              "de": "PC",
+              "es": "PC",
+              "fr": "PC",
+              "it": "PC",
+              "no": "PC",
+              "sv": "PC",
+              "pl": "PC",
+              "ru": "ПК",
+              "ko": "PC",
+              "ar": "الكمبيوتر الشخصي"
+            }
+          },
+          {
+            "type": "string",
+            "name": "ipaddr",
+            "title": {
+              "en": "ip address",
+              "nl": "ip adres",
+              "da": "ip adresse",
+              "de": "IP-Adresse",
+              "es": "dirección IP",
+              "fr": "adresse IP",
+              "it": "indirizzo IP",
+              "no": "IP-adresse",
+              "sv": "IP-adress",
+              "pl": "adres IP",
+              "ru": "IP-адрес",
+              "ko": "IP 주소",
+              "ar": "عنوان IP"
+            },
+            "example": {
+              "en": "192.168.0.2",
+              "nl": "192.168.0.2",
+              "da": "192.168.0.2",
+              "de": "192.168.0.2",
+              "es": "192.168.0.2",
+              "fr": "192.168.0.2",
+              "it": "192.168.0.2",
+              "no": "192.168.0.2",
+              "sv": "192.168.0.2",
+              "pl": "192.168.0.2",
+              "ru": "192.168.0.2",
+              "ko": "192.168.0.2",
+              "ar": "192.168.0.2"
+            }
+          },
+          {
+            "type": "string",
+            "name": "mac",
+            "title": {
+              "en": "mac address",
+              "nl": "mac adres",
+              "da": "mac adresse",
+              "de": "MAC-Adresse",
+              "es": "dirección MAC",
+              "fr": "adresse MAC",
+              "it": "indirizzo MAC",
+              "no": "MAC-adresse",
+              "sv": "MAC-adress",
+              "pl": "adres MAC",
+              "ru": "MAC-адрес",
+              "ko": "MAC 주소",
+              "ar": "عنوان MAC"
+            },
+            "example": {
+              "en": "A1:B2:C3:D4:E5:F6",
+              "nl": "A1:B2:C3:D4:E5:F6",
+              "da": "A1:B2:C3:D4:E5:F6",
+              "de": "A1:B2:C3:D4:E5:F6",
+              "es": "A1:B2:C3:D4:E5:F6",
+              "fr": "A1:B2:C3:D4:E5:F6",
+              "it": "A1:B2:C3:D4:E5:F6",
+              "no": "A1:B2:C3:D4:E5:F6",
+              "sv": "A1:B2:C3:D4:E5:F6",
+              "pl": "A1:B2:C3:D4:E5:F6",
+              "ru": "A1:B2:C3:D4:E5:F6",
+              "ko": "A1:B2:C3:D4:E5:F6",
+              "ar": "A1:B2:C3:D4:E5:F6"
+            }
+          },
+          {
+            "type": "string",
+            "name": "connection_type",
+            "title": {
+              "en": "connection type",
+              "nl": "verbindingstype",
+              "da": "forbindelsestype",
+              "de": "Verbindungstyp",
+              "es": "tipo de conexión",
+              "fr": "type de connexion",
+              "it": "tipo di connessione",
+              "no": "tilkoblingstype",
+              "sv": "anslutningstyp",
+              "pl": "typ połączenia",
+              "ru": "тип соединения",
+              "ko": "연결 유형",
+              "ar": "نوع الاتصال"
+            },
+            "example": {
+              "en": "5G",
+              "nl": "5G",
+              "da": "5G",
+              "de": "5G",
+              "es": "5G",
+              "fr": "5G",
+              "it": "5G",
+              "no": "5G",
+              "sv": "5G",
+              "pl": "5G",
+              "ru": "5G",
+              "ko": "5G",
+              "ar": "5G"
             }
           },
           {
@@ -437,7 +1070,8 @@
               "sv": "nätverk",
               "pl": "sieć",
               "ru": "сеть",
-              "ko": "네트워크"
+              "ko": "네트워크",
+              "ar": "شبكة"
             },
             "example": {
               "en": "main",
@@ -451,7 +1085,8 @@
               "sv": "main",
               "pl": "main",
               "ru": "main",
-              "ko": "main"
+              "ko": "main",
+              "ar": "الرئيسية"
             }
           },
           {
@@ -469,7 +1104,8 @@
               "sv": "nedladdningshastighet (KB/s)",
               "pl": "prędkość pobierania (KB/s)",
               "ru": "скорость загрузки (KB/s)",
-              "ko": "다운로드 속도 (KB/s)"
+              "ko": "다운로드 속도 (KB/s)",
+              "ar": "سرعة التنزيل (كيلوبايت/ثانية)"
             },
             "example": 1024
           },
@@ -488,7 +1124,8 @@
               "sv": "uppladdningshastighet (KB/s)",
               "pl": "prędkość wysyłania (KB/s)",
               "ru": "скорость отдачи (KB/s)",
-              "ko": "업로드 속도 (KB/s)"
+              "ko": "업로드 속도 (KB/s)",
+              "ar": "سرعة الرفع (كيلوبايت/ثانية)"
             },
             "example": 512
           }
@@ -514,7 +1151,8 @@
               "sv": "klient",
               "pl": "klient",
               "ru": "клиент",
-              "ko": "클라이언트"
+              "ko": "클라이언트",
+              "ar": "عميل"
             }
           },
           {
@@ -535,7 +1173,8 @@
                   "sv": "online",
                   "pl": "online",
                   "ru": "в сети",
-                  "ko": "온라인"
+                  "ko": "온라인",
+                  "ar": "متصل"
                 }
               },
               {
@@ -552,7 +1191,8 @@
                   "sv": "offline",
                   "pl": "offline",
                   "ru": "офлайн",
-                  "ko": "오프라인"
+                  "ko": "오프라인",
+                  "ar": "غير متصل بالإنترنت"
                 }
               }
             ]
@@ -574,7 +1214,8 @@
           "sv": "CPU-användning",
           "pl": "Zużycie CPU",
           "ru": "Использование ЦП",
-          "ko": "CPU 사용량"
+          "ko": "CPU 사용량",
+          "ar": "استخدام وحدة المعالجة المركزية"
         },
         "titleFormatted": {
           "en": "CPU Usage is [[cpu_usage]]",
@@ -588,7 +1229,8 @@
           "sv": "CPU-användningen är [[cpu_usage]]",
           "pl": "Zużycie CPU wynosi [[cpu_usage]]",
           "ru": "Использование ЦП составляет [[cpu_usage]]",
-          "ko": "CPU 사용량은 [[cpu_usage]]입니다"
+          "ko": "CPU 사용량은 [[cpu_usage]]입니다",
+          "ar": "استخدام وحدة المعالجة المركزية هو [[cpu_usage]]"
         },
         "hint": {
           "en": "The CPU usage of the router.",
@@ -602,7 +1244,8 @@
           "sv": "CPU-användningen för routern.",
           "pl": "Zużycie CPU routera.",
           "ru": "Использование ЦП маршрутизатора.",
-          "ko": "라우터의 CPU 사용량."
+          "ko": "라우터의 CPU 사용량.",
+          "ar": "استخدام وحدة المعالجة المركزية للموجه."
         },
         "args": [
           {
@@ -626,7 +1269,8 @@
           "sv": "Minnesanvändning",
           "pl": "Zużycie Pamięci",
           "ru": "Использование Памяти",
-          "ko": "메모리 사용량"
+          "ko": "메모리 사용량",
+          "ar": "استخدام الذاكرة"
         },
         "titleFormatted": {
           "en": "Memory Usage is [[mem_usage]]",
@@ -640,7 +1284,8 @@
           "sv": "Minnesanvändningen är [[mem_usage]]",
           "pl": "Zużycie pamięci wynosi [[mem_usage]]",
           "ru": "Использование памяти составляет [[mem_usage]]",
-          "ko": "메모리 사용량은 [[mem_usage]]입니다"
+          "ko": "메모리 사용량은 [[mem_usage]]입니다",
+          "ar": "استخدام الذاكرة هو [[mem_usage]]"
         },
         "hint": {
           "en": "The memory usage of the router.",
@@ -654,7 +1299,8 @@
           "sv": "Minnesanvändningen av routern.",
           "pl": "Zużycie pamięci przez router.",
           "ru": "Использование памяти роутера.",
-          "ko": "라우터의 메모리 사용량."
+          "ko": "라우터의 메모리 사용량.",
+          "ar": "استخدام الذاكرة لجهاز التوجيه."
         },
         "args": [
           {
@@ -679,7 +1325,8 @@
           "sv": "klienten är online",
           "pl": "klient jest online",
           "ru": "клиент в сети",
-          "ko": "클라이언트가 온라인 상태입니다"
+          "ko": "클라이언트가 온라인 상태입니다",
+          "ar": "العميل متصل بالإنترنت"
         },
         "titleFormatted": {
           "en": "[[client]] is online",
@@ -693,7 +1340,8 @@
           "sv": "[[client]] är online",
           "pl": "[[client]] jest online",
           "ru": "[[client]] в сети",
-          "ko": "[[client]]가 온라인 상태입니다"
+          "ko": "[[client]]가 온라인 상태입니다",
+          "ar": "[[client]] متصل بالإنترنت"
         },
         "args": [
           {
@@ -716,7 +1364,8 @@
               "sv": "klient",
               "pl": "klient",
               "ru": "клиент",
-              "ko": "클라이언트"
+              "ko": "클라이언트",
+              "ar": "عميل"
             }
           }
         ],
@@ -738,7 +1387,8 @@
           "sv": "Starta om",
           "pl": "Restart",
           "ru": "Перезагрузить",
-          "ko": "재부팅"
+          "ko": "재부팅",
+          "ar": "إعادة التشغيل"
         },
         "args": [
           {
@@ -766,7 +1416,8 @@
         "no": "TP-Link Deco",
         "pl": "TP-Link Deco",
         "ru": "TP-Link Deco",
-        "ko": "TP-Link Deco"
+        "ko": "TP-Link Deco",
+        "ar": "ديكو من تي بي لينك"
       },
       "images": {
         "small": "/drivers/tplink_deco/assets/images/small.png",
@@ -791,7 +1442,8 @@
               "no": "Legg til din IP-adresse eller vertsnavn og passord",
               "pl": "Dodaj swój adres IP lub nazwę hosta i hasło",
               "ru": "Добавьте ваш IP-адрес или имя хоста и пароль",
-              "ko": "IP 또는 호스트 이름과 비밀번호를 입력하세요"
+              "ko": "IP 또는 호스트 이름과 비밀번호를 입력하세요",
+              "ar": "أضف عنوان IP أو اسم المضيف وكلمة المرور الخاصة بك"
             },
             "usernameLabel": {
               "en": "Hostname / IP",
@@ -805,7 +1457,8 @@
               "no": "Vertsnavn / IP-adresse",
               "pl": "Nazwa hosta / Adres IP",
               "ru": "Имя хоста / IP-адрес",
-              "ko": "호스트 이름 / IP"
+              "ko": "호스트 이름 / IP",
+              "ar": "اسم المضيف / عنوان IP"
             },
             "usernamePlaceholder": "tplinkdeco.net",
             "passwordLabel": {
@@ -820,7 +1473,8 @@
               "no": "Passord",
               "pl": "Hasło",
               "ru": "Пароль",
-              "ko": "비밀번호"
+              "ko": "비밀번호",
+              "ar": "كلمة المرور"
             },
             "passwordPlaceholder": {
               "en": "Password",
@@ -834,7 +1488,8 @@
               "no": "Passord",
               "pl": "Hasło",
               "ru": "Пароль",
-              "ko": "비밀번호"
+              "ko": "비밀번호",
+              "ar": "كلمة المرور"
             }
           }
         },
@@ -889,7 +1544,8 @@
             "sv": "Inloggningsdetaljer",
             "pl": "Szczegóły logowania",
             "ru": "Данные для входа",
-            "ko": "로그인 정보"
+            "ko": "로그인 정보",
+            "ar": "تفاصيل تسجيل الدخول"
           },
           "children": [
             {
@@ -907,7 +1563,8 @@
                 "sv": "Värdnamn/IP",
                 "pl": "Nazwa hosta/IP",
                 "ru": "Имя хоста/IP",
-                "ko": "호스트네임/IP"
+                "ko": "호스트네임/IP",
+                "ar": "اسم المضيف/IP"
               },
               "value": "192.168.68.1",
               "required": true,
@@ -923,7 +1580,8 @@
                 "sv": "Värdnamnet eller IP-adressen till routern.",
                 "pl": "Nazwa hosta lub IP routera.",
                 "ru": "Имя хоста или IP адрес роутера.",
-                "ko": "라우터의 호스트네임 또는 IP."
+                "ko": "라우터의 호스트네임 또는 IP.",
+                "ar": "اسم المضيف أو عنوان IP لجهاز التوجيه."
               }
             },
             {
@@ -941,7 +1599,8 @@
                 "sv": "Lösenord",
                 "pl": "Hasło",
                 "ru": "Пароль",
-                "ko": "비밀번호"
+                "ko": "비밀번호",
+                "ar": "كلمة المرور"
               },
               "value": "Secret",
               "required": true,
@@ -957,7 +1616,8 @@
                 "sv": "Ägarens TP-Link-lösenord.",
                 "pl": "Hasło TP-Link właściciela.",
                 "ru": "Пароль TP-Link владельца.",
-                "ko": "소유자의 TP-Link 비밀번호."
+                "ko": "소유자의 TP-Link 비밀번호.",
+                "ar": "كلمة مرور TP-Link الخاصة بالمالك."
               }
             }
           ]
@@ -976,7 +1636,8 @@
             "sv": "Timers",
             "pl": "Timery",
             "ru": "Таймеры",
-            "ko": "타이머"
+            "ko": "타이머",
+            "ar": "المؤقتات"
           },
           "children": [
             {
@@ -994,7 +1655,8 @@
                 "sv": "Fråga routern varje",
                 "pl": "Zapytaj router co",
                 "ru": "Запрос роутера каждые",
-                "ko": "라우터를 쿼리할 간격"
+                "ko": "라우터를 쿼리할 간격",
+                "ar": "استعلام عن جهاز التوجيه كل"
               },
               "value": 30,
               "min": 1,
@@ -1014,7 +1676,8 @@
                 "sv": "sekunder",
                 "pl": "sekund",
                 "ru": "секунд",
-                "ko": "초"
+                "ko": "초",
+                "ar": "ثوانٍ"
               },
               "hint": {
                 "en": "Value in seconds, dont set too low as it might cause stability issues on your network",
@@ -1028,7 +1691,8 @@
                 "sv": "Värde i sekunder, ställ inte för lågt eftersom det kan orsaka stabilitetsproblem i ditt nätverk",
                 "pl": "Wartość w sekundach, nie ustawiaj zbyt nisko, ponieważ może to powodować problemy ze stabilnością sieci",
                 "ru": "Значение в секундах, не устанавливайте слишком низкое значение, так как это может вызвать проблемы со стабильностью в вашей сети",
-                "ko": "초 단위 값, 너무 낮게 설정하면 네트워크에 안정성 문제가 발생할 수 있습니다"
+                "ko": "초 단위 값, 너무 낮게 설정하면 네트워크에 안정성 문제가 발생할 수 있습니다",
+                "ar": "القيمة بالثواني، لا تضبطها على قيمة منخفضة جدًا لأنها قد تسبب مشاكل في استقرار الشبكة لديك."
               }
             }
           ]
@@ -1047,7 +1711,8 @@
             "sv": "Enhetsinställningar",
             "pl": "Ustawienia urządzenia",
             "ru": "Настройки устройства",
-            "ko": "장치 설정"
+            "ko": "장치 설정",
+            "ar": "إعدادات الجهاز"
           },
           "children": [
             {
@@ -1065,7 +1730,8 @@
                 "sv": "Enhetsmodell:",
                 "pl": "Model urządzenia:",
                 "ru": "Модель устройства:",
-                "ko": "장치 모델:"
+                "ko": "장치 모델:",
+                "ar": "طراز الجهاز:"
               },
               "hint": {
                 "en": "Model name of the device",
@@ -1079,7 +1745,8 @@
                 "sv": "Modellnamn på enheten",
                 "pl": "Nazwa modelu urządzenia",
                 "ru": "Название модели устройства",
-                "ko": "장치 모델 이름"
+                "ko": "장치 모델 이름",
+                "ar": "اسم طراز الجهاز"
               }
             },
             {
@@ -1097,7 +1764,8 @@
                 "sv": "Hårdvaruversion:",
                 "pl": "Wersja sprzętu:",
                 "ru": "Версия оборудования:",
-                "ko": "하드웨어 버전:"
+                "ko": "하드웨어 버전:",
+                "ar": "إصدار الجهاز:"
               },
               "hint": {
                 "en": "Hardware version of the device",
@@ -1111,7 +1779,8 @@
                 "sv": "Hårdvaruversion av enheten",
                 "pl": "Wersja sprzętu urządzenia",
                 "ru": "Версия оборудования устройства",
-                "ko": "장치의 하드웨어 버전"
+                "ko": "장치의 하드웨어 버전",
+                "ar": "إصدار الجهاز المادي"
               }
             },
             {
@@ -1129,7 +1798,8 @@
                 "sv": "Firmware-version:",
                 "pl": "Wersja oprogramowania:",
                 "ru": "Версия прошивки:",
-                "ko": "펌웨어 버전:"
+                "ko": "펌웨어 버전:",
+                "ar": "إصدار البرنامج الثابت:"
               },
               "hint": {
                 "en": "Firmware version of the device",
@@ -1143,7 +1813,8 @@
                 "sv": "Firmware-version av enheten",
                 "pl": "Wersja oprogramowania sprzętowego urządzenia",
                 "ru": "Версия прошивки устройства",
-                "ko": "장치의 펌웨어 버전"
+                "ko": "장치의 펌웨어 버전",
+                "ar": "إصدار البرنامج الثابت للجهاز"
               }
             },
             {
@@ -1161,7 +1832,8 @@
                 "sv": "Maskinvaru-id:",
                 "pl": "Identyfikator sprzętu:",
                 "ru": "Идентификатор оборудования:",
-                "ko": "하드웨어 ID:"
+                "ko": "하드웨어 ID:",
+                "ar": "معرّف الجهاز:"
               },
               "hint": {
                 "en": "Id of the device",
@@ -1175,7 +1847,8 @@
                 "sv": "Id för enheten",
                 "pl": "Identyfikator urządzenia",
                 "ru": "Идентификатор устройства",
-                "ko": "장치 ID"
+                "ko": "장치 ID",
+                "ar": "معرّف الجهاز"
               }
             },
             {
@@ -1193,7 +1866,8 @@
                 "sv": "Mac-adress:",
                 "pl": "Adres Mac:",
                 "ru": "Адрес Mac:",
-                "ko": "맥 주소:"
+                "ko": "맥 주소:",
+                "ar": "عنوان MAC:"
               },
               "hint": {
                 "en": "Mac address of the device",
@@ -1207,7 +1881,8 @@
                 "sv": "MAC-adress för enheten",
                 "pl": "Adres Mac urządzenia",
                 "ru": "Mac адрес устройства",
-                "ko": "장치의 맥 주소"
+                "ko": "장치의 맥 주소",
+                "ar": "عنوان MAC للجهاز"
               }
             },
             {
@@ -1225,7 +1900,8 @@
                 "sv": "Roll:",
                 "pl": "Rola:",
                 "ru": "Роль:",
-                "ko": "역할:"
+                "ko": "역할:",
+                "ar": "الدور:"
               },
               "hint": {
                 "en": "Role of the device",
@@ -1239,7 +1915,8 @@
                 "sv": "Enhetens roll",
                 "pl": "Rola urządzenia",
                 "ru": "Роль устройства",
-                "ko": "장치의 역할"
+                "ko": "장치의 역할",
+                "ar": "دور الجهاز"
               }
             }
           ]
@@ -1247,18 +1924,54 @@
         {
           "type": "group",
           "label": {
-            "en": "Connected Clients"
+            "en": "Connected Clients",
+            "nl": "Verbonden apparaten",
+            "da": "Forbundne enheder",
+            "de": "Verbundene Geräte",
+            "es": "Clientes conectados",
+            "fr": "Clients connectés",
+            "it": "Clienti connessi",
+            "no": "Tilkoblede enheter",
+            "sv": "Anslutna klienter",
+            "pl": "Podłączone urządzenia",
+            "ru": "Подключенные устройства",
+            "ko": "연결된 클라이언트",
+            "ar": "الأجهزة المتصلة"
           },
           "children": [
             {
               "id": "clients",
               "type": "textarea",
               "label": {
-                "en": "Name"
+                "en": "Name",
+                "nl": "Naam",
+                "da": "Navn",
+                "de": "Name",
+                "es": "Nombre",
+                "fr": "Nom",
+                "it": "Nome",
+                "no": "Navn",
+                "sv": "Namn",
+                "pl": "Nazwa",
+                "ru": "Имя",
+                "ko": "이름",
+                "ar": "الاسم"
               },
               "value": "Initial clients",
               "hint": {
-                "en": "The name of the connected clients."
+                "en": "The name of the connected clients.",
+                "nl": "De naam van de verbonden apparaten.",
+                "da": "Navnet på de tilsluttede klienter.",
+                "de": "Der Name der verbundenen Clients.",
+                "es": "El nombre de los clientes conectados.",
+                "fr": "Le nom des clients connectés.",
+                "it": "Il nome dei clienti connessi.",
+                "no": "Navnet på de tilkoblede klientene.",
+                "sv": "Namnet på de anslutna klienterna.",
+                "pl": "Nazwa podłączonych klientów.",
+                "ru": "Имя подключенных клиентов.",
+                "ko": "연결된 클라이언트의 이름.",
+                "ar": "اسم الأجهزة المتصلة."
               }
             }
           ]
@@ -1266,6 +1979,133 @@
       ]
     }
   ],
+  "widgets": {
+    "client-presence": {
+      "name": {
+        "en": "Client Presence",
+        "nl": "Clientaanwezigheid",
+        "da": "Klienttilstedeværelse",
+        "de": "Client-Präsenz",
+        "es": "Presencia del cliente",
+        "fr": "Présence du client",
+        "it": "Presenza del client",
+        "no": "Klienttilstedeværelse",
+        "sv": "Klientnärvaro",
+        "pl": "Obecność klienta",
+        "ru": "Присутствие клиента",
+        "ko": "클라이언트 존재 여부",
+        "ar": "وجود العميل"
+      },
+      "height": 88,
+      "api": {
+        "getStatus": {
+          "method": "GET",
+          "path": "/status"
+        },
+        "getClients": {
+          "method": "GET",
+          "path": "/clients"
+        }
+      },
+      "settings": [
+        {
+          "id": "client_mac",
+          "type": "text",
+          "label": {
+            "en": "Client MAC address",
+            "nl": "Client MAC-adres",
+            "da": "Klient MAC-adresse",
+            "de": "Client MAC-Adresse",
+            "es": "Dirección MAC del cliente",
+            "fr": "Adresse MAC du client",
+            "it": "Indirizzo MAC del client",
+            "no": "Klient MAC-adresse",
+            "sv": "Klientens MAC-adress",
+            "pl": "Adres MAC klienta",
+            "ru": "MAC-адрес клиента",
+            "ko": "클라이언트 MAC 주소",
+            "ar": "عنوان MAC الخاص بالعميل"
+          },
+          "placeholder": {
+            "en": "AA:BB:CC:DD:EE:FF",
+            "nl": "AA:BB:CC:DD:EE:FF",
+            "da": "AA:BB:CC:DD:EE:FF",
+            "de": "AA:BB:CC:DD:EE:FF",
+            "es": "AA:BB:CC:DD:EE:FF",
+            "fr": "AA:BB:CC:DD:EE:FF",
+            "it": "AA:BB:CC:DD:EE:FF",
+            "no": "AA:BB:CC:DD:EE:FF",
+            "sv": "AA:BB:CC:DD:EE:FF",
+            "pl": "AA:BB:CC:DD:EE:FF",
+            "ru": "AA:BB:CC:DD:EE:FF",
+            "ko": "AA:BB:CC:DD:EE:FF",
+            "ar": "AA:BB:CC:DD:EE:FF"
+          }
+        },
+        {
+          "id": "display_name",
+          "type": "text",
+          "label": {
+            "en": "Display name (optional override)",
+            "nl": "Weergavenaam (optioneel)",
+            "da": "Visningsnavn (valgfrit)",
+            "de": "Anzeigename (optional)",
+            "es": "Nombre para mostrar (opcional)",
+            "fr": "Nom d'affichage (optionnel)",
+            "it": "Nome visualizzato (opzionale)",
+            "no": "Visningsnavn (valgfritt)",
+            "sv": "Visningsnamn (valfritt)",
+            "pl": "Nazwa wyświetlana (opcjonalnie)",
+            "ru": "Отображаемое имя (необязательно)",
+            "ko": "표시 이름 (선택 사항)",
+            "ar": "اسم العرض (اختياري للتجاوز)"
+          },
+          "placeholder": {
+            "en": "e.g. My Phone",
+            "nl": "bijv. Mijn telefoon",
+            "da": "f.eks. Min telefon",
+            "de": "z.B. Mein Telefon",
+            "es": "p.ej. Mi teléfono",
+            "fr": "ex. Mon téléphone",
+            "it": "es. Il mio telefono",
+            "no": "f.eks. Min telefon",
+            "sv": "t.ex. Min telefon",
+            "pl": "np. Mój telefon",
+            "ru": "напр. Мой телефон",
+            "ko": "예: 내 전화기",
+            "ar": "مثلًا: هاتفي"
+          }
+        }
+      ],
+      "id": "client-presence"
+    },
+    "network-throughput": {
+      "name": {
+        "en": "Network Throughput",
+        "nl": "Netwerkthroughput",
+        "da": "Netværksgennemstrømning",
+        "de": "Netzwerkdurchsatz",
+        "es": "Rendimiento de red",
+        "fr": "Débit réseau",
+        "it": "Velocità di rete",
+        "no": "Nettverksgjennomstrømning",
+        "sv": "Nätverkshastighet",
+        "pl": "Przepustowość sieci",
+        "ru": "Пропускная способность сети",
+        "ko": "네트워크 처리량",
+        "ar": "معدل نقل الشبكة"
+      },
+      "height": 80,
+      "api": {
+        "getStats": {
+          "method": "GET",
+          "path": "/stats"
+        }
+      },
+      "settings": [],
+      "id": "network-throughput"
+    }
+  },
   "capabilities": {
     "alarm_group_state": {
       "type": "boolean",
@@ -1283,7 +2123,8 @@
         "sv": "Frånkopplad från mesh",
         "pl": "Odłączono od siatki",
         "ru": "Отключено от mesh-сети",
-        "ko": "메시와 연결 끊김"
+        "ko": "메시와 연결 끊김",
+        "ar": "تم فصل الاتصال عن الشبكة المتداخلة"
       },
       "getable": true,
       "setable": false,
@@ -1300,7 +2141,8 @@
         "sv": "Frånkopplad från mesh",
         "pl": "Odłączono od siatki",
         "ru": "Отключено от mesh-сети",
-        "ko": "메시와 연결 끊김"
+        "ko": "메시와 연결 끊김",
+        "ar": "تم فصل الاتصال عن الشبكة المتداخلة"
       },
       "insightsTitleFalse": {
         "en": "Connected to Mesh",
@@ -1314,7 +2156,8 @@
         "sv": "Ansluten till mesh",
         "pl": "Połączono z siatką",
         "ru": "Подключено к mesh-сети",
-        "ko": "메시에 연결됨"
+        "ko": "메시에 연결됨",
+        "ar": "متصل بالشبكة المتداخلة"
       },
       "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
     },
@@ -1334,7 +2177,8 @@
         "sv": "WAN bortkopplad (ipv4)",
         "pl": "WAN odłączony (ipv4)",
         "ru": "WAN отключен (ipv4)",
-        "ko": "WAN 연결 해제됨 (ipv4)"
+        "ko": "WAN 연결 해제됨 (ipv4)",
+        "ar": "WAN غير متصل (ipv4)"
       },
       "getable": true,
       "setable": false,
@@ -1351,7 +2195,8 @@
         "sv": "WAN bortkopplad (ipv4)",
         "pl": "WAN odłączony (ipv4)",
         "ru": "WAN отключен (ipv4)",
-        "ko": "WAN 연결 해제됨 (ipv4)"
+        "ko": "WAN 연결 해제됨 (ipv4)",
+        "ar": "تم فصل WAN (بروتوكول ipv4)"
       },
       "insightsTitleFalse": {
         "en": "WAN connected (ipv4)",
@@ -1365,7 +2210,8 @@
         "sv": "WAN ansluten (ipv4)",
         "pl": "WAN podłączony (ipv4)",
         "ru": "WAN подключен (ipv4)",
-        "ko": "WAN 연결됨 (ipv4)"
+        "ko": "WAN 연결됨 (ipv4)",
+        "ar": "متصل بـ WAN (IPv4)"
       },
       "icon": "./assets/capabilities/alarm_wan.svg"
     },
@@ -1385,7 +2231,8 @@
         "sv": "WAN Frånkopplad (ipv6)",
         "pl": "WAN Odłączony (ipv6)",
         "ru": "WAN Отключен (ipv6)",
-        "ko": "WAN 연결 끊김 (ipv6)"
+        "ko": "WAN 연결 끊김 (ipv6)",
+        "ar": "WAN غير متصل (ipv6)"
       },
       "getable": true,
       "setable": false,
@@ -1402,7 +2249,8 @@
         "sv": "WAN Frånkopplad (ipv6)",
         "pl": "WAN Odłączony (ipv6)",
         "ru": "WAN Отключен (ipv6)",
-        "ko": "WAN 연결 끊김 (ipv6)"
+        "ko": "WAN 연결 끊김 (ipv6)",
+        "ar": "تم فصل WAN (IPv6)"
       },
       "insightsTitleFalse": {
         "en": "WAN connected (ipv6)",
@@ -1416,7 +2264,8 @@
         "sv": "WAN Ansluten (ipv6)",
         "pl": "WAN Połączony (ipv6)",
         "ru": "WAN Подключен (ipv6)",
-        "ko": "WAN 연결됨 (ipv6)"
+        "ko": "WAN 연결됨 (ipv6)",
+        "ar": "متصل بـ WAN (IPv6)"
       },
       "icon": "./assets/capabilities/alarm_wan.svg"
     },
@@ -1434,7 +2283,8 @@
         "sv": "Backhaul-anslutning",
         "pl": "Połączenie backhaul",
         "ru": "Соединение обратного канала",
-        "ko": "백홀 연결"
+        "ko": "백홀 연결",
+        "ar": "اتصال الشبكة الخلفية"
       },
       "getable": true,
       "setable": false,
@@ -1455,7 +2305,8 @@
         "sv": "Anslutna Klienter",
         "pl": "Połączone Klienci",
         "ru": "Подключенные Клиенты",
-        "ko": "연결된 클라이언트"
+        "ko": "연결된 클라이언트",
+        "ar": "الأجهزة المتصلة"
       },
       "units": {
         "en": "pcs",
@@ -1469,7 +2320,8 @@
         "sv": "st",
         "pl": "szt",
         "ru": "шт",
-        "ko": "개"
+        "ko": "개",
+        "ar": "قطع"
       },
       "getable": true,
       "setable": false,
@@ -1490,7 +2342,8 @@
         "no": "Enhetsrolle",
         "pl": "Rola urządzenia",
         "ru": "Роль устройства",
-        "ko": "장치 역할"
+        "ko": "장치 역할",
+        "ar": "دور الجهاز"
       },
       "getable": true,
       "setable": false,
@@ -1510,7 +2363,8 @@
         "sv": "LAN IP-adress",
         "pl": "Adres IP LAN",
         "ru": "LAN IP-адрес",
-        "ko": "LAN IP 주소"
+        "ko": "LAN IP 주소",
+        "ar": "عنوان IP للشبكة المحلية (LAN)"
       },
       "getable": true,
       "setable": false,
@@ -1530,7 +2384,8 @@
         "sv": "CPU-användning",
         "pl": "Zużycie CPU",
         "ru": "Использование ЦП",
-        "ko": "CPU 사용량"
+        "ko": "CPU 사용량",
+        "ar": "استخدام وحدة المعالجة المركزية"
       },
       "units": {
         "en": "%",
@@ -1544,7 +2399,8 @@
         "sv": "%",
         "pl": "%",
         "ru": "%",
-        "ko": "%"
+        "ko": "%",
+        "ar": "٪"
       },
       "getable": true,
       "setable": false,
@@ -1560,7 +2416,8 @@
         "sv": "Nuvarande CPU-användning",
         "pl": "Bieżące zużycie CPU",
         "ru": "Текущее использование ЦП",
-        "ko": "현재 CPU 사용량"
+        "ko": "현재 CPU 사용량",
+        "ar": "الاستخدام الحالي لوحدة المعالجة المركزية"
       },
       "insights": true,
       "chartType": "spline",
@@ -1581,7 +2438,8 @@
         "sv": "Nedladdningshastighet",
         "pl": "Prędkość pobierania",
         "ru": "Скорость загрузки",
-        "ko": "다운로드 속도"
+        "ko": "다운로드 속도",
+        "ar": "سرعة التنزيل"
       },
       "units": {
         "en": "KB/s",
@@ -1595,7 +2453,8 @@
         "sv": "KB/s",
         "pl": "KB/s",
         "ru": "KB/s",
-        "ko": "KB/s"
+        "ko": "KB/s",
+        "ar": "كيلوبايت/ثانية"
       },
       "getable": true,
       "setable": false,
@@ -1611,7 +2470,8 @@
         "sv": "Kilobyte per sekund (KB/s)",
         "pl": "Kilobajty na sekundę (KB/s)",
         "ru": "Килобайты в секунду (KB/s)",
-        "ko": "킬로바이트 매 초 (KB/s)"
+        "ko": "킬로바이트 매 초 (KB/s)",
+        "ar": "كيلو بايت في الثانية (KB/s)"
       },
       "insights": true,
       "chartType": "spline",
@@ -1632,7 +2492,8 @@
         "sv": "Minnesanvändning",
         "pl": "Użycie pamięci",
         "ru": "Использование памяти",
-        "ko": "메모리 사용량"
+        "ko": "메모리 사용량",
+        "ar": "استخدام الذاكرة"
       },
       "units": {
         "en": "%",
@@ -1646,7 +2507,8 @@
         "sv": "%",
         "pl": "%",
         "ru": "%",
-        "ko": "%"
+        "ko": "%",
+        "ar": "٪"
       },
       "getable": true,
       "setable": false,
@@ -1662,7 +2524,8 @@
         "sv": "Nuvarande minnesanvändning",
         "pl": "Aktualne użycie pamięci",
         "ru": "Текущее использование памяти",
-        "ko": "현재 메모리 사용량"
+        "ko": "현재 메모리 사용량",
+        "ar": "استخدام الذاكرة الحالي"
       },
       "insights": true,
       "chartType": "spline",
@@ -1683,7 +2546,8 @@
         "sv": "Uppladdningshastighet",
         "pl": "Prędkość przesyłania",
         "ru": "Скорость загрузки",
-        "ko": "업로드 속도"
+        "ko": "업로드 속도",
+        "ar": "سرعة الرفع"
       },
       "units": {
         "en": "KB/s",
@@ -1697,7 +2561,8 @@
         "sv": "KB/s",
         "pl": "KB/s",
         "ru": "KB/s",
-        "ko": "KB/s"
+        "ko": "KB/s",
+        "ar": "كيلوبايت/ثانية"
       },
       "getable": true,
       "setable": false,
@@ -1713,7 +2578,8 @@
         "sv": "Kilobyte per sekund (KB/s)",
         "pl": "Kilobajty na sekundę (KB/s)",
         "ru": "Килобайты в секунду (KB/s)",
-        "ko": "킬로바이트/초 (KB/s)"
+        "ko": "킬로바이트/초 (KB/s)",
+        "ar": "كيلو بايت في الثانية (KB/s)"
       },
       "insights": true,
       "chartType": "spline",
@@ -1734,7 +2600,8 @@
         "sv": "Starta om",
         "pl": "Restart",
         "ru": "Перезагрузка",
-        "ko": "재부팅"
+        "ko": "재부팅",
+        "ar": "إعادة تشغيل"
       },
       "insightsTitleTrue": {
         "en": "Router restarted",
@@ -1748,7 +2615,8 @@
         "sv": "Router omstartad",
         "pl": "Router uruchomiony ponownie",
         "ru": "Маршрутизатор перезагружен",
-        "ko": "라우터가 재부팅되었습니다"
+        "ko": "라우터가 재부팅되었습니다",
+        "ar": "تم إعادة تشغيل جهاز التوجيه"
       },
       "insightsTitleFalse": {
         "en": "Router UP",
@@ -1762,7 +2630,8 @@
         "sv": "Router UPPE",
         "pl": "Router WŁĄCZONY",
         "ru": "Маршрутизатор ВКЛЮЧЕН",
-        "ko": "라우터 작동 중"
+        "ko": "라우터 작동 중",
+        "ar": "جهاز التوجيه يعمل"
       },
       "uiQuickAction": false,
       "uiComponent": "button",
@@ -1785,7 +2654,8 @@
         "sv": "Signal 2,4 GHz",
         "pl": "Sygnał 2,4 GHz",
         "ru": "Сигнал 2,4 ГГц",
-        "ko": "신호 2.4 GHz"
+        "ko": "신호 2.4 GHz",
+        "ar": "إشارة 2.4 جيجاهرتز"
       },
       "getable": true,
       "setable": false,
@@ -1806,7 +2676,8 @@
         "sv": "Signal 5 GHz",
         "pl": "Sygnał 5 GHz",
         "ru": "Сигнал 5 ГГц",
-        "ko": "신호 5 GHz"
+        "ko": "신호 5 GHz",
+        "ar": "إشارة 5 جيجاهرتز"
       },
       "getable": true,
       "setable": false,
@@ -1827,7 +2698,8 @@
         "sv": "WAN IP-adress",
         "pl": "Adres IP WAN",
         "ru": "WAN IP-адрес",
-        "ko": "WAN IP 주소"
+        "ko": "WAN IP 주소",
+        "ar": "عنوان IP الخاص بـ WAN"
       },
       "getable": true,
       "setable": false,
@@ -1847,7 +2719,8 @@
         "sv": "Online Varaktighet",
         "pl": "Czas Online",
         "ru": "Время в сети",
-        "ko": "온라인 지속 시간"
+        "ko": "온라인 지속 시간",
+        "ar": "مدة الاتصال بالإنترنت"
       },
       "getable": true,
       "setable": false,

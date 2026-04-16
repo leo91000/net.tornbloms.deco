@@ -232,5 +232,14 @@
   },
   "1.4.19": {
     "en": "Fixed 'wrong password' errors on newer HTTPS Deco firmware (e.g. X50-5G v2, P9). The app now auto-detects and remembers the correct login protocol per device. Also fixed noisy base64 log errors for plain-text device nicknames and redacted passwords from diagnostic logs."
+  },
+  "1.4.20": {
+    "en": "Added three new flow cards: 'Any client changed status' (fires for any device without pre-selecting a specific client), 'A new client connected for the first time' (fires once per device ever seen), and 'A client changed Deco node' (fires when a specific client roams between Deco nodes, showing old and new node names)."
+  },
+  "1.4.21": {
+    "en": "Added two dashboard widgets: 'Client Presence' (shows online/offline status, Deco node, and last-seen time for any tracked device) and 'Network Throughput' (shows live download/upload speeds and connected client count across the mesh)."
+  },
+  "1.4.22": {
+    "en": "Translations"
   }
 }
