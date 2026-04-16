@@ -241,5 +241,8 @@
   },
   "1.4.22": {
     "en": "Translations"
+  },
+  "1.4.23": {
+    "en": "TLS verification bypass"
   }
 }
