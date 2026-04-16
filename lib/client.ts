@@ -5,6 +5,10 @@ import { encryptRsa } from '././utils/rsa';
 import { AESKey, generateAESKey } from '././utils/aes';
 import { HttpClient, AppLogger } from './http';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { Agent } = require('undici') as { Agent: new (opts: any) => object };
+const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
+
 export type { AppLogger };
 
 // Define a constant for the username to be used for authentication
@@ -217,6 +221,35 @@ export interface PerformanceResponse {
   };
 }
 
+// LTE interface config — data usage for the current billing period.
+// Available on Deco models with cellular connectivity (e.g. X50-4G, X50-5G).
+// Returned by /admin/network?form=lte_intf_cfg
+export interface LteIntfCfgResponse {
+  error_code: number;
+  result: {
+    // Current-period RX bytes (unit varies by firmware — log raw to verify)
+    curStatistics?: string | number;
+    // Current-period TX bytes
+    totalStatistics?: string | number;
+    dataLimit?: string | number;
+    enableDataLimit?: string | number;
+    curRxSpeed?: string | number;
+    curTxSpeed?: string | number;
+  };
+}
+
+// LTE link config — SIM and network-type status.
+// Returned by /admin/network?form=lte_link_cfg
+export interface LteLinkCfgResponse {
+  error_code: number;
+  result: {
+    connectStatus?: string;
+    networkType?: string;
+    simStatus?: string;
+    roamingStatus?: string;
+  };
+}
+
 // Interface for the structure of login request
 interface LoginRequest {
   params: {
@@ -273,20 +306,27 @@ export default class DecoAPIWraper {
   // Method to ping the host — probes the actual API base path so routers that
   // don't serve on the root still respond. Accepts any HTTP status as "alive";
   // only network-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
+  // Also tries HTTPS (with cert verification disabled) if HTTP fails, since
+  // newer Deco firmware (BE-series, firmware 1.2.0+) enforces HTTPS-only.
   private async pingHost(host: string): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
+    for (const scheme of ['http', 'https'] as const) {
       try {
-        await fetch(`http://${host}/cgi-bin/luci/`, { signal: controller.signal });
-      } finally {
-        clearTimeout(timer);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+          await fetch(`${scheme}://${host}/cgi-bin/luci/`, {
+            signal: controller.signal,
+            ...(scheme === 'https' ? { dispatcher: insecureAgent } : {}),
+          } as RequestInit);
+        } finally {
+          clearTimeout(timer);
+        }
+        return true;
+      } catch (error: any) {
+        this.logger.log(`client.ts: pingHost: ${scheme}://${host} not reachable: ${error?.code ?? error?.message}`);
       }
-      return true;
-    } catch (error: any) {
-      this.logger.error(`client.ts: pingHost: host ${host} not reachable:`, error?.code ?? error?.message);
-      return false;
     }
+    return false;
   }
 
   // Private method to ensure the Deco instance is initialized or updated

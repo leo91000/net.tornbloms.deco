@@ -1,5 +1,13 @@
 import { CookieJar } from 'tough-cookie';
 
+// undici is built into Node.js 18+ — no npm install needed at runtime.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { Agent } = require('undici') as { Agent: new (opts: any) => object };
+
+// Shared undici Agent that skips TLS certificate verification.
+// Deco routers use self-signed certificates; we trust the local IP, not the cert.
+const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
+
 interface PostConfig {
   method: 'POST';
   url: string;
@@ -75,6 +83,8 @@ export class HttpClient {
           body: Buffer.from(config.data),
           signal: controller.signal,
           redirect: 'manual',
+          // Skip TLS cert validation for HTTPS — Deco routers use self-signed certs.
+          ...(urlStr.startsWith('https://') ? { dispatcher: insecureAgent } : {}),
         } as RequestInit);
       } catch (e: any) {
         clearTimeout(timer);

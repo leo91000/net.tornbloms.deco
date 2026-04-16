@@ -1,0 +1,23 @@
+{
+  "type": "string",
+  "title": {
+    "en": "SIM Status",
+    "nl": "SIM-status",
+    "da": "SIM-status",
+    "de": "SIM-Status",
+    "es": "Estado SIM",
+    "fr": "État SIM",
+    "it": "Stato SIM",
+    "no": "SIM-status",
+    "sv": "SIM-status",
+    "pl": "Status SIM",
+    "ru": "Статус SIM",
+    "ko": "SIM 상태",
+    "ar": "حالة الشريحة"
+  },
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "uiComponent": "sensor",
+  "icon": "/assets/capabilities/router-wifi-svgrepo-com.svg"
+}

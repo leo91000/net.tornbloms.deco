@@ -1,0 +1,23 @@
+{
+  "type": "string",
+  "title": {
+    "en": "Cellular Network Type",
+    "nl": "Mobiel Netwerktype",
+    "da": "Mobilnetværkstype",
+    "de": "Mobilfunknetztyp",
+    "es": "Tipo de red móvil",
+    "fr": "Type de réseau mobile",
+    "it": "Tipo di rete mobile",
+    "no": "Mobiltettverkstype",
+    "sv": "Mobilnätverkstyp",
+    "pl": "Typ sieci komórkowej",
+    "ru": "Тип мобильной сети",
+    "ko": "셀룰러 네트워크 유형",
+    "ar": "نوع شبكة الهاتف"
+  },
+  "getable": true,
+  "setable": false,
+  "insights": false,
+  "uiComponent": "sensor",
+  "icon": "/assets/capabilities/router-wifi-svgrepo-com.svg"
+}

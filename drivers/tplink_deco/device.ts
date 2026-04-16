@@ -10,6 +10,8 @@ import {
   ClientListResponse,
   InternetResponse,
   ErrorResponse,
+  LteIntfCfgResponse,
+  LteLinkCfgResponse,
 } from '../../lib/client';
 
 // How long to retain a client in the tracked list without being seen (30 days)
@@ -23,6 +25,7 @@ export interface TrackedClient {
   online: boolean;    // currently online on this Deco node
   lastSeen: number;   // unix ms — last time seen online
   firstSeen: number;  // unix ms — first time seen
+  access_host?: string; // MAC of the Deco node this client is connected to
 }
 
 /**
@@ -180,6 +183,25 @@ class TplinkDecoDevice extends Device {
             args.status === state.status && args.client.mac === state.client.mac
           );
         });
+
+        // any_client_state_changed — fires for every state change, filtered only by status
+        const anyClientStateFlow = this.homey.flow.getDeviceTriggerCard('any_client_state_changed');
+        anyClientStateFlow.registerRunListener(async (args, state) => {
+          return args.status === state.status;
+        });
+
+        // client_node_changed — fires when a specific client roams to a different Deco node
+        const clientNodeChangedFlow = this.homey.flow.getDeviceTriggerCard('client_node_changed');
+        clientNodeChangedFlow.registerRunListener(async (args, state) => {
+          return args.client.mac === state.mac;
+        });
+        clientNodeChangedFlow.registerArgumentAutocompleteListener(
+          'client',
+          async (query, args) => {
+            const driver = this.driver as TplinkDecoDriver;
+            return driver.buildClientAutocomplete(this, query);
+          },
+        );
 
         // Stagger first poll across devices to avoid simultaneous auth attempts.
         // The Deco allows only one session at a time — concurrent logins cause
@@ -632,8 +654,22 @@ class TplinkDecoDevice extends Device {
           // Update capability with the number of connected clients
           await this.updateCapability('connected_clients', clientList.length);
 
+          // Build a MAC → friendly-name map for the Deco nodes so the
+          // client_node_changed token shows a human-readable name.
+          const decoNodeNames = new Map<string, string>();
+          for (const d of deviceList.result.device_list) {
+            if (d.mac) {
+              const nick = d.nickname
+                ? (() => {
+                    try { return Buffer.from(d.nickname, 'base64').toString('utf-8'); } catch { return d.nickname; }
+                  })()
+                : '';
+              decoNodeNames.set(d.mac.toUpperCase(), nick ? `${d.device_model} - ${nick}` : (d.device_model || d.mac));
+            }
+          }
+
           // Handle client state changes
-          await this.handleClientStateChanges(clientList);
+          await this.handleClientStateChanges(clientList, decoNodeNames);
 
           // Calculate total download and upload speeds
           const { totalDownKiloBytesPerSecond, totalUpKiloBytesPerSecond } =
@@ -662,6 +698,9 @@ class TplinkDecoDevice extends Device {
             resultMemUsage,
             settings.hostname,
           );
+
+          // LTE data usage — auto-detected: capabilities are added/removed based on API response
+          await this.updateLteMetrics();
         }
       }
     } catch (error) {
@@ -764,13 +803,20 @@ class TplinkDecoDevice extends Device {
    * Triggers flow cards when clients go online or offline.
    * Also maintains the persistent 30-day trackedClients history.
    * @param clientList - The current list of clients (online on this node right now).
+   * @param decoNodeNames - Map of Deco node MAC (uppercase) → friendly display name.
    */
-  private async handleClientStateChanges(clientList: any[]) {
+  private async handleClientStateChanges(clientList: any[], decoNodeNames: Map<string, string> = new Map()) {
     try {
-      const clientStateFlow = this.homey.flow.getDeviceTriggerCard(
-        'client_state_changed',
-      );
+      const clientStateFlow = this.homey.flow.getDeviceTriggerCard('client_state_changed');
+      const anyClientStateFlow = this.homey.flow.getDeviceTriggerCard('any_client_state_changed');
+      const clientFirstSeenFlow = this.homey.flow.getDeviceTriggerCard('client_first_seen');
+      const clientNodeChangedFlow = this.homey.flow.getDeviceTriggerCard('client_node_changed');
       const now = Date.now();
+
+      const resolveNodeName = (accessHost: string | undefined): string => {
+        if (!accessHost) return '';
+        return decoNodeNames.get(accessHost.toUpperCase()) ?? accessHost;
+      };
 
       // Maps for quick lookup
       const lastClientsMap = new Map(
@@ -783,6 +829,10 @@ class TplinkDecoDevice extends Device {
       // Clients that have come online
       for (const [mac, client] of currentClientsMap) {
         const decodedName = Buffer.from(client.name, 'base64').toString();
+        const isFirstSeen = !this.trackedClients[mac];
+        const previousAccessHost = this.trackedClients[mac]?.access_host;
+        const currentAccessHost: string = client.access_host ?? '';
+
         const tokens = {
           name: decodedName,
           ipaddr: client.ip,
@@ -803,13 +853,45 @@ class TplinkDecoDevice extends Device {
           online: true,
           lastSeen: now,
           firstSeen: this.trackedClients[mac]?.firstSeen ?? now,
+          access_host: currentAccessHost,
         };
 
         if (!lastClientsMap.has(mac)) {
+          // Client came online — fire specific and generic cards
           await clientStateFlow.trigger(this, tokens, {
             status: 'online',
             client: tokens,
           });
+          await anyClientStateFlow.trigger(this, { ...tokens, status: 'online' }, { status: 'online' });
+
+          // Fire first-seen card if this client has never appeared before
+          if (isFirstSeen) {
+            await clientFirstSeenFlow.trigger(this, {
+              name: decodedName,
+              mac: client.mac,
+              ipaddr: client.ip,
+              connection_type: client.connection_type ?? '',
+            });
+          }
+        }
+
+        // Fire node-changed card if the client moved to a different Deco node
+        if (
+          !isFirstSeen &&
+          currentAccessHost &&
+          previousAccessHost &&
+          currentAccessHost.toUpperCase() !== previousAccessHost.toUpperCase()
+        ) {
+          await clientNodeChangedFlow.trigger(
+            this,
+            {
+              name: decodedName,
+              mac: client.mac,
+              deco_node: resolveNodeName(currentAccessHost),
+              previous_node: resolveNodeName(previousAccessHost),
+            },
+            { mac: client.mac },
+          );
         }
       }
 
@@ -837,6 +919,7 @@ class TplinkDecoDevice extends Device {
             status: 'offline',
             client: tokens,
           });
+          await anyClientStateFlow.trigger(this, { ...tokens, status: 'offline' }, { status: 'offline' });
         }
       }
 
@@ -855,6 +938,89 @@ class TplinkDecoDevice extends Device {
     } catch (err) {
       this.error('Failed to handle client state changes', err);
     }
+  }
+
+  /**
+   * Fetches LTE data-usage and connection-status metrics and updates capabilities.
+   * Capabilities are added dynamically when the router responds with valid LTE data
+   * and removed if the endpoint is absent (non-LTE models return error_code != 0).
+   *
+   * Note on units: TP-Link firmware typically reports curStatistics / totalStatistics
+   * in MB. The raw values are logged at debug level — report unexpected values so
+   * the unit handling can be adjusted if needed.
+   */
+  private async updateLteMetrics(): Promise<void> {
+    const LTE_CAPS = [
+      'measure_lte_monthly_rx_mb',
+      'measure_lte_monthly_tx_mb',
+      'lte_sim_status',
+      'lte_network_type',
+    ] as const;
+
+    // --- data usage ---
+    const intfCfg = await this.safeApiCall<LteIntfCfgResponse>(
+      () => this.api.custom('/admin/network', { form: 'lte_intf_cfg' }, this.readBody),
+      { error_code: 1, result: {} },
+      'LTE Interface Config',
+    );
+
+    // --- SIM / network-type ---
+    const linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
+      () => this.api.custom('/admin/network', { form: 'lte_link_cfg' }, this.readBody),
+      { error_code: 1, result: {} },
+      'LTE Link Config',
+    );
+
+    const hasLte =
+      intfCfg.error_code === 0 &&
+      intfCfg.result != null &&
+      Object.keys(intfCfg.result).length > 0;
+
+    if (!hasLte) {
+      // Not an LTE model (or endpoint unavailable) — remove caps if previously added
+      for (const cap of LTE_CAPS) {
+        if (this.hasCapability(cap)) await this.removeCapability(cap);
+      }
+      return;
+    }
+
+    // Add capabilities on first detection
+    for (const cap of LTE_CAPS) {
+      if (!this.hasCapability(cap)) await this.addCapability(cap);
+    }
+
+    // Parse usage values — firmware reports in MB (as string or number)
+    const toMb = (v: string | number | undefined): number => {
+      const n = Number(v ?? 0);
+      return isNaN(n) ? 0 : Math.round(n * 10) / 10;
+    };
+
+    // curStatistics  = current billing-period total usage (combined RX+TX) in MB
+    // totalStatistics = cumulative total since device reset — map to TX cap so users
+    //                   can calculate the delta themselves in flows if needed.
+    // curRxSpeed / curTxSpeed = instantaneous speeds (not stored separately here).
+    // Log raw values — report unexpected numbers so unit handling can be adjusted.
+    const rxMb = toMb(intfCfg.result.curStatistics);
+    const txMb = toMb(intfCfg.result.totalStatistics);
+    this.log(
+      `LTE stats raw: curStatistics=${intfCfg.result.curStatistics}` +
+      ` totalStatistics=${intfCfg.result.totalStatistics}` +
+      ` curRxSpeed=${intfCfg.result.curRxSpeed} curTxSpeed=${intfCfg.result.curTxSpeed}`,
+    );
+
+    await this.updateCapability('measure_lte_monthly_rx_mb', rxMb);
+    await this.updateCapability('measure_lte_monthly_tx_mb', txMb);
+
+    // Normalise SIM status strings from firmware (e.g. "sim_ready" → "Ready")
+    const simRaw = linkCfg.result.simStatus ?? '';
+    const simLabel = simRaw
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase()) || '–';
+    await this.updateCapability('lte_sim_status', simLabel);
+
+    const networkRaw = linkCfg.result.networkType ?? '';
+    const networkLabel = networkRaw.toUpperCase() || '–';
+    await this.updateCapability('lte_network_type', networkLabel);
   }
 
   /**
