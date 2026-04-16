@@ -648,7 +648,7 @@ class TplinkDecoDevice extends Device {
           const rawClientList = clientListResponse?.result?.client_list;
           const clientList = Array.isArray(rawClientList) ? rawClientList : [];
           const clientNames = clientList
-            .map((client) => Buffer.from(client.name, 'base64').toString('utf-8'))
+            .map((client) => (this.driver as TplinkDecoDriver).decodeNickname(client.name))
             .join(', ');
           await this.setSettings({ clients: clientNames });
           // Update capability with the number of connected clients
@@ -659,11 +659,7 @@ class TplinkDecoDevice extends Device {
           const decoNodeNames = new Map<string, string>();
           for (const d of deviceList.result.device_list) {
             if (d.mac) {
-              const nick = d.nickname
-                ? (() => {
-                    try { return Buffer.from(d.nickname, 'base64').toString('utf-8'); } catch { return d.nickname; }
-                  })()
-                : '';
+              const nick = (this.driver as TplinkDecoDriver).resolveNickname(d);
               decoNodeNames.set(d.mac.toUpperCase(), nick ? `${d.device_model} - ${nick}` : (d.device_model || d.mac));
             }
           }
@@ -828,7 +824,7 @@ class TplinkDecoDevice extends Device {
 
       // Clients that have come online
       for (const [mac, client] of currentClientsMap) {
-        const decodedName = Buffer.from(client.name, 'base64').toString();
+        const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
         const isFirstSeen = !this.trackedClients[mac];
         const previousAccessHost = this.trackedClients[mac]?.access_host;
         const currentAccessHost: string = client.access_host ?? '';
@@ -898,7 +894,7 @@ class TplinkDecoDevice extends Device {
       // Clients that have gone offline
       for (const [mac, client] of lastClientsMap) {
         if (!currentClientsMap.has(mac)) {
-          const decodedName = Buffer.from(client.name, 'base64').toString();
+          const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
           const tokens = {
             name: decodedName,
             ipaddr: client.ip,

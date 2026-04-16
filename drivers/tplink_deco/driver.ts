@@ -181,7 +181,7 @@ class TplinkDecoDriver extends Driver {
    * Shows all clients seen in the last 30 days (online and offline).
    * Online clients are shown first; offline clients show their last-seen date.
    */
-  private buildClientAutocomplete(device: any, query: string) {
+  public buildClientAutocomplete(device: any, query: string) {
     const tracked: Record<string, any> = device?.trackedClients ?? {};
     const search = query.toLowerCase();
 
@@ -318,19 +318,16 @@ class TplinkDecoDriver extends Driver {
           const apiHostname = masterDevice?.device_ip || hostname;
           this.log('pair: using API hostname:', apiHostname);
 
-          const devices = deviceList.result.device_list.map((device) => ({
-            name:
-              device.device_model +
-              ' - ' +
-              this.cleanString(this.decodeBase64(device.nickname)),
+          const devices = deviceList.result.device_list.map((device) => {
+            const nickname = this.cleanString(this.resolveNickname(device));
+            const deviceName = device.device_model + (nickname ? ' - ' + nickname : '');
+            return {
+            name: deviceName,
             data: {
               id: device.mac,
             },
             settings: {
-              name:
-                device.device_model +
-                ' - ' +
-                this.cleanString(this.decodeBase64(device.nickname)),
+              name: deviceName,
               mac: device.mac,
               hostname: apiHostname,
               password: password,
@@ -342,7 +339,8 @@ class TplinkDecoDriver extends Driver {
               hw_id: device.hw_id,
               timeoutSeconds: 30,
             },
-          }));
+          };
+          });
           this.log(devices.map((d) => ({ ...d, settings: { ...d.settings, password: '[redacted]' } })));
           if (this.debugEnabled) {
             this.homey.app.log(
@@ -400,21 +398,34 @@ class TplinkDecoDriver extends Driver {
     );
   }
 
-  // If no error do respond with result
-  private decodeBase64(encoded: string | undefined): string {
-    if (!encoded) return '';
-
-    // Some firmware versions return plain-text nicknames; others return base64.
-    // Try to decode and fall back silently — not an error either way.
-    const base64Regex =
-      /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/;
-    if (!base64Regex.test(encoded)) return encoded;
-
+  // Decodes a device nickname that may be base64-encoded or plain text.
+  // Strategy: always attempt base64 decode, then validate the result.
+  // If the decoded bytes produce invalid UTF-8 (\uFFFD) or control characters,
+  // the input was plain text — return it unchanged.
+  //
+  // The old regex-based approach incorrectly flagged plain ASCII words whose
+  // length is a multiple of 4 (e.g. "Zentrale") as base64, producing garbage
+  // like "e❓❓❓❓^" when decoded.
+  public decodeNickname(raw: string | undefined): string {
+    if (!raw) return '';
     try {
-      return Buffer.from(encoded, 'base64').toString('utf-8');
+      const decoded = Buffer.from(raw, 'base64').toString('utf-8');
+      // \uFFFD = UTF-8 replacement char inserted for invalid byte sequences.
+      // \x00-\x1F = control chars that would never appear in a real device name.
+      if (decoded.length > 0 && !/[\uFFFD\x00-\x1F]/.test(decoded)) {
+        return decoded;
+      }
     } catch {
-      return encoded;
+      // not valid base64 at all
     }
+    return raw;
+  }
+
+  // Resolves a human-readable nickname from a device list entry.
+  // Newer firmware (e.g. P9) may store the display name in custom_nickname
+  // while nickname is empty or contains a generic placeholder.
+  public resolveNickname(device: { nickname?: string; custom_nickname?: string }): string {
+    return this.decodeNickname(device.nickname) || this.decodeNickname(device.custom_nickname) || '';
   }
 
   private cleanString(input: string): string {
