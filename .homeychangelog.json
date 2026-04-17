@@ -250,5 +250,8 @@
   },
   "1.4.25": {
     "en": "New fixes for app crach"
+  },
+  "1.4.26": {
+    "en": "Fixing graphs"
   }
 }

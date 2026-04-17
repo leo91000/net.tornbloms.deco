@@ -47,6 +47,7 @@
     "ko": "장치 초기화 이후 누적 모바일 데이터 사용량 (MB)",
     "ar": "إجمالي البيانات الخلوية المستخدمة منذ إعادة ضبط الجهاز (ميغابايت)"
   },
+  "decimals": 0,
   "insights": true,
   "chartType": "spline",
   "uiComponent": "sensor",

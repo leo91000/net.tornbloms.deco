@@ -47,6 +47,7 @@
     "ko": "현재 청구 기간에 사용한 모바일 데이터 (MB)",
     "ar": "البيانات الخلوية المستخدمة في فترة الفواتير الحالية (ميغابايت)"
   },
+  "decimals": 0,
   "insights": true,
   "chartType": "spline",
   "uiComponent": "sensor",
