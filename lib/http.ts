@@ -1,13 +1,5 @@
 import { CookieJar } from 'tough-cookie';
 
-// undici is built into Node.js 18+ — no npm install needed at runtime.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { Agent } = require('undici') as { Agent: new (opts: any) => object };
-
-// Shared undici Agent that skips TLS certificate verification.
-// Deco routers use self-signed certificates; we trust the local IP, not the cert.
-const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
-
 interface PostConfig {
   method: 'POST';
   url: string;
@@ -25,11 +17,9 @@ const consoleLogger: AppLogger = { log: console.log, error: console.error };
 
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie
- * for session cookie management. Replaces axios + axios-cookiejar-support.
- *
- * Handles HTTP→HTTPS redirects automatically (newer Deco firmware enforces
- * HTTPS on the admin interface). Uses a custom undici Agent that skips
- * self-signed certificate validation for local router access.
+ * for session cookie management. Handles HTTP→HTTPS redirects automatically
+ * (newer Deco firmware enforces HTTPS). TLS verification is disabled globally
+ * via NODE_TLS_REJECT_UNAUTHORIZED=0 set in app.ts.
  */
 export class HttpClient {
   private readonly jar: CookieJar;
@@ -63,8 +53,7 @@ export class HttpClient {
     );
 
     // Up to 2 attempts: first over http, then https if the router redirects.
-    // We use redirect:'manual' to prevent undici's httpRedirectFetch from
-    // crashing with "detached ArrayBuffer" when re-reading a POST body.
+    // redirect:'manual' prevents the runtime from re-reading the POST body on redirect.
     for (let attempt = 0; attempt < 2; attempt++) {
       const urlStr = `${this.baseURL}${config.url}${paramStr}`;
 
@@ -83,8 +72,6 @@ export class HttpClient {
           body: Buffer.from(config.data),
           signal: controller.signal,
           redirect: 'manual',
-          // Skip TLS cert validation for HTTPS — Deco routers use self-signed certs.
-          ...(urlStr.startsWith('https://') ? { dispatcher: insecureAgent } : {}),
         } as RequestInit);
       } catch (e: any) {
         clearTimeout(timer);

@@ -5,9 +5,6 @@ import { encryptRsa } from '././utils/rsa';
 import { AESKey, generateAESKey } from '././utils/aes';
 import { HttpClient, AppLogger } from './http';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { Agent } = require('undici') as { Agent: new (opts: any) => object };
-const insecureAgent = new Agent({ connect: { rejectUnauthorized: false } });
 
 export type { AppLogger };
 
@@ -316,7 +313,6 @@ export default class DecoAPIWraper {
         try {
           await fetch(`${scheme}://${host}/cgi-bin/luci/`, {
             signal: controller.signal,
-            ...(scheme === 'https' ? { dispatcher: insecureAgent } : {}),
           } as RequestInit);
         } finally {
           clearTimeout(timer);
@@ -358,8 +354,7 @@ export default class DecoAPIWraper {
   public async authenticate(password: string, _retried = false): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
-    // link-local IPv6 address which causes undici to crash on redirects
-    // (detached ArrayBuffer bug). Always use the IPv4 address.
+    // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
     try {
       const { address } = await dns.lookup(this.host, { family: 4 });
       if (address !== this.host) {
