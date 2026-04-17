@@ -30,6 +30,7 @@
     "ko": "개",
     "ar": "قطع"
   },
+  "decimals": 0,
   "getable": true,
   "setable": false,
   "insights": true,
