@@ -253,5 +253,11 @@
   },
   "1.4.26": {
     "en": "Fixing graphs"
+  },
+  "1.4.27": {
+    "en": "Fix LTE MB capabilities showing fractional values in insights"
+  },
+  "1.4.28": {
+    "en": "Some logging changes"
   }
 }
