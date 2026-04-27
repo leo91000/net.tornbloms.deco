@@ -259,5 +259,8 @@
   },
   "1.4.28": {
     "en": "Some logging changes"
+  },
+  "1.4.30": {
+    "en": "Improves logging when Failed to... while connecting"
   }
 }
