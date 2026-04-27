@@ -235,8 +235,9 @@ export default class Deco {
       // password). Try to decrypt it so the caller gets a meaningful error instead
       // of a generic "network error".
       if (e?.httpStatus && e?.responseBody) {
+        let decoded = '';
         try {
-          const decoded = AES128Decrypt(e.responseBody, this.aes);
+          decoded = AES128Decrypt(e.responseBody, this.aes);
           if (decoded.length > 0) {
             const parsed = JSON.parse(decoded);
             this.logger.log(
@@ -246,7 +247,16 @@ export default class Deco {
             return parsed; // let the caller (client.ts) interpret the error_code
           }
         } catch (decryptErr) {
-          this.logger.error('deco.ts: doEncryptedPost: could not decrypt HTTP error body:', decryptErr);
+          if (decoded.length > 0) {
+            // Decryption succeeded but the plaintext is not JSON — router returned a
+            // plain-text error (e.g. "Failed to authenticate"). Log the raw text so
+            // future diagnostics can see exactly what the router said.
+            this.logger.error(
+              `deco.ts: doEncryptedPost: HTTP ${e.httpStatus} body decrypted as plain text (not JSON): "${decoded.slice(0, 120)}"`,
+            );
+          } else {
+            this.logger.error('deco.ts: doEncryptedPost: could not decrypt HTTP error body:', decryptErr);
+          }
         }
       }
       this.logger.error('deco.ts: doEncryptedPost: error:', e);

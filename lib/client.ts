@@ -351,7 +351,13 @@ export default class DecoAPIWraper {
   // Throws AuthNetworkError when the router cannot be reached.
   // Throws AuthCredentialsError when the password is wrong.
   // Throws Error for other failures.
-  public async authenticate(password: string, _retried = false): Promise<boolean> {
+  //
+  // _retried: true after a Content-Type flip (prevents a second flip).
+  // _skipRehash: true when retrying with a pre-hashed password (prevents double-hashing).
+  //   Some firmware expects RSA(MD5(admin+password)) instead of RSA(raw_password).
+  //   When _skipRehash=true, `password` is already MD5(admin+rawPassword) and
+  //   this.hash must NOT be recomputed so the sign stays consistent.
+  public async authenticate(password: string, _retried = false, _skipRehash = false): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
@@ -382,12 +388,16 @@ export default class DecoAPIWraper {
       '(both must be 16)',
     );
 
-    // Generate MD5 hash using the username and password
-    this.hash = crypto
-      .createHash('md5')
-      .update(`${userName}${password}`)
-      .digest('hex');
-    this.logger.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)');
+    // Generate MD5 hash using the username and raw password.
+    // When _skipRehash=true we are retrying with password=MD5(admin+rawPassword)
+    // and this.hash must remain MD5(admin+rawPassword) — do not double-hash.
+    if (!_skipRehash) {
+      this.hash = crypto
+        .createHash('md5')
+        .update(`${userName}${password}`)
+        .digest('hex');
+    }
+    this.logger.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)', _skipRehash ? '(pre-hashed password mode)' : '');
 
     this.ensureDecoInstance();
 
@@ -406,7 +416,9 @@ export default class DecoAPIWraper {
     }
     this.logger.log('client.ts: authenticate: password key retrieved ok');
 
-    // Encrypt the password using the retrieved password key
+    // Encrypt the password using the retrieved password key.
+    // Normal mode:      RSA(raw_password)            — works on most firmware.
+    // Hash-retry mode:  RSA(MD5(admin+raw_password)) — required by some newer firmware.
     const encryptedPassword = encryptRsa(password, passwordKey);
     if (!encryptedPassword) {
       this.logger.error('client.ts: authenticate: RSA encryption of password returned empty string');
@@ -456,11 +468,20 @@ export default class DecoAPIWraper {
         throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e });
       }
       if (e?.httpStatus === 500) {
-        // HTTP 500 on the login POST usually means wrong password.
-        // doEncryptedPost already attempted decryption; if it still threw here
-        // the body was not decryptable. Surface as a credentials error.
-        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — likely wrong password');
-        throw new Error('CREDENTIALS: Wrong password. Use the password from the TP-Link Deco app.');
+        if (!_skipRehash) {
+          // Some firmware (certain newer models) expects RSA(MD5(admin+password))
+          // instead of RSA(raw_password). Retry once with the hashed form.
+          // this.hash is already MD5(admin+rawPassword) from the current call.
+          this.logger.log(
+            'client.ts: authenticate: HTTP 500 on login — retrying with hashed password format',
+            `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
+          );
+          this.c.forceJsonContentType = true;
+          return this.authenticate(this.hash, true, true);
+        }
+        // Both RSA(raw_password) and RSA(hash) failed — credentials are wrong.
+        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — wrong password (both raw and hashed formats tried)');
+        throw new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).');
       }
       this.logger.error('client.ts: authenticate: network error during login POST:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
@@ -488,7 +509,7 @@ export default class DecoAPIWraper {
     const newStok = result?.result?.stok;
     if (!newStok) {
       this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
-      throw new Error('CREDENTIALS: Wrong password. Use the password from the TP-Link Deco app.');
+      throw new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).');
     }
     this.stok = newStok;
 
