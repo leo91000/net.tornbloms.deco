@@ -262,5 +262,8 @@
   },
   "1.4.30": {
     "en": "Improves logging when Failed to... while connecting"
+  },
+  "1.4.31": {
+    "en": "Updated previews of widgets"
   }
 }
