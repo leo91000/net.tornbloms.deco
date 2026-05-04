@@ -176,6 +176,7 @@ export interface DeviceListResponse {
       oversized_firmware: boolean;
       speed_get_support?: boolean;
       hw_id: string;
+      imei?: string; // present on cellular models (X50-5G, X50-4G, etc.)
     }>;
   };
 }

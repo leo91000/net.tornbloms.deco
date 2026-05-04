@@ -568,9 +568,16 @@ class TplinkDecoDevice extends Device {
             // If the call failed/timed-out, error_code is 1 (our default) and we leave
             // the capability at its last known value to avoid false "disconnected" alerts.
             if (internetResponse?.error_code === 0) {
+              // Cellular models (IMEI present, e.g. X50-5G) connect to the internet via
+              // 5G — the wired WAN port is unused so internet.ipv4.inet_status is empty /
+              // disconnected even when online.  device_list.inet_status is the reliable
+              // source for actual internet connectivity on these models.
+              const ipv4InetStatus = (device as any).imei
+                ? device.inet_status
+                : (internetResponse?.result?.ipv4?.inet_status ?? '');
               await this.handleWanStateChange(
                 'ipv4',
-                internetResponse?.result?.ipv4?.inet_status ?? '',
+                ipv4InetStatus,
                 this.savedWanipv4State ?? false,
                 'alarm_wan_ipv4_state',
               );
