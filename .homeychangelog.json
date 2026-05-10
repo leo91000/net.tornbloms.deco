@@ -265,5 +265,14 @@
   },
   "1.4.31": {
     "en": "Updated previews of widgets"
+  },
+  "1.4.32": {
+    "en": "Fixes for X50-5G"
+  },
+  "1.4.33": {
+    "en": "Fix Client Presence widget showing a spinning icon when no MAC address is configured"
+  },
+  "1.4.34": {
+    "en": "Fix Client Presence widget showing a spinning icon when no MAC address is configured"
   }
 }
