@@ -34,6 +34,14 @@ export class HttpClient {
    * HTTPS firmware that needs JSON rather than form-urlencoded.
    */
   public forceJsonContentType: boolean = false;
+  /**
+   * When true, doEncryptedPost sends the body as JSON {"sign":"...","data":"..."}
+   * instead of the default URL-encoded form "sign=...&data=...". Required by
+   * newer Deco firmware (e.g. X50 fw 1.8.0) that strictly parses the body
+   * according to Content-Type and crashes (HTTP 500 Lua error) on form data
+   * sent with application/json Content-Type.
+   */
+  public forceJsonBody: boolean = false;
 
   constructor(baseURL: string, timeout = 10000, logger: AppLogger = consoleLogger) {
     this.jar = new CookieJar();

@@ -191,16 +191,18 @@ export default class Deco {
       }
       this.logger.log(`deco.ts: doEncryptedPost: RSA-encrypted sign length=${sign.length}`);
 
-      // Prepare the final POST data
-      const postData = `sign=${encodeURIComponent(
-        sign,
-      )}&data=${encodeURIComponent(encryptedData)}`;
+      // Prepare the final POST data.
+      // Default: URL-encoded form body "sign=...&data=..." (works for most firmware).
+      // JSON body: {"sign":"...","data":"..."} required by newer firmware (e.g. X50 fw 1.8.0)
+      // that strictly parses the body per Content-Type and crashes on form data sent as JSON.
+      const postData = this.c.forceJsonBody
+        ? JSON.stringify({ sign, data: encryptedData })
+        : `sign=${encodeURIComponent(sign)}&data=${encodeURIComponent(encryptedData)}`;
 
       const postDataBuffer = Buffer.from(postData);
       this.logger.log(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
 
       // Send the POST request with encrypted data.
-      // The body is URL-encoded form data (sign=...&data=...).
       // There are two distinct HTTPS firmware behaviours:
       //   - Older HTTPS firmware returns HTTP 500 with JSON → needs form-urlencoded.
       //   - Newer HTTPS firmware returns "no such callback" with form-urlencoded → needs JSON.
@@ -249,8 +251,11 @@ export default class Deco {
         } catch (decryptErr) {
           if (decoded.length > 0) {
             // Decryption succeeded but the plaintext is not JSON — router returned a
-            // plain-text error (e.g. "Failed to authenticate"). Log the raw text so
-            // future diagnostics can see exactly what the router said.
+            // plain-text Lua error (e.g. "Failed to execute call dispatcher...").
+            // This means the body FORMAT was wrong (firmware tried to JSON.parse form
+            // data and crashed), NOT a wrong password. Signal this to the caller so
+            // it can retry with a different body format rather than just trying MD5.
+            e.isBodyFormatError = true;
             this.logger.error(
               `deco.ts: doEncryptedPost: HTTP ${e.httpStatus} body decrypted as plain text (not JSON): "${decoded.slice(0, 120)}"`,
             );
