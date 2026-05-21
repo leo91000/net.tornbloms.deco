@@ -57,6 +57,11 @@ class TplinkDecoDevice extends Device {
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
 
+  // Cache for which cellular API form name works on this device.
+  // undefined = not yet probed, null = confirmed not supported,
+  // 'lte' = lte_intf_cfg / lte_link_cfg works, '5g' = 5g_intf_cfg / 5g_link_cfg works.
+  private lteFormCache: 'lte' | '5g' | null | undefined = undefined;
+
   // Returns a logger that routes through the Homey SDK so output appears
   // in diagnostics reports as well as the real-time developer tools.
   private makeLogger(): AppLogger {
@@ -703,7 +708,7 @@ class TplinkDecoDevice extends Device {
           );
 
           // LTE data usage — auto-detected: capabilities are added/removed based on API response
-          await this.updateLteMetrics();
+          await this.updateLteMetrics((device as any).imei as string | undefined);
         }
       }
     } catch (error) {
@@ -944,15 +949,19 @@ class TplinkDecoDevice extends Device {
   }
 
   /**
-   * Fetches LTE data-usage and connection-status metrics and updates capabilities.
-   * Capabilities are added dynamically when the router responds with valid LTE data
-   * and removed if the endpoint is absent (non-LTE models return error_code != 0).
+   * Fetches cellular data-usage and connection-status metrics and updates capabilities.
+   * Capabilities are added dynamically when the router responds with valid data
+   * and removed if no working endpoint is found (non-cellular models).
+   *
+   * Probes two endpoint families on first call:
+   *   lte_intf_cfg / lte_link_cfg  — 4G LTE models (e.g. X50-4G)
+   *   5g_intf_cfg  / 5g_link_cfg   — 5G NR  models (e.g. X50-5G, if supported)
+   * The working family is cached in lteFormCache so subsequent polls use it directly.
    *
    * Note on units: TP-Link firmware typically reports curStatistics / totalStatistics
-   * in MB. The raw values are logged at debug level — report unexpected values so
-   * the unit handling can be adjusted if needed.
+   * in MB. The raw values are logged so unexpected values can be reported.
    */
-  private async updateLteMetrics(): Promise<void> {
+  private async updateLteMetrics(imei?: string): Promise<void> {
     const LTE_CAPS = [
       'measure_lte_monthly_rx_mb',
       'measure_lte_monthly_tx_mb',
@@ -960,31 +969,92 @@ class TplinkDecoDevice extends Device {
       'lte_network_type',
     ] as const;
 
-    // --- data usage ---
-    const intfCfg = await this.safeApiCall<LteIntfCfgResponse>(
-      () => this.api.custom('/admin/network', { form: 'lte_intf_cfg' }, this.readBody),
-      { error_code: 1, result: {} },
-      'LTE Interface Config',
-    );
-
-    // --- SIM / network-type ---
-    const linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
-      () => this.api.custom('/admin/network', { form: 'lte_link_cfg' }, this.readBody),
-      { error_code: 1, result: {} },
-      'LTE Link Config',
-    );
-
-    const hasLte =
-      intfCfg.error_code === 0 &&
-      intfCfg.result != null &&
-      Object.keys(intfCfg.result).length > 0;
-
-    if (!hasLte) {
-      // Not an LTE model (or endpoint unavailable) — remove caps if previously added
+    const removeCaps = async () => {
       for (const cap of LTE_CAPS) {
         if (this.hasCapability(cap)) await this.removeCapability(cap);
       }
+    };
+
+    const defaultResp = { error_code: 1, result: {} };
+    const hasData = (r: { error_code: number; result: any }) =>
+      r.error_code === 0 && r.result != null && Object.keys(r.result).length > 0;
+
+    // Fast path: already confirmed this device has no cellular API
+    if (this.lteFormCache === null) {
+      await removeCaps();
       return;
+    }
+
+    let intfCfg: LteIntfCfgResponse;
+    let linkCfg: LteLinkCfgResponse;
+
+    if (this.lteFormCache === undefined) {
+      // --- First call: probe which endpoint family works ---
+      const lteProbe = await this.safeApiCall<LteIntfCfgResponse>(
+        () => this.api.custom('/admin/network', { form: 'lte_intf_cfg' }, this.readBody),
+        defaultResp,
+        'lte_intf_cfg probe',
+      );
+
+      if (hasData(lteProbe)) {
+        this.lteFormCache = 'lte';
+        this.log('updateLteMetrics: lte_intf_cfg works — caching as LTE');
+        intfCfg = lteProbe;
+      } else if (imei) {
+        // Cellular model (IMEI present) but LTE endpoint missing — try 5G endpoint
+        const fgProbe = await this.safeApiCall<LteIntfCfgResponse>(
+          () => this.api.custom('/admin/network', { form: '5g_intf_cfg' }, this.readBody),
+          defaultResp,
+          '5g_intf_cfg probe',
+        );
+        if (hasData(fgProbe)) {
+          this.lteFormCache = '5g';
+          this.log('updateLteMetrics: 5g_intf_cfg works — caching as 5G');
+          intfCfg = fgProbe;
+        } else {
+          this.lteFormCache = null;
+          this.log(
+            `updateLteMetrics: cellular model (IMEI ${imei}) has no LTE/5G API endpoint — capabilities unavailable`,
+          );
+          await removeCaps();
+          return;
+        }
+      } else {
+        // Not cellular — skip without logging (non-cellular models always land here)
+        this.lteFormCache = null;
+        await removeCaps();
+        return;
+      }
+
+      // Fetch the link config for the discovered family
+      const linkForm = this.lteFormCache === '5g' ? '5g_link_cfg' : 'lte_link_cfg';
+      linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
+        () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
+        defaultResp,
+        linkForm,
+      );
+    } else {
+      // --- Subsequent calls: use cached form directly ---
+      const intfForm = this.lteFormCache === '5g' ? '5g_intf_cfg' : 'lte_intf_cfg';
+      const linkForm = this.lteFormCache === '5g' ? '5g_link_cfg' : 'lte_link_cfg';
+
+      intfCfg = await this.safeApiCall<LteIntfCfgResponse>(
+        () => this.api.custom('/admin/network', { form: intfForm }, this.readBody),
+        defaultResp,
+        intfForm,
+      );
+      linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
+        () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
+        defaultResp,
+        linkForm,
+      );
+
+      if (!hasData(intfCfg)) {
+        // Endpoint stopped responding — reset cache so next poll re-probes
+        this.lteFormCache = undefined;
+        await removeCaps();
+        return;
+      }
     }
 
     // Add capabilities on first detection
@@ -1006,7 +1076,7 @@ class TplinkDecoDevice extends Device {
     const rxMb = toMb(intfCfg.result.curStatistics);
     const txMb = toMb(intfCfg.result.totalStatistics);
     this.log(
-      `LTE stats raw: curStatistics=${intfCfg.result.curStatistics}` +
+      `LTE/5G stats raw: curStatistics=${intfCfg.result.curStatistics}` +
       ` totalStatistics=${intfCfg.result.totalStatistics}` +
       ` curRxSpeed=${intfCfg.result.curRxSpeed} curTxSpeed=${intfCfg.result.curTxSpeed}`,
     );
@@ -1015,13 +1085,13 @@ class TplinkDecoDevice extends Device {
     await this.updateCapability('measure_lte_monthly_tx_mb', txMb);
 
     // Normalise SIM status strings from firmware (e.g. "sim_ready" → "Ready")
-    const simRaw = linkCfg.result.simStatus ?? '';
+    const simRaw = (linkCfg as LteLinkCfgResponse).result?.simStatus ?? '';
     const simLabel = simRaw
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase()) || '–';
     await this.updateCapability('lte_sim_status', simLabel);
 
-    const networkRaw = linkCfg.result.networkType ?? '';
+    const networkRaw = (linkCfg as LteLinkCfgResponse).result?.networkType ?? '';
     const networkLabel = networkRaw.toUpperCase() || '–';
     await this.updateCapability('lte_network_type', networkLabel);
   }

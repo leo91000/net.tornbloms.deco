@@ -358,7 +358,10 @@ export default class DecoAPIWraper {
   //   Some firmware expects RSA(MD5(admin+password)) instead of RSA(raw_password).
   //   When _skipRehash=true, `password` is already MD5(admin+rawPassword) and
   //   this.hash must NOT be recomputed so the sign stays consistent.
-  public async authenticate(password: string, _retried = false, _skipRehash = false): Promise<boolean> {
+  // _jsonBody: true after switching to JSON body format {"sign":"...","data":"..."}.
+  //   Newer Deco firmware (e.g. X50 fw 1.8.0) crashes with HTTP 500 when it receives
+  //   form-encoded body "sign=...&data=..." with Content-Type: application/json.
+  public async authenticate(password: string, _retried = false, _skipRehash = false, _jsonBody = false): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
@@ -469,19 +472,40 @@ export default class DecoAPIWraper {
         throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e });
       }
       if (e?.httpStatus === 500) {
-        if (!_skipRehash) {
-          // Some firmware (certain newer models) expects RSA(MD5(admin+password))
-          // instead of RSA(raw_password). Retry once with the hashed form.
-          // this.hash is already MD5(admin+rawPassword) from the current call.
+        if (!_skipRehash && !_jsonBody && e?.isBodyFormatError) {
+          // Firmware crashed while parsing the request body (Lua exception, HTTP 500 with
+          // plain-text error). This means the body FORMAT is wrong — the firmware received
+          // "sign=...&data=..." form-encoded data with Content-Type: application/json and
+          // its JSON parser crashed. Retry with a proper JSON body {"sign":"...","data":"..."}.
+          this.logger.log(
+            'client.ts: authenticate: HTTP 500 (body format error — firmware Lua crash)',
+            '— retrying with JSON body format ({"sign":"...","data":"..."})',
+          );
+          this.c.forceJsonContentType = true;
+          this.c.forceJsonBody = true;
+          return this.authenticate(password, _retried, false, true);
+        }
+        if (_jsonBody && !_skipRehash) {
+          // JSON body tried with raw password but still HTTP 500 — try MD5 hashed password
+          // in case the firmware also requires RSA(MD5(admin+password)) instead of RSA(raw).
+          this.logger.log(
+            'client.ts: authenticate: HTTP 500 with JSON body — retrying with MD5 hashed password',
+            `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
+          );
+          return this.authenticate(this.hash, true, true, true);
+        }
+        if (!_skipRehash && !_jsonBody) {
+          // Regular HTTP 500 (encrypted error, not a Lua crash) — some firmware returns 500
+          // when the raw password is wrong and expects RSA(MD5(admin+password)) instead.
           this.logger.log(
             'client.ts: authenticate: HTTP 500 on login — retrying with hashed password format',
             `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
           );
           this.c.forceJsonContentType = true;
-          return this.authenticate(this.hash, true, true);
+          return this.authenticate(this.hash, true, true, false);
         }
-        // Both RSA(raw_password) and RSA(hash) failed — credentials are wrong.
-        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — wrong password (both raw and hashed formats tried)');
+        // All formats tried — credentials are wrong.
+        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — wrong password (all formats tried)');
         throw new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).');
       }
       this.logger.error('client.ts: authenticate: network error during login POST:', e);
