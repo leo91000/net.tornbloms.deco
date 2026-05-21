@@ -4,3 +4,4 @@
 .vscode
 .env
 .DS_Store
+.claude/
