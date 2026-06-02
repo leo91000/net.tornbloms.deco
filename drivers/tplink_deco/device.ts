@@ -59,8 +59,8 @@ class TplinkDecoDevice extends Device {
 
   // Cache for which cellular API form name works on this device.
   // undefined = not yet probed, null = confirmed not supported,
-  // 'lte' = lte_intf_cfg / lte_link_cfg works, '5g' = 5g_intf_cfg / 5g_link_cfg works.
-  private lteFormCache: 'lte' | '5g' | null | undefined = undefined;
+  // string = form prefix (e.g. 'lte', '5g', 'nr'); forms are <prefix>_intf_cfg / <prefix>_link_cfg.
+  private lteFormCache: string | null | undefined = undefined;
 
   // Returns a logger that routes through the Homey SDK so output appears
   // in diagnostics reports as well as the real-time developer tools.
@@ -990,44 +990,40 @@ class TplinkDecoDevice extends Device {
 
     if (this.lteFormCache === undefined) {
       // --- First call: probe which endpoint family works ---
-      const lteProbe = await this.safeApiCall<LteIntfCfgResponse>(
-        () => this.api.custom('/admin/network', { form: 'lte_intf_cfg' }, this.readBody),
-        defaultResp,
-        'lte_intf_cfg probe',
-      );
+      // Always try 'lte' first (works for all 4G models).
+      // On cellular models (IMEI present), also probe '5g' and 'nr' (5G NR).
+      const probePrefixes = imei ? ['lte', '5g', 'nr'] : ['lte'];
+      let detectedIntfCfg: LteIntfCfgResponse | undefined;
 
-      if (hasData(lteProbe)) {
-        this.lteFormCache = 'lte';
-        this.log('updateLteMetrics: lte_intf_cfg works — caching as LTE');
-        intfCfg = lteProbe;
-      } else if (imei) {
-        // Cellular model (IMEI present) but LTE endpoint missing — try 5G endpoint
-        const fgProbe = await this.safeApiCall<LteIntfCfgResponse>(
-          () => this.api.custom('/admin/network', { form: '5g_intf_cfg' }, this.readBody),
+      for (const prefix of probePrefixes) {
+        const probe = await this.safeApiCall<LteIntfCfgResponse>(
+          () => this.api.custom('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody),
           defaultResp,
-          '5g_intf_cfg probe',
+          `${prefix}_intf_cfg probe`,
         );
-        if (hasData(fgProbe)) {
-          this.lteFormCache = '5g';
-          this.log('updateLteMetrics: 5g_intf_cfg works — caching as 5G');
-          intfCfg = fgProbe;
-        } else {
-          this.lteFormCache = null;
-          this.log(
-            `updateLteMetrics: cellular model (IMEI ${imei}) has no LTE/5G API endpoint — capabilities unavailable`,
-          );
-          await removeCaps();
-          return;
+        if (hasData(probe)) {
+          this.lteFormCache = prefix;
+          this.log(`updateLteMetrics: ${prefix}_intf_cfg works — caching cellular endpoint as "${prefix}"`);
+          detectedIntfCfg = probe;
+          break;
         }
-      } else {
-        // Not cellular — skip without logging (non-cellular models always land here)
+      }
+
+      if (!detectedIntfCfg) {
         this.lteFormCache = null;
+        if (imei) {
+          this.log(
+            `updateLteMetrics: cellular model (IMEI ${imei}) has no LTE/5G/NR API endpoint — capabilities unavailable`,
+          );
+        }
         await removeCaps();
         return;
       }
 
+      intfCfg = detectedIntfCfg;
+
       // Fetch the link config for the discovered family
-      const linkForm = this.lteFormCache === '5g' ? '5g_link_cfg' : 'lte_link_cfg';
+      const linkForm = `${this.lteFormCache}_link_cfg`;
       linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
         () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
         defaultResp,
@@ -1035,8 +1031,9 @@ class TplinkDecoDevice extends Device {
       );
     } else {
       // --- Subsequent calls: use cached form directly ---
-      const intfForm = this.lteFormCache === '5g' ? '5g_intf_cfg' : 'lte_intf_cfg';
-      const linkForm = this.lteFormCache === '5g' ? '5g_link_cfg' : 'lte_link_cfg';
+      const prefix = this.lteFormCache as string;
+      const intfForm = `${prefix}_intf_cfg`;
+      const linkForm = `${prefix}_link_cfg`;
 
       intfCfg = await this.safeApiCall<LteIntfCfgResponse>(
         () => this.api.custom('/admin/network', { form: intfForm }, this.readBody),

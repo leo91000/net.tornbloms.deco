@@ -4,7 +4,7 @@ import dns from 'dns/promises';
 import net from 'net';
 import os from 'os';
 import { Driver } from 'homey';
-import decoapiwrapper, { AppLogger, DeviceListResponse } from '../../lib/client';
+import decoapiwrapper, { AppLogger, DeviceListResponse, LoginAttempt } from '../../lib/client';
 
 class TplinkDecoDriver extends Driver {
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
@@ -215,6 +215,7 @@ class TplinkDecoDriver extends Driver {
 
     let hostname = '';
     let password = '';
+    let lastLoginTrace: LoginAttempt[] = [];
 
     // Received when a view has changed
     session.setHandler('showView', async (viewId: string) => {
@@ -230,6 +231,7 @@ class TplinkDecoDriver extends Driver {
         password = data.password;
         this.log('password: [redacted]');
         this.log('creating client');
+        lastLoginTrace = [];
         await this.logNetworkDiagnostics(hostname);
         try {
           this.api = new decoapiwrapper(hostname, this.makeLogger());
@@ -238,6 +240,7 @@ class TplinkDecoDriver extends Driver {
           return true;
         } catch (error: any) {
           const msg: string = error?.message ?? '';
+          lastLoginTrace = (error as any)?.loginTrace ?? [];
           if (msg.startsWith('NETWORK:')) {
             this.error('pair: network error:', msg);
             throw new Error(msg.replace('NETWORK: ', ''));
@@ -246,11 +249,22 @@ class TplinkDecoDriver extends Driver {
             this.error('pair: credentials error:', msg);
             throw new Error(msg.replace('CREDENTIALS: ', ''));
           }
-          this.error('pair: unexpected error:', error);
-          throw new Error('Connection failed. Check the IP address and password.');
+          // Unknown protocol — all formats tried. Navigate to diagnostic view.
+          this.error('pair: login failed — all formats exhausted. Navigating to diagnostic view. Trace:', JSON.stringify(lastLoginTrace));
+          await session.nextView('login_failed');
+          return false;
         }
       },
     );
+
+    session.setHandler('get_diagnostic', async () => {
+      return { trace: lastLoginTrace };
+    });
+
+    session.setHandler('goto_login', async () => {
+      await session.nextView('login_credentials');
+      return true;
+    });
 
     session.setHandler('list_devices', async () => {
       this.log('pair: list_devices');

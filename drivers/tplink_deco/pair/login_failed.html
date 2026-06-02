@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="/homey.js"></script>
+    <style>
+      body {
+        padding: 0 16px 24px;
+        font-family: var(--homey-font-family, -apple-system, sans-serif);
+      }
+      .section { margin: 16px 0; }
+      .attempt-row {
+        background: var(--homey-color-mono-050, #f5f5f5);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .badge {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 6px;
+      }
+      .badge-fail { background: #f8d7da; color: #721c24; }
+      .badge-ok   { background: #d4edda; color: #155724; }
+      .hint {
+        font-size: 12px;
+        color: var(--homey-color-mono-600, #666);
+        margin-top: 4px;
+      }
+      .copy-ok {
+        font-size: 12px;
+        color: var(--homey-color-green-default, #00a650);
+        margin-top: 6px;
+        display: none;
+        text-align: center;
+      }
+      .github-row {
+        text-align: center;
+        margin-top: 8px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="section">
+      <h2 class="homey-title">Login failed</h2>
+      <p>
+        Your Deco's firmware uses a login protocol this app hasn't seen before.
+        Help us add support by sharing your device details.
+      </p>
+    </div>
+
+    <div class="section">
+      <div class="hint">What was tried:</div>
+      <div id="trace-container">Loading…</div>
+    </div>
+
+    <div class="homey-form-group section">
+      <label class="homey-form-label" for="model-input">Deco model (e.g. Deco BE95)</label>
+      <input type="text" id="model-input" class="homey-form-input" placeholder="Deco BE95" />
+    </div>
+
+    <div class="homey-form-group section">
+      <label class="homey-form-label" for="firmware-input">Firmware version</label>
+      <input type="text" id="firmware-input" class="homey-form-input" placeholder="1.2.3" />
+      <div class="hint">Find in Deco app → More → About → Firmware Version</div>
+    </div>
+
+    <div class="section">
+      <button id="copy-btn" class="homey-button-secondary-full">Copy debug report</button>
+      <div id="copy-ok" class="copy-ok">Copied! Open a GitHub issue and paste it.</div>
+      <div class="github-row">
+        <a
+          id="github-link"
+          href="https://github.com/mathiastornblom/net.tornbloms.deco/issues/new"
+          target="_blank"
+        >Open GitHub issue</a>
+      </div>
+    </div>
+
+    <div class="section">
+      <button id="retry-btn" class="homey-button-primary-full">Back to login</button>
+    </div>
+
+    <script type="text/javascript">
+      var traceData = [];
+
+      function onHomeyReady(Homey) {
+        Homey.ready();
+
+        Homey.emit('get_diagnostic', null, function (err, data) {
+          traceData = data && data.trace ? data.trace : [];
+          renderTrace(traceData);
+        });
+
+        document.getElementById('copy-btn').addEventListener('click', function () {
+          var model = document.getElementById('model-input').value.trim() || '(not entered)';
+          var firmware = document.getElementById('firmware-input').value.trim() || '(not entered)';
+          var report = buildReport(model, firmware, traceData);
+          copyToClipboard(report);
+          var okEl = document.getElementById('copy-ok');
+          okEl.style.display = 'block';
+          setTimeout(function () { okEl.style.display = 'none'; }, 3000);
+        });
+
+        document.getElementById('retry-btn').addEventListener('click', function () {
+          Homey.emit('goto_login', null, function () {});
+        });
+      }
+
+      function renderTrace(attempts) {
+        var container = document.getElementById('trace-container');
+        if (!attempts || attempts.length === 0) {
+          container.innerHTML = '<div class="attempt-row">No attempts recorded.</div>';
+          return;
+        }
+        container.innerHTML = attempts
+          .map(function (a) {
+            var ok = a.httpStatus === 200 && a.errorCode === 0;
+            var badge =
+              '<span class="badge ' +
+              (ok ? 'badge-ok' : 'badge-fail') +
+              '">HTTP ' +
+              (a.httpStatus !== null ? a.httpStatus : '?') +
+              '</span>';
+            var detail = '';
+            if (a.errorCode !== null) detail += ' error_code=' + a.errorCode;
+            if (a.msg) detail += ' &ldquo;' + escHtml(a.msg) + '&rdquo;';
+            return (
+              '<div class="attempt-row">' +
+              '<strong>#' + a.seq + '</strong>' +
+              '&nbsp;CT:' + a.contentType +
+              '&nbsp;body:' + a.bodyFormat +
+              '&nbsp;pw:' + a.passwordMode +
+              badge +
+              (detail ? '<br><span style="color:#666">' + detail + '</span>' : '') +
+              '</div>'
+            );
+          })
+          .join('');
+      }
+
+      function buildReport(model, firmware, attempts) {
+        var lines = [
+          '### Login diagnostic report',
+          '',
+          '**Model:** ' + model,
+          '**Firmware:** ' + firmware,
+          '',
+          '**Login attempts:**',
+          '',
+        ];
+        (attempts || []).forEach(function (a) {
+          lines.push(
+            '- Attempt ' +
+              a.seq +
+              ': CT=' + a.contentType +
+              ' body=' + a.bodyFormat +
+              ' pw=' + a.passwordMode +
+              ' → HTTP ' + (a.httpStatus !== null ? a.httpStatus : '?') +
+              (a.errorCode !== null ? ' error_code=' + a.errorCode : '') +
+              (a.msg ? ' "' + a.msg + '"' : ''),
+          );
+        });
+        lines.push('');
+        lines.push('<!-- Describe what you see in your Deco app and any other relevant info -->');
+        return lines.join('\n');
+      }
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+      }
+    </script>
+  </body>
+</html>

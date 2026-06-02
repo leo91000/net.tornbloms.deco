@@ -274,5 +274,11 @@
   },
   "1.4.34": {
     "en": "Fix Client Presence widget showing a spinning icon when no MAC address is configured"
+  },
+  "1.4.35": {
+    "en": "Fixed login failure on X50 and X55 routers running firmware 1.8.0 or newer. These models require a different request format during authentication — the app was sending the wrong format, which caused the router to reject the login with a misleading \"Wrong password\" error even when the password was correct. Reduced unnecessary background API calls on non-LTE models and X50-5G routers."
+  },
+  "1.4.36": {
+    "en": "Fixed login on routers that reject the JSON body format immediately after a firmware Lua crash (added a short recovery delay before retrying). Added LTE/5G capability support for X50-5G and other 5G NR models that use the 'nr_intf_cfg' endpoint. Added a login diagnostic view: when a Deco model uses an unknown login protocol, pairing now shows which formats were tried and lets the user copy a ready-to-paste GitHub issue report including model and firmware version."
   }
 }

@@ -15,6 +15,16 @@ export interface ErrorResponse {
   errorcode: string;
   success: boolean;
 }
+
+export interface LoginAttempt {
+  seq: number;
+  contentType: 'urlencoded' | 'json';
+  bodyFormat: 'form' | 'json';
+  passwordMode: 'raw' | 'hashed';
+  httpStatus: number | null;
+  errorCode: number | null;
+  msg: string | null;
+}
 // Interface to define the structure of the response for client list
 export interface ClientListResponse {
   error_code: number;
@@ -361,7 +371,9 @@ export default class DecoAPIWraper {
   // _jsonBody: true after switching to JSON body format {"sign":"...","data":"..."}.
   //   Newer Deco firmware (e.g. X50 fw 1.8.0) crashes with HTTP 500 when it receives
   //   form-encoded body "sign=...&data=..." with Content-Type: application/json.
-  public async authenticate(password: string, _retried = false, _skipRehash = false, _jsonBody = false): Promise<boolean> {
+  // _trace: accumulates one LoginAttempt per login POST across all recursive retries.
+  //   Attached to thrown errors so callers can surface diagnostic info.
+  public async authenticate(password: string, _retried = false, _skipRehash = false, _jsonBody = false, _trace: LoginAttempt[] = []): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
@@ -456,6 +468,18 @@ export default class DecoAPIWraper {
     const args = new EndpointArgs('login');
 
     this.logger.log('client.ts: authenticate: sending encrypted login request');
+
+    const attempt: LoginAttempt = {
+      seq: _trace.length + 1,
+      contentType: this.c.forceJsonContentType ? 'json' : 'urlencoded',
+      bodyFormat: _jsonBody ? 'json' : 'form',
+      passwordMode: _skipRehash ? 'hashed' : 'raw',
+      httpStatus: null,
+      errorCode: null,
+      msg: null,
+    };
+    _trace.push(attempt);
+
     let result;
     try {
       result = await this.decoInstance!.doEncryptedPost(
@@ -467,9 +491,21 @@ export default class DecoAPIWraper {
         this.sequence,
       );
     } catch (e: any) {
+      attempt.httpStatus = e?.httpStatus ?? null;
+      attempt.msg = (e?.message ?? '').slice(0, 120) || null;
+
       if (e?.httpStatus === 403) {
+        if (_jsonBody && !_skipRehash) {
+          // JSON body tried with raw password, got 403 — some firmware requires
+          // RSA(MD5(admin+password)) instead of RSA(raw_password) for the JSON body format.
+          this.logger.log(
+            'client.ts: authenticate: 403 on JSON body with raw password',
+            '— retrying with MD5 hashed password (RSA(MD5(admin+password)))',
+          );
+          return this.authenticate(this.hash, _retried, true, true, _trace);
+        }
         this.logger.error('client.ts: authenticate: login rejected with 403 — router may limit concurrent sessions. Will retry on next poll.');
-        throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e });
+        throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e, loginTrace: _trace });
       }
       if (e?.httpStatus === 500) {
         if (!_skipRehash && !_jsonBody && e?.isBodyFormatError) {
@@ -477,13 +513,15 @@ export default class DecoAPIWraper {
           // plain-text error). This means the body FORMAT is wrong — the firmware received
           // "sign=...&data=..." form-encoded data with Content-Type: application/json and
           // its JSON parser crashed. Retry with a proper JSON body {"sign":"...","data":"..."}.
+          // Wait briefly for the router to recover from the Lua crash before retrying.
           this.logger.log(
             'client.ts: authenticate: HTTP 500 (body format error — firmware Lua crash)',
-            '— retrying with JSON body format ({"sign":"...","data":"..."})',
+            '— waiting 1.5s for router recovery, then retrying with JSON body format ({"sign":"...","data":"..."})',
           );
           this.c.forceJsonContentType = true;
           this.c.forceJsonBody = true;
-          return this.authenticate(password, _retried, false, true);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          return this.authenticate(password, _retried, false, true, _trace);
         }
         if (_jsonBody && !_skipRehash) {
           // JSON body tried with raw password but still HTTP 500 — try MD5 hashed password
@@ -492,7 +530,7 @@ export default class DecoAPIWraper {
             'client.ts: authenticate: HTTP 500 with JSON body — retrying with MD5 hashed password',
             `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
           );
-          return this.authenticate(this.hash, true, true, true);
+          return this.authenticate(this.hash, true, true, true, _trace);
         }
         if (!_skipRehash && !_jsonBody) {
           // Regular HTTP 500 (encrypted error, not a Lua crash) — some firmware returns 500
@@ -502,7 +540,7 @@ export default class DecoAPIWraper {
             `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
           );
           this.c.forceJsonContentType = true;
-          return this.authenticate(this.hash, true, true, false);
+          return this.authenticate(this.hash, true, true, false, _trace);
         }
         // All formats tried — credentials are wrong.
         this.logger.error('client.ts: authenticate: HTTP 500 on login POST — wrong password (all formats tried)');
@@ -511,6 +549,10 @@ export default class DecoAPIWraper {
       this.logger.error('client.ts: authenticate: network error during login POST:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
     }
+
+    attempt.httpStatus = 200;
+    attempt.errorCode = result?.error_code ?? null;
+    attempt.msg = result?.msg ?? null;
 
     this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
 
@@ -524,7 +566,7 @@ export default class DecoAPIWraper {
         `switching to ${this.c.forceJsonContentType ? 'form-urlencoded' : 'JSON'} and retrying`,
       );
       this.c.forceJsonContentType = !this.c.forceJsonContentType;
-      return this.authenticate(password, true);
+      return this.authenticate(password, true, false, false, _trace);
     }
 
     // Only update this.stok when we have a confirmed valid token.
@@ -534,7 +576,10 @@ export default class DecoAPIWraper {
     const newStok = result?.result?.stok;
     if (!newStok) {
       this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
-      throw new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).');
+      throw Object.assign(
+        new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).'),
+        { loginTrace: _trace },
+      );
     }
     this.stok = newStok;
 

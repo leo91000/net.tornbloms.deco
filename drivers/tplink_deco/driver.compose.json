@@ -90,6 +90,12 @@
       }
     },
     {
+      "id": "login_failed",
+      "navigation": {
+        "prev": "login_credentials"
+      }
+    },
+    {
       "id": "list_devices",
       "template": "list_devices",
       "navigation": {
