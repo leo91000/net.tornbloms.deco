@@ -45,6 +45,9 @@ class TplinkDecoDevice extends Device {
   // Interval ID for periodic updates
   private timeoutSecondsIntervalId: ReturnType<typeof setInterval> | null =
     null;
+  // One-shot timer IDs — cancelled in onDeleted to avoid post-deletion callbacks
+  private rebootTimerId: ReturnType<typeof setTimeout> | null = null;
+  private startupDelayTimerId: ReturnType<typeof setTimeout> | null = null;
   private api: decoapiwrapper | any;
 
   connected = false; // Connection status
@@ -168,11 +171,14 @@ class TplinkDecoDevice extends Device {
               await this.setUnavailable(
                 this.homey.__('flow.reboot_deco.message'),
               );
-              setTimeout(async () => {
-                await this.setAvailable();
-                await this.setCapabilityValue('reboot', false).catch(
-                  this.error,
-                );
+              this.rebootTimerId = setTimeout(async () => {
+                this.rebootTimerId = null;
+                try {
+                  await this.setAvailable();
+                  await this.setCapabilityValue('reboot', false).catch(this.error);
+                } catch (e: any) {
+                  this.log('Reboot timer: device already gone, skipping setAvailable', e?.message);
+                }
               }, 60000); // 60 seconds
             } else {
               this.error('Failed to reboot');
@@ -214,9 +220,14 @@ class TplinkDecoDevice extends Device {
         const interval = (settings.timeoutSeconds || 30) * 1000;
         const startupDelay = Math.floor(Math.random() * Math.min(interval, 15000));
         this.log(`First poll in ${startupDelay / 1000}s (stagger offset)`);
-        setTimeout(async () => {
-          await this.updateDeviceMetrics();
-          this.setUpdateInterval(interval);
+        this.startupDelayTimerId = setTimeout(async () => {
+          this.startupDelayTimerId = null;
+          try {
+            await this.updateDeviceMetrics();
+            this.setUpdateInterval(interval);
+          } catch (e: any) {
+            this.log('Startup delay timer: device already gone, skipping', e?.message);
+          }
         }, startupDelay);
       } else {
         this.error('Missing API configuration settings');
@@ -284,7 +295,14 @@ class TplinkDecoDevice extends Device {
   async onDeleted(): Promise<void> {
     this.log('TplinkDecoDevice has been deleted');
 
-    // Clear the interval if it's active
+    if (this.rebootTimerId) {
+      clearTimeout(this.rebootTimerId);
+      this.rebootTimerId = null;
+    }
+    if (this.startupDelayTimerId) {
+      clearTimeout(this.startupDelayTimerId);
+      this.startupDelayTimerId = null;
+    }
     if (this.timeoutSecondsIntervalId) {
       clearInterval(this.timeoutSecondsIntervalId);
       this.log('Cleared interval for device metrics update');
