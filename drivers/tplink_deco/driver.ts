@@ -174,6 +174,56 @@ class TplinkDecoDriver extends Driver {
         return this.buildClientAutocomplete(args.device, query);
       },
     );
+
+    // Mesh-wide presence — global cards (no device argument), since "the mesh" isn't a
+    // property of any single Deco node. Data is sourced from the master device's
+    // meshTrackedClients, populated by its device_mac: 'default' poll (see device.ts).
+    const clientJoinedMeshFlow = this.homey.flow.getTriggerCard('client_joined_mesh');
+    clientJoinedMeshFlow.registerRunListener(async (args, state) => {
+      return args.client.mac === state.mac;
+    });
+    clientJoinedMeshFlow.registerArgumentAutocompleteListener(
+      'client',
+      async (query) => this.buildMeshClientAutocomplete(query),
+    );
+
+    const clientLeftMeshFlow = this.homey.flow.getTriggerCard('client_left_mesh');
+    clientLeftMeshFlow.registerRunListener(async (args, state) => {
+      return args.client.mac === state.mac;
+    });
+    clientLeftMeshFlow.registerArgumentAutocompleteListener(
+      'client',
+      async (query) => this.buildMeshClientAutocomplete(query),
+    );
+
+    const clientPresentInMesh = this.homey.flow.getConditionCard('client_present_in_mesh');
+    clientPresentInMesh.registerRunListener(async (args) => {
+      const master = this.getMasterDevice();
+      return master?.meshTrackedClients?.[args.client.mac]?.online === true;
+    });
+    clientPresentInMesh.registerArgumentAutocompleteListener(
+      'client',
+      async (query) => this.buildMeshClientAutocomplete(query),
+    );
+  }
+
+  /**
+   * Finds the paired device representing the mesh's master node, which is the only
+   * device that maintains meshTrackedClients. Returns undefined if no master is paired.
+   */
+  private getMasterDevice(): any | undefined {
+    return this.getDevices().find(
+      (d: any) => (d.getSettings?.().role ?? '').toLowerCase() === 'master',
+    );
+  }
+
+  /**
+   * Builds an autocomplete result list from the master device's mesh-wide client history.
+   * Mirrors buildClientAutocomplete, but sourced mesh-wide instead of per-node.
+   */
+  public buildMeshClientAutocomplete(query: string) {
+    const master = this.getMasterDevice();
+    return this.buildClientAutocompleteFrom(master?.meshTrackedClients ?? {}, query);
   }
 
   /**
@@ -182,7 +232,14 @@ class TplinkDecoDriver extends Driver {
    * Online clients are shown first; offline clients show their last-seen date.
    */
   public buildClientAutocomplete(device: any, query: string) {
-    const tracked: Record<string, any> = device?.trackedClients ?? {};
+    return this.buildClientAutocompleteFrom(device?.trackedClients ?? {}, query);
+  }
+
+  /**
+   * Shared filtering/sorting logic behind buildClientAutocomplete and
+   * buildMeshClientAutocomplete — only the source tracked-client map differs.
+   */
+  private buildClientAutocompleteFrom(tracked: Record<string, any>, query: string) {
     const search = query.toLowerCase();
 
     return Object.values(tracked)

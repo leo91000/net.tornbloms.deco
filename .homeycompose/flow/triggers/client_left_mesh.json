@@ -1,0 +1,173 @@
+{
+  "title": {
+    "en": "A client left the Deco Mesh",
+    "nl": "Een client heeft de Deco Mesh verlaten",
+    "da": "En klient forlod Deco Mesh",
+    "de": "Ein Client hat das Deco Mesh verlassen",
+    "es": "Un cliente abandonó la Deco Mesh",
+    "fr": "Un client a quitté le Deco Mesh",
+    "it": "Un client ha lasciato la Deco Mesh",
+    "no": "En klient forlot Deco Mesh",
+    "sv": "En klient lämnade Deco Mesh",
+    "pl": "Klient opuścił sieć Deco Mesh",
+    "ru": "Клиент покинул Deco Mesh",
+    "ko": "클라이언트가 Deco Mesh를 떠남",
+    "ar": "غادر أحد العملاء شبكة Deco Mesh"
+  },
+  "titleFormatted": {
+    "en": "[[client]] left the Deco Mesh",
+    "nl": "[[client]] heeft de Deco Mesh verlaten",
+    "da": "[[client]] forlod Deco Mesh",
+    "de": "[[client]] hat das Deco Mesh verlassen",
+    "es": "[[client]] abandonó la Deco Mesh",
+    "fr": "[[client]] a quitté le Deco Mesh",
+    "it": "[[client]] ha lasciato la Deco Mesh",
+    "no": "[[client]] forlot Deco Mesh",
+    "sv": "[[client]] lämnade Deco Mesh",
+    "pl": "[[client]] opuścił sieć Deco Mesh",
+    "ru": "[[client]] покинул Deco Mesh",
+    "ko": "[[client]]가 Deco Mesh를 떠남",
+    "ar": "غادر [[client]] شبكة Deco Mesh"
+  },
+  "hint": {
+    "en": "Fires once when a client is no longer connected to any Deco node in the mesh. A short grace period absorbs the brief gap that can occur while a client roams between nodes, so this does not fire on normal roaming.",
+    "nl": "Wordt één keer geactiveerd wanneer een client niet langer verbonden is met een Deco-knooppunt in de mesh. Een korte respijtperiode vangt het korte gat op dat kan optreden terwijl een client tussen knooppunten wisselt, zodat dit niet wordt geactiveerd bij normaal wisselen.",
+    "da": "Udløses én gang, når en klient ikke længere er forbundet til nogen Deco-knude i mesh'et. En kort kulanceperiode opfanger det korte hul, der kan opstå, når en klient skifter mellem knuder, så dette ikke udløses ved normalt skift.",
+    "de": "Wird einmal ausgelöst, wenn ein Client mit keinem Deco-Knoten im Mesh mehr verbunden ist. Eine kurze Karenzzeit überbrückt die kurze Lücke, die beim Wechsel eines Clients zwischen Knoten auftreten kann, sodass dies beim normalen Wechsel nicht ausgelöst wird.",
+    "es": "Se activa una vez cuando un cliente ya no está conectado a ningún nodo Deco de la malla. Un breve período de gracia absorbe el hueco que puede producirse mientras un cliente se mueve entre nodos, por lo que no se activa con el roaming normal.",
+    "fr": "Se déclenche une fois lorsqu'un client n'est plus connecté à aucun nœud Deco du mesh. Une courte période de grâce absorbe le bref intervalle pouvant survenir lorsqu'un client passe d'un nœud à un autre, afin que cela ne se déclenche pas lors d'un changement normal.",
+    "it": "Si attiva una volta quando un client non è più connesso a nessun nodo Deco della mesh. Un breve periodo di tolleranza assorbe il breve intervallo che può verificarsi quando un client passa da un nodo a un altro, in modo che non si attivi durante il normale passaggio.",
+    "no": "Utløses én gang når en klient ikke lenger er tilkoblet noen Deco-node i mesh-nettverket. En kort frist absorberer det korte gapet som kan oppstå når en klient bytter node, slik at dette ikke utløses ved normalt nodebytte.",
+    "sv": "Utlöses en gång när en klient inte längre är ansluten till någon Deco-nod i mesh-nätverket. En kort respitperiod absorberar det korta glapp som kan uppstå när en klient byter nod, så detta utlöses inte vid normalt nodbyte.",
+    "pl": "Wyzwala się jednorazowo, gdy klient nie jest już połączony z żadnym węzłem Deco w sieci mesh. Krótki okres karencji pochłania krótką przerwę, która może wystąpić podczas przełączania klienta między węzłami, dzięki czemu nie wyzwala się przy normalnym przełączaniu.",
+    "ru": "Срабатывает один раз, когда клиент больше не подключён к какому-либо узлу Deco в mesh-сети. Короткий период ожидания компенсирует кратковременный разрыв, который может возникнуть при перемещении клиента между узлами, поэтому при обычном перемещении это не срабатывает.",
+    "ko": "클라이언트가 메시 내 어떤 Deco 노드에도 더 이상 연결되어 있지 않으면 한 번 실행됩니다. 짧은 유예 기간이 노드 간 이동 중 발생할 수 있는 짧은 공백을 흡수하므로 일반적인 이동 시에는 실행되지 않습니다.",
+    "ar": "يتم التشغيل مرة واحدة عندما لا يكون العميل متصلاً بأي عقدة Deco في الشبكة المتداخلة. تمتص فترة سماح قصيرة الفجوة الوجيزة التي قد تحدث أثناء تنقل العميل بين العقد، لذا لا يتم التشغيل عند التنقل العادي."
+  },
+  "highlight": true,
+  "tokens": [
+    {
+      "type": "string",
+      "name": "name",
+      "title": {
+        "en": "name",
+        "nl": "naam",
+        "da": "navn",
+        "de": "Name",
+        "es": "nombre",
+        "fr": "nom",
+        "it": "nome",
+        "no": "navn",
+        "sv": "namn",
+        "pl": "imię",
+        "ru": "имя",
+        "ko": "이름",
+        "ar": "الاسم"
+      },
+      "example": {
+        "en": "iPhone",
+        "nl": "iPhone",
+        "da": "iPhone",
+        "de": "iPhone",
+        "es": "iPhone",
+        "fr": "iPhone",
+        "it": "iPhone",
+        "no": "iPhone",
+        "sv": "iPhone",
+        "pl": "iPhone",
+        "ru": "iPhone",
+        "ko": "iPhone",
+        "ar": "آيفون"
+      }
+    },
+    {
+      "type": "string",
+      "name": "mac",
+      "title": {
+        "en": "mac address",
+        "nl": "mac adres",
+        "da": "mac adresse",
+        "de": "MAC-Adresse",
+        "es": "dirección MAC",
+        "fr": "adresse MAC",
+        "it": "indirizzo MAC",
+        "no": "MAC-adresse",
+        "sv": "MAC-adress",
+        "pl": "adres MAC",
+        "ru": "MAC-адрес",
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
+      },
+      "example": {
+        "en": "A1:B2:C3:D4:E5:F6",
+        "nl": "A1:B2:C3:D4:E5:F6",
+        "da": "A1:B2:C3:D4:E5:F6",
+        "de": "A1:B2:C3:D4:E5:F6",
+        "es": "A1:B2:C3:D4:E5:F6",
+        "fr": "A1:B2:C3:D4:E5:F6",
+        "it": "A1:B2:C3:D4:E5:F6",
+        "no": "A1:B2:C3:D4:E5:F6",
+        "sv": "A1:B2:C3:D4:E5:F6",
+        "pl": "A1:B2:C3:D4:E5:F6",
+        "ru": "A1:B2:C3:D4:E5:F6",
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
+      }
+    },
+    {
+      "type": "string",
+      "name": "ipaddr",
+      "title": {
+        "en": "ip address",
+        "nl": "ip adres",
+        "da": "ip adresse",
+        "de": "IP-Adresse",
+        "es": "dirección IP",
+        "fr": "adresse IP",
+        "it": "indirizzo IP",
+        "no": "IP-adresse",
+        "sv": "IP-adress",
+        "pl": "adres IP",
+        "ru": "IP-адрес",
+        "ko": "IP 주소",
+        "ar": "عنوان IP"
+      },
+      "example": {
+        "en": "192.168.0.5",
+        "nl": "192.168.0.5",
+        "da": "192.168.0.5",
+        "de": "192.168.0.5",
+        "es": "192.168.0.5",
+        "fr": "192.168.0.5",
+        "it": "192.168.0.5",
+        "no": "192.168.0.5",
+        "sv": "192.168.0.5",
+        "pl": "192.168.0.5",
+        "ru": "192.168.0.5",
+        "ko": "192.168.0.5",
+        "ar": "192.168.0.5"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "client",
+      "type": "autocomplete",
+      "placeholder": {
+        "en": "client",
+        "nl": "klant",
+        "da": "klient",
+        "de": "Kunde",
+        "es": "cliente",
+        "fr": "client",
+        "it": "cliente",
+        "no": "klient",
+        "sv": "klient",
+        "pl": "klient",
+        "ru": "клиент",
+        "ko": "클라이언트",
+        "ar": "عميل"
+      }
+    }
+  ]
+}

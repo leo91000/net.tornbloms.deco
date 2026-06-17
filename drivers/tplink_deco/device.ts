@@ -17,6 +17,11 @@ import {
 // How long to retain a client in the tracked list without being seen (30 days)
 const TRACKED_CLIENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Mesh-wide "left" events are debounced by this many consecutive missed master polls
+// (≈60s at the default 30s interval) to absorb the brief gap that can occur while a
+// client re-associates with a different node during normal roaming.
+const MESH_LEFT_GRACE_POLLS = 2;
+
 export interface TrackedClient {
   mac: string;
   name: string;       // decoded (human-readable)
@@ -26,6 +31,10 @@ export interface TrackedClient {
   lastSeen: number;   // unix ms — last time seen online
   firstSeen: number;  // unix ms — first time seen
   access_host?: string; // MAC of the Deco node this client is connected to
+}
+
+export interface MeshTrackedClient extends TrackedClient {
+  missedPolls: number; // consecutive master polls without seeing this client anywhere in the mesh
 }
 
 /**
@@ -56,6 +65,11 @@ class TplinkDecoDevice extends Device {
   // Persistent client history — all clients seen in the last 30 days.
   // Keyed by MAC address. Public so driver.ts can use it for autocomplete.
   trackedClients: Record<string, TrackedClient> = {};
+
+  // Mesh-wide client history — only populated on the master node, sourced from a
+  // device_mac: 'default' poll that returns every client in the mesh in one coherent
+  // snapshot. Public so driver.ts can read it for the global mesh-presence flow cards.
+  meshTrackedClients: Record<string, MeshTrackedClient> = {};
 
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
@@ -91,6 +105,8 @@ class TplinkDecoDevice extends Device {
 
       // Load persistent client history from store
       this.trackedClients = (this.getStoreValue('trackedClients') as Record<string, TrackedClient>) ?? {};
+      // Mesh-wide history is only ever written by the master node, but harmless to load on all
+      this.meshTrackedClients = (this.getStoreValue('meshTrackedClients') as Record<string, MeshTrackedClient>) ?? {};
 
       // Retrieve device settings
       const settings = this.getSettings();
@@ -697,6 +713,37 @@ class TplinkDecoDevice extends Device {
           // Handle client state changes
           await this.handleClientStateChanges(clientList, decoNodeNames);
 
+          // Mesh-wide presence — master only. device_mac: 'default' returns every client
+          // in the mesh in one coherent snapshot (each tagged with access_host), which is
+          // exactly the data needed to detect join/leave at the mesh level without
+          // stitching together independently-polled per-node views (see handleMeshPresence).
+          if (isMaster) {
+            const meshRequest = {
+              operation: 'read',
+              params: {
+                device_mac: 'default',
+              },
+            };
+            const meshClientListResponse = await this.safeApiCall(
+              () =>
+                this.api.custom(
+                  '/admin/client',
+                  { form: 'client_list' },
+                  Buffer.from(JSON.stringify(meshRequest)),
+                ),
+              {
+                error_code: 1,
+                result: { client_list: [] },
+              },
+              'Mesh-wide Client List',
+            );
+            const rawMeshClientList = meshClientListResponse?.result?.client_list;
+            const meshClientList = Array.isArray(rawMeshClientList) ? rawMeshClientList : [];
+            if (meshClientListResponse.error_code === 0) {
+              await this.handleMeshPresence(meshClientList, decoNodeNames);
+            }
+          }
+
           // Calculate total download and upload speeds
           const { totalDownKiloBytesPerSecond, totalUpKiloBytesPerSecond } =
             clientList.reduce(
@@ -963,6 +1010,89 @@ class TplinkDecoDevice extends Device {
       this.clients = clientList;
     } catch (err) {
       this.error('Failed to handle client state changes', err);
+    }
+  }
+
+  /**
+   * Handles mesh-wide presence by comparing the current mesh-wide client list (from a
+   * device_mac: 'default' poll, master only) against the persistent meshTrackedClients
+   * history. Fires the global client_joined_mesh / client_left_mesh triggers.
+   *
+   * "Left" is debounced by MESH_LEFT_GRACE_POLLS consecutive misses so a client that
+   * briefly drops out while re-associating with a different node during normal roaming
+   * does not produce a false leave/join pair.
+   * @param meshClientList - Every client currently connected anywhere in the mesh.
+   * @param decoNodeNames - Map of Deco node MAC (uppercase) → friendly display name.
+   */
+  private async handleMeshPresence(meshClientList: any[], decoNodeNames: Map<string, string> = new Map()) {
+    try {
+      const joinedFlow = this.homey.flow.getTriggerCard('client_joined_mesh');
+      const leftFlow = this.homey.flow.getTriggerCard('client_left_mesh');
+      const now = Date.now();
+
+      const currentClientsMap = new Map(
+        meshClientList.map((client) => [client.mac, client]),
+      );
+
+      // Clients present now — joined if they weren't considered online before
+      for (const [mac, client] of currentClientsMap) {
+        const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
+        const wasOnline = this.meshTrackedClients[mac]?.online === true;
+        const currentAccessHost: string = client.access_host ?? '';
+
+        const tokens = {
+          name: decodedName,
+          ipaddr: client.ip,
+          mac: client.mac,
+          connection_type: client.connection_type ?? '',
+          deco_node: decoNodeNames.get(currentAccessHost.toUpperCase()) ?? currentAccessHost,
+        };
+
+        this.meshTrackedClients[mac] = {
+          mac: client.mac,
+          name: decodedName,
+          ip: client.ip,
+          type: client.client_type ?? '',
+          online: true,
+          lastSeen: now,
+          firstSeen: this.meshTrackedClients[mac]?.firstSeen ?? now,
+          access_host: currentAccessHost,
+          missedPolls: 0,
+        };
+
+        if (!wasOnline) {
+          await joinedFlow.trigger(tokens, { mac: client.mac });
+        }
+      }
+
+      // Clients tracked as online but absent from this snapshot — debounce before declaring left
+      for (const [mac, tracked] of Object.entries(this.meshTrackedClients)) {
+        if (tracked.online && !currentClientsMap.has(mac)) {
+          tracked.missedPolls += 1;
+          if (tracked.missedPolls >= MESH_LEFT_GRACE_POLLS) {
+            tracked.online = false;
+            await leftFlow.trigger(
+              {
+                name: tracked.name,
+                ipaddr: tracked.ip,
+                mac: tracked.mac,
+              },
+              { mac: tracked.mac },
+            );
+          }
+        }
+      }
+
+      // Prune clients not seen for more than 30 days
+      for (const [mac, tracked] of Object.entries(this.meshTrackedClients)) {
+        if (!tracked.online && now - tracked.lastSeen > TRACKED_CLIENT_TTL_MS) {
+          delete this.meshTrackedClients[mac];
+        }
+      }
+
+      await this.setStoreValue('meshTrackedClients', this.meshTrackedClients);
+    } catch (err) {
+      this.error('Failed to handle mesh presence', err);
     }
   }
 

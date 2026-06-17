@@ -1,0 +1,241 @@
+{
+  "title": {
+    "en": "A client joined the Deco Mesh",
+    "nl": "Een client is toegetreden tot de Deco Mesh",
+    "da": "En klient sluttede sig til Deco Mesh",
+    "de": "Ein Client ist dem Deco Mesh beigetreten",
+    "es": "Un cliente se unió a la Deco Mesh",
+    "fr": "Un client a rejoint le Deco Mesh",
+    "it": "Un client si è unito alla Deco Mesh",
+    "no": "En klient ble med i Deco Mesh",
+    "sv": "En klient anslöt till Deco Mesh",
+    "pl": "Klient połączył się z siecią Deco Mesh",
+    "ru": "Клиент присоединился к Deco Mesh",
+    "ko": "클라이언트가 Deco Mesh에 참가함",
+    "ar": "انضم أحد العملاء إلى شبكة Deco Mesh"
+  },
+  "titleFormatted": {
+    "en": "[[client]] joined the Deco Mesh",
+    "nl": "[[client]] is toegetreden tot de Deco Mesh",
+    "da": "[[client]] sluttede sig til Deco Mesh",
+    "de": "[[client]] ist dem Deco Mesh beigetreten",
+    "es": "[[client]] se unió a la Deco Mesh",
+    "fr": "[[client]] a rejoint le Deco Mesh",
+    "it": "[[client]] si è unito alla Deco Mesh",
+    "no": "[[client]] ble med i Deco Mesh",
+    "sv": "[[client]] anslöt till Deco Mesh",
+    "pl": "[[client]] połączył się z siecią Deco Mesh",
+    "ru": "[[client]] присоединился к Deco Mesh",
+    "ko": "[[client]]가 Deco Mesh에 참가함",
+    "ar": "انضم [[client]] إلى شبكة Deco Mesh"
+  },
+  "hint": {
+    "en": "Fires once when a client connects to any Deco node in the mesh, regardless of which node. Does not fire when a client simply roams between nodes while staying connected.",
+    "nl": "Wordt één keer geactiveerd wanneer een client verbinding maakt met een willekeurig Deco-knooppunt in de mesh. Wordt niet geactiveerd wanneer een client tussen knooppunten wisselt terwijl deze verbonden blijft.",
+    "da": "Udløses én gang, når en klient opretter forbindelse til en Deco-knude i mesh'et, uanset hvilken. Udløses ikke, når en klient blot skifter mellem knuder, mens den forbliver forbundet.",
+    "de": "Wird einmal ausgelöst, wenn ein Client sich mit einem beliebigen Deco-Knoten im Mesh verbindet. Wird nicht ausgelöst, wenn ein Client lediglich zwischen Knoten wechselt, während er verbunden bleibt.",
+    "es": "Se activa una vez cuando un cliente se conecta a cualquier nodo Deco de la malla. No se activa cuando un cliente simplemente se mueve entre nodos mientras permanece conectado.",
+    "fr": "Se déclenche une fois lorsqu'un client se connecte à un nœud Deco quelconque du mesh. Ne se déclenche pas lorsqu'un client passe simplement d'un nœud à un autre en restant connecté.",
+    "it": "Si attiva una volta quando un client si connette a un nodo Deco qualsiasi della mesh. Non si attiva quando un client passa semplicemente da un nodo a un altro rimanendo connesso.",
+    "no": "Utløses én gang når en klient kobler til en Deco-node i mesh-nettverket, uansett hvilken. Utløses ikke når en klient bare bytter node mens den forblir tilkoblet.",
+    "sv": "Utlöses en gång när en klient ansluter till en Deco-nod i mesh-nätverket, oavsett vilken. Utlöses inte när en klient bara byter nod medan den förblir ansluten.",
+    "pl": "Wyzwala się jednorazowo, gdy klient połączy się z dowolnym węzłem Deco w sieci mesh. Nie wyzwala się, gdy klient po prostu przełącza się między węzłami, pozostając połączonym.",
+    "ru": "Срабатывает один раз, когда клиент подключается к любому узлу Deco в mesh-сети. Не срабатывает, если клиент просто перемещается между узлами, оставаясь подключённым.",
+    "ko": "클라이언트가 메시 내 어떤 Deco 노드에든 연결되면 한 번 실행됩니다. 클라이언트가 연결을 유지한 채 노드 간을 이동하는 경우에는 실행되지 않습니다.",
+    "ar": "يتم التشغيل مرة واحدة عند اتصال العميل بأي عقدة Deco في الشبكة المتداخلة. لا يتم التشغيل عندما يتنقل العميل بين العقد فقط مع بقائه متصلاً."
+  },
+  "highlight": true,
+  "tokens": [
+    {
+      "type": "string",
+      "name": "name",
+      "title": {
+        "en": "name",
+        "nl": "naam",
+        "da": "navn",
+        "de": "Name",
+        "es": "nombre",
+        "fr": "nom",
+        "it": "nome",
+        "no": "navn",
+        "sv": "namn",
+        "pl": "imię",
+        "ru": "имя",
+        "ko": "이름",
+        "ar": "الاسم"
+      },
+      "example": {
+        "en": "iPhone",
+        "nl": "iPhone",
+        "da": "iPhone",
+        "de": "iPhone",
+        "es": "iPhone",
+        "fr": "iPhone",
+        "it": "iPhone",
+        "no": "iPhone",
+        "sv": "iPhone",
+        "pl": "iPhone",
+        "ru": "iPhone",
+        "ko": "iPhone",
+        "ar": "آيفون"
+      }
+    },
+    {
+      "type": "string",
+      "name": "mac",
+      "title": {
+        "en": "mac address",
+        "nl": "mac adres",
+        "da": "mac adresse",
+        "de": "MAC-Adresse",
+        "es": "dirección MAC",
+        "fr": "adresse MAC",
+        "it": "indirizzo MAC",
+        "no": "MAC-adresse",
+        "sv": "MAC-adress",
+        "pl": "adres MAC",
+        "ru": "MAC-адрес",
+        "ko": "MAC 주소",
+        "ar": "عنوان MAC"
+      },
+      "example": {
+        "en": "A1:B2:C3:D4:E5:F6",
+        "nl": "A1:B2:C3:D4:E5:F6",
+        "da": "A1:B2:C3:D4:E5:F6",
+        "de": "A1:B2:C3:D4:E5:F6",
+        "es": "A1:B2:C3:D4:E5:F6",
+        "fr": "A1:B2:C3:D4:E5:F6",
+        "it": "A1:B2:C3:D4:E5:F6",
+        "no": "A1:B2:C3:D4:E5:F6",
+        "sv": "A1:B2:C3:D4:E5:F6",
+        "pl": "A1:B2:C3:D4:E5:F6",
+        "ru": "A1:B2:C3:D4:E5:F6",
+        "ko": "A1:B2:C3:D4:E5:F6",
+        "ar": "A1:B2:C3:D4:E5:F6"
+      }
+    },
+    {
+      "type": "string",
+      "name": "ipaddr",
+      "title": {
+        "en": "ip address",
+        "nl": "ip adres",
+        "da": "ip adresse",
+        "de": "IP-Adresse",
+        "es": "dirección IP",
+        "fr": "adresse IP",
+        "it": "indirizzo IP",
+        "no": "IP-adresse",
+        "sv": "IP-adress",
+        "pl": "adres IP",
+        "ru": "IP-адрес",
+        "ko": "IP 주소",
+        "ar": "عنوان IP"
+      },
+      "example": {
+        "en": "192.168.0.5",
+        "nl": "192.168.0.5",
+        "da": "192.168.0.5",
+        "de": "192.168.0.5",
+        "es": "192.168.0.5",
+        "fr": "192.168.0.5",
+        "it": "192.168.0.5",
+        "no": "192.168.0.5",
+        "sv": "192.168.0.5",
+        "pl": "192.168.0.5",
+        "ru": "192.168.0.5",
+        "ko": "192.168.0.5",
+        "ar": "192.168.0.5"
+      }
+    },
+    {
+      "type": "string",
+      "name": "connection_type",
+      "title": {
+        "en": "connection type",
+        "nl": "verbindingstype",
+        "da": "forbindelsestype",
+        "de": "Verbindungstyp",
+        "es": "tipo de conexión",
+        "fr": "type de connexion",
+        "it": "tipo di connessione",
+        "no": "tilkoblingstype",
+        "sv": "anslutningstyp",
+        "pl": "typ połączenia",
+        "ru": "тип соединения",
+        "ko": "연결 유형",
+        "ar": "نوع الاتصال"
+      },
+      "example": {
+        "en": "5G",
+        "nl": "5G",
+        "da": "5G",
+        "de": "5G",
+        "es": "5G",
+        "fr": "5G",
+        "it": "5G",
+        "no": "5G",
+        "sv": "5G",
+        "pl": "5G",
+        "ru": "5G",
+        "ko": "5G",
+        "ar": "5G"
+      }
+    },
+    {
+      "type": "string",
+      "name": "deco_node",
+      "title": {
+        "en": "Deco node",
+        "nl": "Deco-knooppunt",
+        "da": "Deco-knudepunkt",
+        "de": "Deco-Knoten",
+        "es": "nodo Deco",
+        "fr": "nœud Deco",
+        "it": "nodo Deco",
+        "no": "Deco-node",
+        "sv": "Deco-nod",
+        "pl": "węzeł Deco",
+        "ru": "узел Deco",
+        "ko": "Deco 노드",
+        "ar": "عقدة Deco"
+      },
+      "example": {
+        "en": "Deco X50 - Living room",
+        "nl": "Deco X50 - Woonkamer",
+        "da": "Deco X50 - Stue",
+        "de": "Deco X50 - Wohnzimmer",
+        "es": "Deco X50 - Sala de estar",
+        "fr": "Deco X50 - Salon",
+        "it": "Deco X50 - Soggiorno",
+        "no": "Deco X50 - Stue",
+        "sv": "Deco X50 - Vardagsrum",
+        "pl": "Deco X50 - Salon",
+        "ru": "Deco X50 - Гостиная",
+        "ko": "Deco X50 - 거실",
+        "ar": "Deco X50 - غرفة المعيشة"
+      }
+    }
+  ],
+  "args": [
+    {
+      "name": "client",
+      "type": "autocomplete",
+      "placeholder": {
+        "en": "client",
+        "nl": "klant",
+        "da": "klient",
+        "de": "Kunde",
+        "es": "cliente",
+        "fr": "client",
+        "it": "cliente",
+        "no": "klient",
+        "sv": "klient",
+        "pl": "klient",
+        "ru": "клиент",
+        "ko": "클라이언트",
+        "ar": "عميل"
+      }
+    }
+  ]
+}

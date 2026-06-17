@@ -1,0 +1,68 @@
+{
+  "title": {
+    "en": "client is present in the Deco Mesh",
+    "nl": "klant is aanwezig in de Deco Mesh",
+    "da": "klient er til stede i Deco Mesh",
+    "de": "Kunde ist im Deco Mesh vorhanden",
+    "es": "el cliente está presente en la Deco Mesh",
+    "fr": "le client est présent dans le Deco Mesh",
+    "it": "il cliente è presente nella Deco Mesh",
+    "no": "klienten er til stede i Deco Mesh",
+    "sv": "klienten finns i Deco Mesh",
+    "pl": "klient jest obecny w sieci Deco Mesh",
+    "ru": "клиент присутствует в Deco Mesh",
+    "ko": "클라이언트가 Deco Mesh에 있음",
+    "ar": "العميل موجود في شبكة Deco Mesh"
+  },
+  "titleFormatted": {
+    "en": "[[client]] is present in the Deco Mesh",
+    "nl": "[[client]] is aanwezig in de Deco Mesh",
+    "da": "[[client]] er til stede i Deco Mesh",
+    "de": "[[client]] ist im Deco Mesh vorhanden",
+    "es": "[[client]] está presente en la Deco Mesh",
+    "fr": "[[client]] est présent dans le Deco Mesh",
+    "it": "[[client]] è presente nella Deco Mesh",
+    "no": "[[client]] er til stede i Deco Mesh",
+    "sv": "[[client]] finns i Deco Mesh",
+    "pl": "[[client]] jest obecny w sieci Deco Mesh",
+    "ru": "[[client]] присутствует в Deco Mesh",
+    "ko": "[[client]]가 Deco Mesh에 있음",
+    "ar": "[[client]] موجود في شبكة Deco Mesh"
+  },
+  "hint": {
+    "en": "True if the client is currently connected to any Deco node in the mesh, regardless of which node.",
+    "nl": "Waar als de client momenteel verbonden is met een Deco-knooppunt in de mesh, ongeacht welk knooppunt.",
+    "da": "Sand, hvis klienten i øjeblikket er forbundet til en Deco-knude i mesh'et, uanset hvilken.",
+    "de": "Wahr, wenn der Client derzeit mit einem beliebigen Deco-Knoten im Mesh verbunden ist.",
+    "es": "Verdadero si el cliente está actualmente conectado a cualquier nodo Deco de la malla.",
+    "fr": "Vrai si le client est actuellement connecté à un nœud Deco quelconque du mesh.",
+    "it": "Vero se il client è attualmente connesso a un nodo Deco qualsiasi della mesh.",
+    "no": "Sant hvis klienten for øyeblikket er tilkoblet en Deco-node i mesh-nettverket, uansett hvilken.",
+    "sv": "Sant om klienten för närvarande är ansluten till någon Deco-nod i mesh-nätverket.",
+    "pl": "Prawda, jeśli klient jest aktualnie połączony z dowolnym węzłem Deco w sieci mesh.",
+    "ru": "Истина, если клиент в данный момент подключён к любому узлу Deco в mesh-сети.",
+    "ko": "클라이언트가 현재 메시 내 어떤 Deco 노드에든 연결되어 있으면 true입니다.",
+    "ar": "صحيح إذا كان العميل متصلاً حاليًا بأي عقدة Deco في الشبكة المتداخلة."
+  },
+  "args": [
+    {
+      "type": "autocomplete",
+      "name": "client",
+      "placeholder": {
+        "en": "client",
+        "nl": "klant",
+        "da": "klient",
+        "de": "Kunde",
+        "es": "cliente",
+        "fr": "client",
+        "it": "cliente",
+        "no": "klient",
+        "sv": "klient",
+        "pl": "klient",
+        "ru": "клиент",
+        "ko": "클라이언트",
+        "ar": "عميل"
+      }
+    }
+  ]
+}
