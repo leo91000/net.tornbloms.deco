@@ -223,6 +223,8 @@ class TplinkDecoDriver extends Driver {
    */
   public buildMeshClientAutocomplete(query: string) {
     const master = this.getMasterDevice();
+    const trackedCount = master ? Object.keys(master.meshTrackedClients ?? {}).length : 0;
+    this.log(`buildMeshClientAutocomplete: master=${master ? master.getName() : 'NOT FOUND'} trackedClients=${trackedCount}`);
     return this.buildClientAutocompleteFrom(master?.meshTrackedClients ?? {}, query);
   }
 
@@ -290,32 +292,71 @@ class TplinkDecoDriver extends Driver {
         this.log('creating client');
         lastLoginTrace = [];
         await this.logNetworkDiagnostics(hostname);
-        try {
-          this.api = new decoapiwrapper(hostname, this.makeLogger());
-          await this.api.authenticate(password);
-          this.log('Successfully connected to TP-Link Deco');
-          return true;
-        } catch (error: any) {
-          const msg: string = error?.message ?? '';
-          lastLoginTrace = (error as any)?.loginTrace ?? [];
-          if (msg.startsWith('NETWORK:')) {
-            this.error('pair: network error:', msg);
-            throw new Error(msg.replace('NETWORK: ', ''));
+        this.api = new decoapiwrapper(hostname, this.makeLogger());
+
+        // The router only allows one active admin session. Re-pairing right after
+        // deleting the old devices can hit the previous session before it has timed
+        // out on the router side (the app never sends an explicit logout), which
+        // surfaces as a 403 → "RETRY:" error. That is not an unrecognised login
+        // protocol, so retry a few times with a short backoff before giving up.
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await this.api.authenticate(password);
+            this.log('Successfully connected to TP-Link Deco');
+            return true;
+          } catch (error: any) {
+            const msg: string = error?.message ?? '';
+            lastLoginTrace = (error as any)?.loginTrace ?? [];
+
+            if (msg.startsWith('NETWORK:')) {
+              this.error('pair: network error:', msg);
+              throw new Error(msg.replace('NETWORK: ', ''));
+            }
+            if (msg.startsWith('CREDENTIALS:')) {
+              this.error('pair: credentials error:', msg);
+              throw new Error(msg.replace('CREDENTIALS: ', ''));
+            }
+            if (msg.startsWith('RETRY:')) {
+              if (attempt < maxAttempts) {
+                this.log(`pair: login rejected (router session limit) — retrying in 3s (attempt ${attempt}/${maxAttempts})`);
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+                continue;
+              }
+              this.error('pair: login still rejected after retries — a previous session is likely still active on the router:', msg);
+              (this.homey.app as any).reportIssue?.(
+                `Pairing: router session limit not released after ${maxAttempts} retries (hostname=${hostname})`,
+                { hostname, loginTrace: lastLoginTrace },
+              );
+              throw new Error('The router rejected the login because a previous session is still active (this can happen right after deleting and re-adding the devices). Wait a minute and try again.');
+            }
+            // Unknown protocol — all formats tried. Navigate to diagnostic view.
+            this.error('pair: login failed — all formats exhausted. Navigating to diagnostic view. Trace:', JSON.stringify(lastLoginTrace));
+            (this.homey.app as any).reportIssue?.(
+              `Pairing: unrecognised login protocol (hostname=${hostname})`,
+              { hostname, loginTrace: lastLoginTrace },
+            );
+            await session.nextView('login_failed');
+            return false;
           }
-          if (msg.startsWith('CREDENTIALS:')) {
-            this.error('pair: credentials error:', msg);
-            throw new Error(msg.replace('CREDENTIALS: ', ''));
-          }
-          // Unknown protocol — all formats tried. Navigate to diagnostic view.
-          this.error('pair: login failed — all formats exhausted. Navigating to diagnostic view. Trace:', JSON.stringify(lastLoginTrace));
-          await session.nextView('login_failed');
-          return false;
         }
+        return false;
       },
     );
 
     session.setHandler('get_diagnostic', async () => {
       return { trace: lastLoginTrace };
+    });
+
+    // Fired when the user fills in model/firmware on the login_failed view and copies
+    // the debug report — forwards the same details to Sentry so unsupported firmware
+    // is visible even when the user doesn't get around to opening a GitHub issue.
+    session.setHandler('report_diagnostic', async (data: { model: string; firmware: string }) => {
+      (this.homey.app as any).reportIssue?.(
+        `Pairing: unrecognised login protocol — ${data?.model || 'unknown model'} fw ${data?.firmware || 'unknown'} (hostname=${hostname})`,
+        { hostname, model: data?.model, firmware: data?.firmware, loginTrace: lastLoginTrace },
+      );
+      return true;
     });
 
     session.setHandler('goto_login', async () => {
@@ -452,19 +493,33 @@ class TplinkDecoDriver extends Driver {
         password = data.password;
         this.log('password: [redacted]');
         this.log('repairing client');
-        try {
-          const api = new decoapiwrapper(hostname, this.makeLogger());
-          await api.authenticate(password);
-          this.log('Successfully connected to TP-Link Deco');
-          return { success: true };
-        } catch (error: any) {
-          const msg: string = error?.message ?? '';
-          this.error('pair: repair error:', msg);
-          if (msg.startsWith('NETWORK:') || msg.startsWith('CREDENTIALS:')) {
-            return { success: false, error: msg.replace(/^(NETWORK|CREDENTIALS): /, '') };
+        const api = new decoapiwrapper(hostname, this.makeLogger());
+
+        // See onPair's login handler for why RETRY: needs its own retry/branch.
+        const maxAttempts = 3;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            await api.authenticate(password);
+            this.log('Successfully connected to TP-Link Deco');
+            return { success: true };
+          } catch (error: any) {
+            const msg: string = error?.message ?? '';
+            this.error('pair: repair error:', msg);
+            if (msg.startsWith('NETWORK:') || msg.startsWith('CREDENTIALS:')) {
+              return { success: false, error: msg.replace(/^(NETWORK|CREDENTIALS): /, '') };
+            }
+            if (msg.startsWith('RETRY:')) {
+              if (attempt < maxAttempts) {
+                this.log(`pair: repair login rejected (router session limit) — retrying in 3s (attempt ${attempt}/${maxAttempts})`);
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+                continue;
+              }
+              return { success: false, error: 'The router rejected the login because a previous session is still active. Wait a minute and try again.' };
+            }
+            return { success: false, error: 'Connection failed. Check the IP address and password.' };
           }
-          return { success: false, error: 'Connection failed. Check the IP address and password.' };
         }
+        return { success: false, error: 'Connection failed. Check the IP address and password.' };
       },
     );
   }

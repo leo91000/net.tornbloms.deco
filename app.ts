@@ -26,6 +26,21 @@ class TplinkDecoApp extends HomeyLog {
     );
   }
 
+  /**
+   * Sends a non-fatal issue to Sentry (via homey-log), for failures that are caught
+   * and logged locally but would otherwise never leave the device's own log.
+   * `homey-log` dedupes by exact message string, so a stable, templated message
+   * (no per-call timestamps/random ids) reports a given failure once per app run
+   * instead of flooding Sentry on every poll cycle.
+   */
+  reportIssue(message: string, extra?: Record<string, any>): void {
+    if (!this.homeyLog) return;
+    if (extra) {
+      this.homeyLog.setExtra(extra);
+    }
+    this.homeyLog.captureMessage(message).catch((e: any) => this.error('reportIssue: failed to send to Sentry', e));
+  }
+
   async onUninit() {
     this.log(
       `${this.homey.manifest.id} - ${this.homey.manifest.version} has been uninitialised`,

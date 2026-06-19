@@ -103,6 +103,7 @@
           var firmware = document.getElementById('firmware-input').value.trim() || '(not entered)';
           var report = buildReport(model, firmware, traceData);
           copyToClipboard(report);
+          Homey.emit('report_diagnostic', { model: model, firmware: firmware }, function () {});
           var okEl = document.getElementById('copy-ok');
           okEl.style.display = 'block';
           setTimeout(function () { okEl.style.display = 'none'; }, 3000);

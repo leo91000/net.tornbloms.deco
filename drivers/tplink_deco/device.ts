@@ -739,8 +739,14 @@ class TplinkDecoDevice extends Device {
             );
             const rawMeshClientList = meshClientListResponse?.result?.client_list;
             const meshClientList = Array.isArray(rawMeshClientList) ? rawMeshClientList : [];
+            this.log(`Mesh-wide client snapshot: error_code=${meshClientListResponse.error_code} clients=${meshClientList.length}`);
             if (meshClientListResponse.error_code === 0) {
               await this.handleMeshPresence(meshClientList, decoNodeNames);
+            } else {
+              (this.homey.app as any).reportIssue?.(
+                `Mesh-wide client snapshot failed (error_code=${meshClientListResponse.error_code}) on ${device.device_model} fw ${device.software_ver}`,
+                { model: device.device_model, hardware_ver: device.hardware_ver, software_ver: device.software_ver, errorCode: meshClientListResponse.error_code },
+              );
             }
           }
 
