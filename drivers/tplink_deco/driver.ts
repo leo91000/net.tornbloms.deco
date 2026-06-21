@@ -6,6 +6,13 @@ import os from 'os';
 import { Driver } from 'homey';
 import decoapiwrapper, { AppLogger, DeviceListResponse, LoginAttempt } from '../../lib/client';
 
+// Backoff schedule for the router's "session limit" 403 (RETRY:). The router
+// only releases a stale admin session after its own internal timeout, which
+// has been observed to exceed the previous flat 3×3s window on some hardware
+// (e.g. Homey Pro mini / homey6q reports). Escalating delays give the router
+// more time to expire the old session before giving up.
+const SESSION_LIMIT_RETRY_BACKOFF_MS = [3000, 5000, 8000, 12000];
+
 class TplinkDecoDriver extends Driver {
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
   private api: decoapiwrapper | any;
@@ -298,8 +305,10 @@ class TplinkDecoDriver extends Driver {
         // deleting the old devices can hit the previous session before it has timed
         // out on the router side (the app never sends an explicit logout), which
         // surfaces as a 403 → "RETRY:" error. That is not an unrecognised login
-        // protocol, so retry a few times with a short backoff before giving up.
-        const maxAttempts = 3;
+        // protocol, so retry with an escalating backoff before giving up — some
+        // routers (e.g. reports from Homey Pro mini / homey6q) need longer than a
+        // flat few seconds to release the stale session.
+        const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await this.api.authenticate(password);
@@ -319,8 +328,9 @@ class TplinkDecoDriver extends Driver {
             }
             if (msg.startsWith('RETRY:')) {
               if (attempt < maxAttempts) {
-                this.log(`pair: login rejected (router session limit) — retrying in 3s (attempt ${attempt}/${maxAttempts})`);
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+                this.log(`pair: login rejected (router session limit) — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxAttempts})`);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
               }
               this.error('pair: login still rejected after retries — a previous session is likely still active on the router:', msg);
@@ -496,7 +506,7 @@ class TplinkDecoDriver extends Driver {
         const api = new decoapiwrapper(hostname, this.makeLogger());
 
         // See onPair's login handler for why RETRY: needs its own retry/branch.
-        const maxAttempts = 3;
+        const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await api.authenticate(password);
@@ -510,8 +520,9 @@ class TplinkDecoDriver extends Driver {
             }
             if (msg.startsWith('RETRY:')) {
               if (attempt < maxAttempts) {
-                this.log(`pair: repair login rejected (router session limit) — retrying in 3s (attempt ${attempt}/${maxAttempts})`);
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+                this.log(`pair: repair login rejected (router session limit) — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxAttempts})`);
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
               }
               return { success: false, error: 'The router rejected the login because a previous session is still active. Wait a minute and try again.' };

@@ -20,7 +20,12 @@ class TplinkDecoApp extends HomeyLog {
   homeyLog: any;
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
   async onInit(): Promise<void> {
-    this.homeyLog = new Log({ homey: this.homey });
+    // homey-log's underlying Raven client defaults sendTimeout to 1 second
+    // (raven-node lib/client.js: `this.sendTimeout = options.sendTimeout || 1`),
+    // which is too tight for a home-network device reaching Sentry's ingest
+    // endpoint — DNS + TLS handshake + POST routinely exceeds 1s, causing every
+    // report to fail with ETIMEDOUT/socket hang up and never reach Sentry.
+    this.homeyLog = new Log({ homey: this.homey, options: { sendTimeout: 15 } });
     this.log(
       `${this.homey.manifest.id} - ${this.homey.manifest.version} started...`,
     );
