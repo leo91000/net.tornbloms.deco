@@ -283,5 +283,8 @@
   },
   "1.4.37": {
     "en": "Added mesh-wide client presence: new \"client joined/left the Deco Mesh\" triggers and a  \"client is present in the Deco Mesh\" condition. These track a client across all Deco nodes at once, so roaming between nodes no longer causes false online/offline flips in flows. Fixed a misleading \"unrecognised login protocol\" error that could appear when re-pairing right after deleting devices — this was actually the router's previous session not yet being released, so pairing now retries automatically before showing that screen."
+  },
+  "1.4.42": {
+    "en": "Fixed pairing getting stuck on \"Loading\" after a successful login. Extended the retry window for routers that take longer to release a previous session, so pairing and repair succeed more often without manual retries. Fixed crash and error reports not reaching our monitoring, so issues can now be diagnosed and fixed faster."
   }
 }
