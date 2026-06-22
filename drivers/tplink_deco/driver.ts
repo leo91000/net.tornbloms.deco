@@ -30,6 +30,14 @@ class TplinkDecoDriver extends Driver {
   // this session, so re-auth cycles don't flood the log.
   private diagRan = new Set<string>();
 
+  // Per-hostname, per-node-MAC client lists, populated by each device's own
+  // regular poll (device_mac: <own MAC>, which firmware actually supports —
+  // unlike the speculative device_mac: 'default' sentinel that turned out to
+  // fail with error_code=1 on virtually every model in the field). The master
+  // device merges these into a mesh-wide view with zero extra API calls,
+  // instead of making its own separate (and broken) "mesh-wide" request.
+  private nodeClientLists = new Map<string, Map<string, any[]>>();
+
   /**
    * Returns (or lazily creates) the shared API instance for a given hostname.
    * Devices should always call this instead of `new decoapiwrapper(...)`.
@@ -39,6 +47,33 @@ class TplinkDecoDriver extends Driver {
       this.sharedApis.set(hostname, new decoapiwrapper(hostname, logger));
     }
     return this.sharedApis.get(hostname)!;
+  }
+
+  /**
+   * Records the most recent client list a single node reported for itself
+   * (device_mac: <own MAC>). Called by every device on each poll cycle.
+   */
+  public setNodeClientList(hostname: string, nodeMac: string, clients: any[]): void {
+    if (!this.nodeClientLists.has(hostname)) {
+      this.nodeClientLists.set(hostname, new Map());
+    }
+    this.nodeClientLists.get(hostname)!.set(nodeMac.toUpperCase(), clients);
+  }
+
+  /**
+   * Merges the most recently reported per-node client lists for a hostname into
+   * one mesh-wide list — this is the data the master device needs for
+   * join/leave-anywhere-in-the-mesh detection, built from data every node
+   * already fetches for itself rather than a dedicated "mesh-wide" API call.
+   */
+  public getMeshClientList(hostname: string): any[] {
+    const byNode = this.nodeClientLists.get(hostname);
+    if (!byNode) return [];
+    const merged: any[] = [];
+    for (const clients of byNode.values()) {
+      if (Array.isArray(clients)) merged.push(...clients);
+    }
+    return merged;
   }
 
   /**

@@ -66,9 +66,9 @@ class TplinkDecoDevice extends Device {
   // Keyed by MAC address. Public so driver.ts can use it for autocomplete.
   trackedClients: Record<string, TrackedClient> = {};
 
-  // Mesh-wide client history — only populated on the master node, sourced from a
-  // device_mac: 'default' poll that returns every client in the mesh in one coherent
-  // snapshot. Public so driver.ts can read it for the global mesh-presence flow cards.
+  // Mesh-wide client history — only populated on the master node, sourced from the
+  // driver's merged per-node client lists (see getMeshClientList). Public so driver.ts
+  // can read it for the global mesh-presence flow cards.
   meshTrackedClients: Record<string, MeshTrackedClient> = {};
 
   // Buffer for read operations
@@ -693,6 +693,15 @@ class TplinkDecoDevice extends Device {
           // non-array shapes (null, undefined, {}, 0, …).
           const rawClientList = clientListResponse?.result?.client_list;
           const clientList = Array.isArray(rawClientList) ? rawClientList : [];
+
+          // Feed this node's own client list into the driver's shared cache so the
+          // master can build a mesh-wide view without a separate API call (see
+          // getMeshClientList below — replaces the old device_mac: 'default' request,
+          // which firmware rejects with error_code=1 on virtually every model).
+          if (devicedata.id) {
+            (this.driver as TplinkDecoDriver).setNodeClientList(settings.hostname, devicedata.id, clientList);
+          }
+
           const clientNames = clientList
             .map((client) => (this.driver as TplinkDecoDriver).decodeNickname(client.name))
             .join(', ');
@@ -713,41 +722,17 @@ class TplinkDecoDevice extends Device {
           // Handle client state changes
           await this.handleClientStateChanges(clientList, decoNodeNames);
 
-          // Mesh-wide presence — master only. device_mac: 'default' returns every client
-          // in the mesh in one coherent snapshot (each tagged with access_host), which is
-          // exactly the data needed to detect join/leave at the mesh level without
-          // stitching together independently-polled per-node views (see handleMeshPresence).
+          // Mesh-wide presence — master only. Previously fetched via a dedicated
+          // device_mac: 'default' request, which firmware rejects with error_code=1
+          // on virtually every model (confirmed across a dozen+ models in the field —
+          // 'default' is not a real sentinel the API supports). Build the mesh-wide
+          // view instead from the per-node client lists every device already fetches
+          // for itself above (device_mac: <own MAC>, which does work) — no extra API
+          // call needed.
           if (isMaster) {
-            const meshRequest = {
-              operation: 'read',
-              params: {
-                device_mac: 'default',
-              },
-            };
-            const meshClientListResponse = await this.safeApiCall(
-              () =>
-                this.api.custom(
-                  '/admin/client',
-                  { form: 'client_list' },
-                  Buffer.from(JSON.stringify(meshRequest)),
-                ),
-              {
-                error_code: 1,
-                result: { client_list: [] },
-              },
-              'Mesh-wide Client List',
-            );
-            const rawMeshClientList = meshClientListResponse?.result?.client_list;
-            const meshClientList = Array.isArray(rawMeshClientList) ? rawMeshClientList : [];
-            this.log(`Mesh-wide client snapshot: error_code=${meshClientListResponse.error_code} clients=${meshClientList.length}`);
-            if (meshClientListResponse.error_code === 0) {
-              await this.handleMeshPresence(meshClientList, decoNodeNames);
-            } else {
-              (this.homey.app as any).reportIssue?.(
-                `Mesh-wide client snapshot failed (error_code=${meshClientListResponse.error_code}) on ${device.device_model} fw ${device.software_ver}`,
-                { model: device.device_model, hardware_ver: device.hardware_ver, software_ver: device.software_ver, errorCode: meshClientListResponse.error_code },
-              );
-            }
+            const meshClientList = (this.driver as TplinkDecoDriver).getMeshClientList(settings.hostname);
+            this.log(`Mesh-wide client snapshot: clients=${meshClientList.length} (merged from ${deviceList.result.device_list.length} node(s))`);
+            await this.handleMeshPresence(meshClientList, decoNodeNames);
           }
 
           // Calculate total download and upload speeds
@@ -1020,9 +1005,10 @@ class TplinkDecoDevice extends Device {
   }
 
   /**
-   * Handles mesh-wide presence by comparing the current mesh-wide client list (from a
-   * device_mac: 'default' poll, master only) against the persistent meshTrackedClients
-   * history. Fires the global client_joined_mesh / client_left_mesh triggers.
+   * Handles mesh-wide presence by comparing the current mesh-wide client list (merged
+   * from each node's own client list, master only) against the persistent
+   * meshTrackedClients history. Fires the global client_joined_mesh / client_left_mesh
+   * triggers.
    *
    * "Left" is debounced by MESH_LEFT_GRACE_POLLS consecutive misses so a client that
    * briefly drops out while re-associating with a different node during normal roaming
