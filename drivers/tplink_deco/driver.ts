@@ -380,7 +380,7 @@ class TplinkDecoDriver extends Driver {
                 `Pairing: router session limit not released after ${maxAttempts} retries (hostname=${hostname})`,
                 { hostname, loginTrace: lastLoginTrace },
               );
-              throw new Error('The router rejected the login because a previous session is still active (this can happen right after deleting and re-adding the devices). Wait a minute and try again.');
+              throw new Error('The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those, then try again. (This can also happen briefly right after deleting and re-adding devices.)');
             }
             // Unknown protocol — all formats tried. Navigate to diagnostic view.
             this.error('pair: login failed — all formats exhausted. Navigating to diagnostic view. Trace:', JSON.stringify(lastLoginTrace));
@@ -568,7 +568,7 @@ class TplinkDecoDriver extends Driver {
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
               }
-              return { success: false, error: 'The router rejected the login because a previous session is still active. Wait a minute and try again.' };
+              return { success: false, error: 'The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those, then try again.' };
             }
             return { success: false, error: 'Connection failed. Check the IP address and password.' };
           }

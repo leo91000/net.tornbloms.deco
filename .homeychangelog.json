@@ -292,5 +292,8 @@
   },
   "1.4.44": {
     "en": "Fixed mesh-wide client presence (\"client joined/left the Deco Mesh\") failing to detect any clients on most models — it now builds the mesh-wide view from data already being collected, instead of a request the router was rejecting."
+  },
+  "1.4.45": {
+    "en": "Improved the \"previous session is still active\" pairing error to explain the most common cause — the TP-Link Deco app or its web admin page being logged in elsewhere (phone or browser) — so it's clearer what to actually do about it."
   }
 }
