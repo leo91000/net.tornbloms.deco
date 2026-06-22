@@ -299,7 +299,14 @@ class TplinkDecoDriver extends Driver {
         this.log('creating client');
         lastLoginTrace = [];
         await this.logNetworkDiagnostics(hostname);
-        this.api = new decoapiwrapper(hostname, this.makeLogger());
+        // Use the same shared instance + auth queue as already-paired devices for this
+        // hostname (see getOrCreateSharedApi/sharedAuthenticate above). A fresh, isolated
+        // decoapiwrapper here would compete with sibling mesh nodes' ongoing polling for
+        // the router's single admin session slot — and since that polling keeps renewing
+        // its own session indefinitely, a competing login would never succeed no matter
+        // how long the backoff is. Sharing the instance means there's only ever one login
+        // in flight for this hostname, app-wide.
+        this.api = this.getOrCreateSharedApi(hostname, this.makeLogger());
 
         // The router only allows one active admin session. Re-pairing right after
         // deleting the old devices can hit the previous session before it has timed
@@ -311,7 +318,7 @@ class TplinkDecoDriver extends Driver {
         const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await this.api.authenticate(password);
+            await this.sharedAuthenticate(hostname, password, this.makeLogger());
             this.log('Successfully connected to TP-Link Deco');
             return true;
           } catch (error: any) {
@@ -503,13 +510,14 @@ class TplinkDecoDriver extends Driver {
         password = data.password;
         this.log('password: [redacted]');
         this.log('repairing client');
-        const api = new decoapiwrapper(hostname, this.makeLogger());
 
-        // See onPair's login handler for why RETRY: needs its own retry/branch.
+        // See onPair's login handler for why this shares the driver-wide
+        // sharedAuthenticate/getOrCreateSharedApi instead of a fresh instance,
+        // and for why RETRY: needs its own retry/branch.
         const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await api.authenticate(password);
+            await this.sharedAuthenticate(hostname, password, this.makeLogger());
             this.log('Successfully connected to TP-Link Deco');
             return { success: true };
           } catch (error: any) {
