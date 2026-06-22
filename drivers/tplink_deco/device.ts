@@ -202,6 +202,34 @@ class TplinkDecoDevice extends Device {
           }
         });
 
+        // Pause/resume polling — lets users stop API calls entirely (e.g. while
+        // troubleshooting a router session conflict, or to reduce load on
+        // routers that struggle with sustained polling) without deleting the
+        // device. Mirrors the pause/resume control other Deco integrations
+        // (e.g. Home Assistant's) expose for the same reason.
+        this.registerCapabilityListener('polling_paused', async (value) => {
+          const paused = Boolean(value);
+          this.log(`Polling ${paused ? 'paused' : 'resumed'} by user`);
+          if (paused) {
+            if (this.startupDelayTimerId) {
+              clearTimeout(this.startupDelayTimerId);
+              this.startupDelayTimerId = null;
+            }
+            if (this.timeoutSecondsIntervalId) {
+              clearInterval(this.timeoutSecondsIntervalId);
+              this.timeoutSecondsIntervalId = null;
+            }
+          } else {
+            const resumedInterval = (this.getSettings().timeoutSeconds || 30) * 1000;
+            try {
+              await this.updateDeviceMetrics();
+            } catch (e: any) {
+              this.error('Resume poll failed', e);
+            }
+            this.setUpdateInterval(resumedInterval);
+          }
+        });
+
         const clientStateFlow = this.homey.flow.getDeviceTriggerCard(
           'client_state_changed',
         );
@@ -229,6 +257,11 @@ class TplinkDecoDevice extends Device {
             return driver.buildClientAutocomplete(this, query);
           },
         );
+
+        if (this.getCapabilityValue('polling_paused')) {
+          this.log('Polling paused (restored from saved state) — skipping startup poll');
+          return;
+        }
 
         // Stagger first poll across devices to avoid simultaneous auth attempts.
         // The Deco allows only one session at a time — concurrent logins cause
@@ -294,8 +327,9 @@ class TplinkDecoDevice extends Device {
       }
     }
 
-    // Update the interval if timeoutSeconds has changed
-    if (changedKeys.includes('timeoutSeconds')) {
+    // Update the interval if timeoutSeconds has changed (skip while paused —
+    // the interval stays cleared until the user resumes via polling_paused)
+    if (changedKeys.includes('timeoutSeconds') && !this.getCapabilityValue('polling_paused')) {
       const interval = (newSettings.timeoutSeconds || 15) * 1000; // Default to 15 seconds if not set
       this.setUpdateInterval(interval);
       this.log(
@@ -697,7 +731,7 @@ class TplinkDecoDevice extends Device {
           // Feed this node's own client list into the driver's shared cache so the
           // master can build a mesh-wide view without a separate API call (see
           // getMeshClientList below — replaces the old device_mac: 'default' request,
-          // which firmware rejects with error_code=1 on virtually every model).
+          // which returned error_code=1 across ~14 models in our field telemetry).
           if (devicedata.id) {
             (this.driver as TplinkDecoDriver).setNodeClientList(settings.hostname, devicedata.id, clientList);
           }
@@ -723,12 +757,13 @@ class TplinkDecoDevice extends Device {
           await this.handleClientStateChanges(clientList, decoNodeNames);
 
           // Mesh-wide presence — master only. Previously fetched via a dedicated
-          // device_mac: 'default' request, which firmware rejects with error_code=1
-          // on virtually every model (confirmed across a dozen+ models in the field —
-          // 'default' is not a real sentinel the API supports). Build the mesh-wide
-          // view instead from the per-node client lists every device already fetches
-          // for itself above (device_mac: <own MAC>, which does work) — no extra API
-          // call needed.
+          // device_mac: 'default' request, which returned error_code=1 across a
+          // dozen+ models in our field telemetry (other Deco integrations document
+          // 'default' as supported, so this may be firmware/model-specific rather
+          // than universally invalid — see TplinkDecoDriver.nodeClientLists for
+          // details). Build the mesh-wide view instead from the per-node client
+          // lists every device already fetches for itself above (device_mac: <own
+          // MAC>, confirmed working everywhere) — no extra API call needed either way.
           if (isMaster) {
             const meshClientList = (this.driver as TplinkDecoDriver).getMeshClientList(settings.hostname);
             this.log(`Mesh-wide client snapshot: clients=${meshClientList.length} (merged from ${deviceList.result.device_list.length} node(s))`);

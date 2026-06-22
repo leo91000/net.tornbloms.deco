@@ -9,3 +9,6 @@ In this version, you can log in using the same TP-Link password that you use on 
 
 Comunity tested devices;
 X20, X50, X50-4G, X50 Outdoor, X60, XE75, m9 plus
+
+Troubleshooting: "previous session is still active" error
+TP-Link Decos only allow one admin login at a time. If you keep getting this error while pairing or repairing, it's usually because the TP-Link Deco app (or its web admin page) is logged in with the same account elsewhere — on your phone or in a browser tab. Close those and try again. If it happens often, create a separate "Manager" account in the TP-Link Deco app (App → More → Managers) for everyday phone use, and keep your main owner login reserved for Homey.

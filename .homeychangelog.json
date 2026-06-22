@@ -295,5 +295,8 @@
   },
   "1.4.45": {
     "en": "Improved the \"previous session is still active\" pairing error to explain the most common cause — the TP-Link Deco app or its web admin page being logged in elsewhere (phone or browser) — so it's clearer what to actually do about it."
+  },
+  "1.4.46": {
+    "en": "Added a Pause/resume polling control so you can stop API calls to your Deco without removing the device — useful while troubleshooting a session conflict, or to reduce load on routers that struggle with frequent polling. The session-conflict error message now also mentions the TP-Link Deco app's separate \"Manager\" account, which avoids the conflict entirely."
   }
 }

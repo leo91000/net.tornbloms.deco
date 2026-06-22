@@ -31,11 +31,14 @@ class TplinkDecoDriver extends Driver {
   private diagRan = new Set<string>();
 
   // Per-hostname, per-node-MAC client lists, populated by each device's own
-  // regular poll (device_mac: <own MAC>, which firmware actually supports —
-  // unlike the speculative device_mac: 'default' sentinel that turned out to
-  // fail with error_code=1 on virtually every model in the field). The master
-  // device merges these into a mesh-wide view with zero extra API calls,
-  // instead of making its own separate (and broken) "mesh-wide" request.
+  // regular poll (device_mac: <own MAC>, confirmed working in the field).
+  // The previous mesh-wide approach used device_mac: 'default' and consistently
+  // returned error_code=1 across ~14 models in our own telemetry — note other
+  // TP-Link Deco integrations (e.g. amosyuen/ha-tplink-deco) document 'default'
+  // as a supported value, so it may work on some firmware/models and not others,
+  // or there's a request-shape difference we're not replicating. Either way,
+  // merging confirmed-working per-node data sidesteps the question entirely and
+  // costs zero extra API calls.
   private nodeClientLists = new Map<string, Map<string, any[]>>();
 
   /**
@@ -380,7 +383,7 @@ class TplinkDecoDriver extends Driver {
                 `Pairing: router session limit not released after ${maxAttempts} retries (hostname=${hostname})`,
                 { hostname, loginTrace: lastLoginTrace },
               );
-              throw new Error('The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those, then try again. (This can also happen briefly right after deleting and re-adding devices.)');
+              throw new Error('The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those and try again. (This can also happen briefly right after deleting and re-adding devices.) If this keeps happening, the TP-Link Deco app supports a separate "Manager" account (App → More → Managers) — use that for everyday phone access and reserve your main owner login for Homey, so the two stop kicking each other out.');
             }
             // Unknown protocol — all formats tried. Navigate to diagnostic view.
             this.error('pair: login failed — all formats exhausted. Navigating to diagnostic view. Trace:', JSON.stringify(lastLoginTrace));
@@ -568,7 +571,7 @@ class TplinkDecoDriver extends Driver {
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
               }
-              return { success: false, error: 'The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those, then try again.' };
+              return { success: false, error: 'The router rejected the login because another session is already active — most often the TP-Link Deco app or its web admin page logged in on a phone or browser somewhere. Close those and try again. If this keeps happening, the TP-Link Deco app supports a separate "Manager" account (App → More → Managers) — use that for everyday phone access and reserve your main owner login for Homey.' };
             }
             return { success: false, error: 'Connection failed. Check the IP address and password.' };
           }

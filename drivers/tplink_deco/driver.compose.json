@@ -126,7 +126,8 @@
     "lan_ipv4_ipaddr",
     "connected_clients",
     "device_role",
-    "reboot"
+    "reboot",
+    "polling_paused"
   ],
   "platforms": [
     "local"

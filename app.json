@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.4.45",
+  "version": "1.4.46",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -2015,7 +2015,8 @@
         "lan_ipv4_ipaddr",
         "connected_clients",
         "device_role",
-        "reboot"
+        "reboot",
+        "polling_paused"
       ],
       "platforms": [
         "local"
@@ -3236,6 +3237,29 @@
       "chartType": "spline",
       "uiComponent": "sensor",
       "icon": "/assets/capabilities/cloud-up-arrow-svgrepo-com.svg"
+    },
+    "polling_paused": {
+      "type": "boolean",
+      "title": {
+        "en": "Pause polling",
+        "nl": "Polling onderbreken",
+        "da": "Pause polling",
+        "de": "Abfrage pausieren",
+        "es": "Pausar sondeo",
+        "fr": "Suspendre l'interrogation",
+        "it": "Pausa polling",
+        "no": "Pause polling",
+        "sv": "Pausa polling",
+        "pl": "Wstrzymaj odpytywanie",
+        "ru": "Приостановить опрос",
+        "ko": "폴링 일시정지",
+        "ar": "إيقاف الاستقصاء"
+      },
+      "uiQuickAction": false,
+      "uiComponent": "toggle",
+      "getable": true,
+      "setable": true,
+      "insights": false
     },
     "reboot": {
       "type": "boolean",
