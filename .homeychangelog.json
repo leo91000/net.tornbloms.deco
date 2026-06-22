@@ -288,6 +288,9 @@
     "en": "Fixed pairing getting stuck on \"Loading\" after a successful login. Extended the retry window for routers that take longer to release a previous session, so pairing and repair succeed more often without manual retries. Fixed crash and error reports not reaching our monitoring, so issues can now be diagnosed and fixed faster."
   },
   "1.4.43": {
-    "en": "Fixed pairing/repair failing with a \"previous session is still active\" error when other Deco nodes from the same mesh were already added — pairing now shares the same login session as your existing devices instead of competing with them for the router's single session slot. Fixed mesh-wide client presence (\"client joined/left the Deco Mesh\") failing to detect any clients on most models — it now builds the mesh-wide view from data already being collected, instead of a request the router was rejecting."
+    "en": "Fixed pairing/repair failing with a \"previous session is still active\" error when other Deco nodes from the same mesh were already added — pairing now shares the same login session as your existing devices instead of competing with them for the router's single session slot."
+  },
+  "1.4.44": {
+    "en": "Fixed mesh-wide client presence (\"client joined/left the Deco Mesh\") failing to detect any clients on most models — it now builds the mesh-wide view from data already being collected, instead of a request the router was rejecting."
   }
 }

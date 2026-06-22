@@ -1,6 +1,6 @@
 {
   "id": "net.tornbloms.deco",
-  "version": "1.4.43",
+  "version": "1.4.44",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
