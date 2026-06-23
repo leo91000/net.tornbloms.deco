@@ -298,5 +298,8 @@
   },
   "1.4.46": {
     "en": "Added a Pause/resume polling control so you can stop API calls to your Deco without removing the device — useful while troubleshooting a session conflict, or to reduce load on routers that struggle with frequent polling. The session-conflict error message now also mentions the TP-Link Deco app's separate \"Manager\" account, which avoids the conflict entirely."
+  },
+  "1.4.47": {
+    "en": "Fixed the new polling toggle being backwards — the switch now lights up when polling is active (running), instead of when it's paused."
   }
 }

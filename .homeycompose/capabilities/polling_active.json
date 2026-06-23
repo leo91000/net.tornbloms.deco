@@ -1,0 +1,23 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Polling active",
+    "nl": "Polling actief",
+    "da": "Polling aktiv",
+    "de": "Abfrage aktiv",
+    "es": "Sondeo activo",
+    "fr": "Interrogation active",
+    "it": "Polling attivo",
+    "no": "Polling aktiv",
+    "sv": "Polling aktiv",
+    "pl": "Odpytywanie aktywne",
+    "ru": "Опрос активен",
+    "ko": "폴링 활성",
+    "ar": "الاستقصاء نشط"
+  },
+  "uiQuickAction": false,
+  "uiComponent": "toggle",
+  "getable": true,
+  "setable": true,
+  "insights": false
+}

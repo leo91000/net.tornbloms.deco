@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.4.46",
+  "version": "1.4.47",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -2016,7 +2016,7 @@
         "connected_clients",
         "device_role",
         "reboot",
-        "polling_paused"
+        "polling_active"
       ],
       "platforms": [
         "local"
@@ -3238,22 +3238,22 @@
       "uiComponent": "sensor",
       "icon": "/assets/capabilities/cloud-up-arrow-svgrepo-com.svg"
     },
-    "polling_paused": {
+    "polling_active": {
       "type": "boolean",
       "title": {
-        "en": "Pause polling",
-        "nl": "Polling onderbreken",
-        "da": "Pause polling",
-        "de": "Abfrage pausieren",
-        "es": "Pausar sondeo",
-        "fr": "Suspendre l'interrogation",
-        "it": "Pausa polling",
-        "no": "Pause polling",
-        "sv": "Pausa polling",
-        "pl": "Wstrzymaj odpytywanie",
-        "ru": "Приостановить опрос",
-        "ko": "폴링 일시정지",
-        "ar": "إيقاف الاستقصاء"
+        "en": "Polling active",
+        "nl": "Polling actief",
+        "da": "Polling aktiv",
+        "de": "Abfrage aktiv",
+        "es": "Sondeo activo",
+        "fr": "Interrogation active",
+        "it": "Polling attivo",
+        "no": "Polling aktiv",
+        "sv": "Polling aktiv",
+        "pl": "Odpytywanie aktywne",
+        "ru": "Опрос активен",
+        "ko": "폴링 활성",
+        "ar": "الاستقصاء نشط"
       },
       "uiQuickAction": false,
       "uiComponent": "toggle",

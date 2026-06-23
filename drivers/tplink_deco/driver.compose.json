@@ -127,7 +127,7 @@
     "connected_clients",
     "device_role",
     "reboot",
-    "polling_paused"
+    "polling_active"
   ],
   "platforms": [
     "local"

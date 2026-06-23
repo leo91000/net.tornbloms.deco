@@ -207,10 +207,18 @@ class TplinkDecoDevice extends Device {
         // routers that struggle with sustained polling) without deleting the
         // device. Mirrors the pause/resume control other Deco integrations
         // (e.g. Home Assistant's) expose for the same reason.
-        this.registerCapabilityListener('polling_paused', async (value) => {
-          const paused = Boolean(value);
-          this.log(`Polling ${paused ? 'paused' : 'resumed'} by user`);
-          if (paused) {
+        //
+        // The capability is "active" rather than "paused" so the toggle's lit/on
+        // state always means "running" — a lit toggle meaning "paused" reads
+        // backwards to users (reported feedback after the first version of this
+        // shipped as polling_paused).
+        if (this.hasCapability('polling_active') && this.getCapabilityValue('polling_active') === null) {
+          await this.setCapabilityValue('polling_active', true).catch(this.error);
+        }
+        this.registerCapabilityListener('polling_active', async (value) => {
+          const active = Boolean(value);
+          this.log(`Polling ${active ? 'resumed' : 'paused'} by user`);
+          if (!active) {
             if (this.startupDelayTimerId) {
               clearTimeout(this.startupDelayTimerId);
               this.startupDelayTimerId = null;
@@ -258,7 +266,7 @@ class TplinkDecoDevice extends Device {
           },
         );
 
-        if (this.getCapabilityValue('polling_paused')) {
+        if (this.getCapabilityValue('polling_active') === false) {
           this.log('Polling paused (restored from saved state) — skipping startup poll');
           return;
         }
@@ -328,8 +336,8 @@ class TplinkDecoDevice extends Device {
     }
 
     // Update the interval if timeoutSeconds has changed (skip while paused —
-    // the interval stays cleared until the user resumes via polling_paused)
-    if (changedKeys.includes('timeoutSeconds') && !this.getCapabilityValue('polling_paused')) {
+    // the interval stays cleared until the user resumes via polling_active)
+    if (changedKeys.includes('timeoutSeconds') && this.getCapabilityValue('polling_active') !== false) {
       const interval = (newSettings.timeoutSeconds || 15) * 1000; // Default to 15 seconds if not set
       this.setUpdateInterval(interval);
       this.log(
