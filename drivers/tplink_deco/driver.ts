@@ -518,9 +518,16 @@ class TplinkDecoDriver extends Driver {
           return devices;
         } else {
           this.error('Failed to retrieve device information');
+          return [];
         }
       } catch (error) {
+        // Must return an array here — the built-in list_devices pairing template
+        // reads .length on whatever this handler returns, so an implicit
+        // `undefined` return (the previous behaviour) crashes the pairing UI
+        // with "cannot read properties of null (reading 'length')" instead of
+        // showing an empty list / error.
         this.error('Failed to retrieve device information', error);
+        return [];
       }
     });
   }

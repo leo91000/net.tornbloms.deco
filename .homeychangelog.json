@@ -301,5 +301,8 @@
   },
   "1.4.47": {
     "en": "Fixed the new polling toggle being backwards — the switch now lights up when polling is active (running), instead of when it's paused."
+  },
+  "1.4.48": {
+    "en": "Fixed pairing crashing with \"cannot read properties of null\" when the device list couldn't be retrieved (e.g. after a login/network failure during pairing) — it now shows an empty list instead of crashing the pairing screen."
   }
 }
