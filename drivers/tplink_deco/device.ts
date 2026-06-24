@@ -154,26 +154,14 @@ class TplinkDecoDevice extends Device {
           this.log('Restored content-type preference: application/json (from store)');
         }
 
-        // Authenticate via the shared serialised auth so concurrent device
-        // startups don't all hit the router at once.
-        this.connected = await driver
-          .sharedAuthenticate(settings.hostname, settings.password, this.makeLogger())
-          .catch((e: any) => {
-            const msg: string = e?.message ?? '';
-            if (msg.startsWith('RETRY:')) {
-              this.log('Initial auth deferred (router session limit) — will retry on first poll');
-            } else {
-              this.error('Authentication failed', e);
-            }
-            return false;
-          });
-
-        if (this.connected) {
-          // Persist the content-type preference that auth settled on so future
-          // restarts skip the auto-detect retry.
-          await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
-          this.log('Successfully connected to TP-Link Deco');
-        }
+        // Authentication is deliberately NOT awaited here — it happens inside the
+        // staggered startup timer below, right before the first poll. onInit()
+        // must return quickly regardless of router/network conditions: awaiting
+        // a slow or unreachable router here (the auth retry chain can take well
+        // over 30s — content-type negotiation, password-format fallback, session
+        // limit backoff) risks the device/app missing Homey's startup ready
+        // window, surfacing as "Unable to initialize app Error: ready_timeout"
+        // (seen in the field on the Live channel).
 
         // Register capability listeners for reboot, CPU usage, and memory usage
         this.registerCapabilityListener('reboot', async (value) => {
@@ -280,6 +268,9 @@ class TplinkDecoDevice extends Device {
         this.startupDelayTimerId = setTimeout(async () => {
           this.startupDelayTimerId = null;
           try {
+            if (!this.connected) {
+              await this.reAuthenticate();
+            }
             await this.updateDeviceMetrics();
             this.setUpdateInterval(interval);
           } catch (e: any) {

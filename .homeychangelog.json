@@ -304,5 +304,8 @@
   },
   "1.4.48": {
     "en": "Fixed pairing crashing with \"cannot read properties of null\" when the device list couldn't be retrieved (e.g. after a login/network failure during pairing) — it now shows an empty list instead of crashing the pairing screen."
+  },
+  "1.4.49": {
+    "en": "Fixed devices failing to start up (\"ready_timeout\") when the router was slow or temporarily unreachable — login now happens just before the first scheduled check instead of blocking the device's startup."
   }
 }
