@@ -320,11 +320,11 @@ class TplinkDecoDevice extends Device {
       try {
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
-        // Clear stored content-type preference so fresh auto-detection runs with new
-        // credentials — reset to true (JSON), the common case, not false, so this
-        // doesn't bias the fresh detection toward the less common firmware behavior.
-        await this.setStoreValue('forceJsonContentType', true);
-        this.api.c.forceJsonContentType = true;
+        // Clear the stored content-type preference for new credentials — authenticate()
+        // tries every contentType/bodyFormat/passwordMode combo regardless of where
+        // forceJsonContentType currently sits, so there's no "common case" to bias
+        // toward here; just drop the stale preference and let it re-detect.
+        await this.unsetStoreValue('forceJsonContentType');
         this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
         if (this.connected) {
           await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);

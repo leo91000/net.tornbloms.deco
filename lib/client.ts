@@ -373,7 +373,169 @@ export default class DecoAPIWraper {
   //   form-encoded body "sign=...&data=..." with Content-Type: application/json.
   // _trace: accumulates one LoginAttempt per login POST across all recursive retries.
   //   Attached to thrown errors so callers can surface diagnostic info.
-  public async authenticate(password: string, _retried = false, _skipRehash = false, _jsonBody = false, _trace: LoginAttempt[] = []): Promise<boolean> {
+  /**
+   * Builds the ordered list of (contentType, bodyFormat, passwordMode) combinations
+   * to try during login. Different Deco models/firmware genuinely need different
+   * combinations and there is no single safe default to guess — telemetry across
+   * users shows roughly even use of JSON and form-urlencoded content types, and
+   * the previous design (guess one default, conditionally retry only on specific
+   * error signatures like "no such callback") repeatedly misclassified failures
+   * on firmware whose error didn't match the expected signature, regressing
+   * pairing for models that worked on earlier versions (e.g. X50-4G, v1.4.50-59).
+   * `authenticate()` now tries every combination in this list and treats ANY
+   * failure as "try the next one" rather than trying to interpret the error —
+   * the only exceptions are NETWORK/RETRY errors, which are not format issues
+   * and bail out immediately (see authenticate() below).
+   * jsonBody is only meaningful paired with contentType=json (the firmware
+   * parses the body according to Content-Type), so urlencoded+jsonBody is
+   * never tried. The cached/current settings (`this.c.forceJsonContentType`/
+   * `forceJsonBody`, restored per-device from the device store) are tried
+   * first so an already-paired device's known-working combo still succeeds
+   * in a single attempt.
+   */
+  private buildLoginCombos(): Array<{ contentType: boolean; jsonBody: boolean; hashed: boolean }> {
+    const current = { contentType: this.c.forceJsonContentType, jsonBody: this.c.forceJsonBody };
+    const all = [
+      { contentType: false, jsonBody: false },
+      { contentType: true, jsonBody: false },
+      { contentType: true, jsonBody: true },
+    ];
+    const ordered = [
+      current,
+      ...all.filter((c) => c.contentType !== current.contentType || c.jsonBody !== current.jsonBody),
+    ];
+    const combos: Array<{ contentType: boolean; jsonBody: boolean; hashed: boolean }> = [];
+    for (const c of ordered) {
+      combos.push({ ...c, hashed: false });
+      combos.push({ ...c, hashed: true });
+    }
+    return combos;
+  }
+
+  /**
+   * Performs one full login attempt (password key → session key → encrypted
+   * login POST) using a specific contentType/bodyFormat/passwordMode combo.
+   * On success, sets this.stok and returns. On failure, throws — NETWORK:/
+   * RETRY:-prefixed errors signal the caller to stop trying other combos
+   * (see authenticate()); anything else means "try the next combo".
+   */
+  private async attemptLogin(
+    password: string,
+    combo: { contentType: boolean; jsonBody: boolean; hashed: boolean },
+    trace: LoginAttempt[],
+  ): Promise<void> {
+    this.c.forceJsonContentType = combo.contentType;
+    this.c.forceJsonBody = combo.jsonBody;
+    const effectivePassword = combo.hashed ? this.hash : password;
+
+    // Generate a fresh AES key per attempt — the router's session/password keys
+    // are tied to this exchange and firmware may reject a reused key on retry.
+    this.aes = generateAESKey();
+    this.ensureDecoInstance();
+
+    this.logger.log('client.ts: attemptLogin: retrieving password key');
+    let passwordKey;
+    try {
+      passwordKey = await this.decoInstance!.getPasswordKey();
+    } catch (e: any) {
+      this.logger.error('client.ts: attemptLogin: network error fetching password key:', e);
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
+    }
+    if (!passwordKey) {
+      this.logger.error('client.ts: attemptLogin: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
+      throw new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`);
+    }
+
+    const encryptedPassword = encryptRsa(effectivePassword, passwordKey);
+    if (!encryptedPassword) {
+      throw new Error('RSA encryption of password failed.');
+    }
+
+    this.logger.log('client.ts: attemptLogin: retrieving session key');
+    let sessionKey, sequence;
+    try {
+      ({ key: sessionKey, seq: sequence } = await this.decoInstance!.getSessionKey());
+    } catch (e: any) {
+      this.logger.error('client.ts: attemptLogin: network error fetching session key:', e);
+      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
+    }
+    if (!sessionKey) {
+      throw new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`);
+    }
+
+    this.rsa = sessionKey;
+    this.sequence = sequence;
+
+    const loginReq: LoginRequest = { params: { password: encryptedPassword }, operation: 'login' };
+    const args = new EndpointArgs('login');
+
+    const attempt: LoginAttempt = {
+      seq: trace.length + 1,
+      contentType: combo.contentType ? 'json' : 'urlencoded',
+      bodyFormat: combo.jsonBody ? 'json' : 'form',
+      passwordMode: combo.hashed ? 'hashed' : 'raw',
+      httpStatus: null,
+      errorCode: null,
+      msg: null,
+    };
+    trace.push(attempt);
+
+    this.logger.log(
+      `client.ts: attemptLogin: trying contentType=${attempt.contentType} bodyFormat=${attempt.bodyFormat} passwordMode=${attempt.passwordMode}`,
+    );
+
+    let result;
+    try {
+      result = await this.decoInstance!.doEncryptedPost(';stok=/login', args, Buffer.from(JSON.stringify(loginReq)), true, sessionKey, this.sequence);
+    } catch (e: any) {
+      attempt.httpStatus = e?.httpStatus ?? null;
+      attempt.msg = (e?.message ?? '').slice(0, 120) || null;
+
+      if (e?.httpStatus === 403) {
+        // The router only allows one active admin session — this is not a
+        // format issue, and trying other combos would just burn more login
+        // attempts against an already session-limited router.
+        this.logger.error('client.ts: attemptLogin: login rejected with 403 — router may limit concurrent sessions.');
+        throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e, isBodyFormatError: false });
+      }
+      if (e?.isBodyFormatError) {
+        // Firmware crashed parsing the request body (Lua exception) — this combo
+        // is wrong, but the router needs a moment to recover before the next
+        // attempt or it may reject that one too.
+        this.logger.log('client.ts: attemptLogin: HTTP 500 body-format error (Lua crash) — waiting 1.5s for router recovery before trying next combo');
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        throw Object.assign(new Error('FORMAT: body format rejected (firmware crash)'), { cause: e });
+      }
+      // Any other HTTP/network failure for this combo — not necessarily fatal,
+      // could just be this combo confusing the firmware. Let the caller try
+      // the next one; NETWORK: is only thrown for password/session key fetch
+      // failures above (those happen before any combo-specific request).
+      this.logger.log('client.ts: attemptLogin: request failed for this combo, trying next:', e?.message ?? e);
+      throw Object.assign(new Error(`FORMAT: ${e?.message ?? 'request failed'}`), { cause: e });
+    }
+
+    attempt.httpStatus = 200;
+    attempt.errorCode = result?.error_code ?? null;
+    attempt.msg = result?.msg ?? null;
+    this.logger.log('client.ts: attemptLogin: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
+
+    const newStok = result?.result?.stok;
+    if (!newStok) {
+      // Router understood the request (HTTP 200, valid response shape) but
+      // didn't return a token — wrong combo or wrong credentials. Let the
+      // caller decide which, once every combo has been exhausted.
+      throw new Error(`FORMAT: login response missing stok (error_code=${result?.error_code}, msg=${result?.msg})`);
+    }
+
+    // Only update this.stok when we have a confirmed valid token. Assigning
+    // before this point would clobber a previous valid stok with undefined on
+    // a failed re-auth, causing concurrent devices on the shared client to use
+    // stok=undefined in their request paths.
+    this.stok = newStok;
+    this.logger.log('client.ts: attemptLogin: login successful');
+  }
+
+  public async authenticate(password: string, _trace: LoginAttempt[] = []): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
@@ -396,195 +558,42 @@ export default class DecoAPIWraper {
       this.logger.log(`client.ts: authenticate: host ${this.host} is reachable`);
     }
 
-    // Generate AES key for encryption
-    this.aes = generateAESKey();
-    this.logger.log(
-      'client.ts: authenticate: AES generated',
-      `keyLen=${String(this.aes.key).length} ivLen=${String(this.aes.iv).length}`,
-      '(both must be 16)',
-    );
+    // MD5(admin+rawPassword) — computed once; combos that need the hashed
+    // password reuse this rather than re-hashing.
+    this.hash = crypto.createHash('md5').update(`${userName}${password}`).digest('hex');
 
-    // Generate MD5 hash using the username and raw password.
-    // When _skipRehash=true we are retrying with password=MD5(admin+rawPassword)
-    // and this.hash must remain MD5(admin+rawPassword) — do not double-hash.
-    if (!_skipRehash) {
-      this.hash = crypto
-        .createHash('md5')
-        .update(`${userName}${password}`)
-        .digest('hex');
-    }
-    this.logger.log('client.ts: authenticate: MD5 hash length:', this.hash.length, '(must be 32)', _skipRehash ? '(pre-hashed password mode)' : '');
+    const combos = this.buildLoginCombos();
+    let lastError: any = null;
 
-    this.ensureDecoInstance();
-
-    // --- password key (network phase) ---
-    this.logger.log('client.ts: authenticate: retrieving password key');
-    let passwordKey;
-    try {
-      passwordKey = await this.decoInstance!.getPasswordKey();
-    } catch (e: any) {
-      this.logger.error('client.ts: authenticate: network error fetching password key:', e);
-      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
-    }
-    if (!passwordKey) {
-      this.logger.error('client.ts: authenticate: failed to retrieve password key — check device IP and that the Deco web interface is reachable');
-      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), {});
-    }
-    this.logger.log('client.ts: authenticate: password key retrieved ok');
-
-    // Encrypt the password using the retrieved password key.
-    // Normal mode:      RSA(raw_password)            — works on most firmware.
-    // Hash-retry mode:  RSA(MD5(admin+raw_password)) — required by some newer firmware.
-    const encryptedPassword = encryptRsa(password, passwordKey);
-    if (!encryptedPassword) {
-      this.logger.error('client.ts: authenticate: RSA encryption of password returned empty string');
-      throw new Error('RSA encryption of password failed.');
-    }
-    this.logger.log('client.ts: authenticate: encrypted password length:', encryptedPassword.length);
-
-    // --- session key (network phase) ---
-    this.logger.log('client.ts: authenticate: retrieving session key');
-    let sessionKey, sequence;
-    try {
-      ({ key: sessionKey, seq: sequence } = await this.decoInstance!.getSessionKey());
-    } catch (e: any) {
-      this.logger.error('client.ts: authenticate: network error fetching session key:', e);
-      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
-    }
-    if (!sessionKey) {
-      this.logger.error('client.ts: authenticate: failed to retrieve session key');
-      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), {});
-    }
-    this.logger.log('client.ts: authenticate: session key ok, seq:', sequence, '(seq must be > 0)');
-
-    this.rsa = sessionKey;
-    this.sequence = sequence;
-
-    // --- login POST (credentials phase) ---
-    const loginReq: LoginRequest = {
-      params: { password: encryptedPassword },
-      operation: 'login',
-    };
-    const args = new EndpointArgs('login');
-
-    this.logger.log('client.ts: authenticate: sending encrypted login request');
-
-    const attempt: LoginAttempt = {
-      seq: _trace.length + 1,
-      contentType: this.c.forceJsonContentType ? 'json' : 'urlencoded',
-      bodyFormat: _jsonBody ? 'json' : 'form',
-      passwordMode: _skipRehash ? 'hashed' : 'raw',
-      httpStatus: null,
-      errorCode: null,
-      msg: null,
-    };
-    _trace.push(attempt);
-
-    let result;
-    try {
-      result = await this.decoInstance!.doEncryptedPost(
-        ';stok=/login',
-        args,
-        Buffer.from(JSON.stringify(loginReq)),
-        true,
-        sessionKey,
-        this.sequence,
-      );
-    } catch (e: any) {
-      attempt.httpStatus = e?.httpStatus ?? null;
-      attempt.msg = (e?.message ?? '').slice(0, 120) || null;
-
-      if (e?.httpStatus === 403) {
-        if (_jsonBody && !_skipRehash) {
-          // JSON body tried with raw password, got 403 — some firmware requires
-          // RSA(MD5(admin+password)) instead of RSA(raw_password) for the JSON body format.
-          this.logger.log(
-            'client.ts: authenticate: 403 on JSON body with raw password',
-            '— retrying with MD5 hashed password (RSA(MD5(admin+password)))',
-          );
-          return this.authenticate(this.hash, _retried, true, true, _trace);
+    for (const combo of combos) {
+      try {
+        await this.attemptLogin(password, combo, _trace);
+        return true;
+      } catch (e: any) {
+        const msg: string = e?.message ?? '';
+        if (msg.startsWith('NETWORK:') || msg.startsWith('RETRY:')) {
+          // Not a format issue — bail immediately rather than burning more
+          // login attempts against an unreachable or session-limited router.
+          throw Object.assign(e, { loginTrace: _trace });
         }
-        this.logger.error('client.ts: authenticate: login rejected with 403 — router may limit concurrent sessions. Will retry on next poll.');
-        throw Object.assign(new Error('RETRY: Router rejected login (session limit). Will retry automatically.'), { cause: e, loginTrace: _trace });
+        lastError = e;
+        // Anything else (FORMAT:/RSA failure/etc.) — try the next combo.
       }
-      if (e?.httpStatus === 500) {
-        if (!_skipRehash && !_jsonBody && e?.isBodyFormatError) {
-          // Firmware crashed while parsing the request body (Lua exception, HTTP 500 with
-          // plain-text error). This means the body FORMAT is wrong — the firmware received
-          // "sign=...&data=..." form-encoded data with Content-Type: application/json and
-          // its JSON parser crashed. Retry with a proper JSON body {"sign":"...","data":"..."}.
-          // Wait briefly for the router to recover from the Lua crash before retrying.
-          this.logger.log(
-            'client.ts: authenticate: HTTP 500 (body format error — firmware Lua crash)',
-            '— waiting 1.5s for router recovery, then retrying with JSON body format ({"sign":"...","data":"..."})',
-          );
-          this.c.forceJsonContentType = true;
-          this.c.forceJsonBody = true;
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          return this.authenticate(password, _retried, false, true, _trace);
-        }
-        if (_jsonBody && !_skipRehash) {
-          // JSON body tried with raw password but still HTTP 500 — try MD5 hashed password
-          // in case the firmware also requires RSA(MD5(admin+password)) instead of RSA(raw).
-          this.logger.log(
-            'client.ts: authenticate: HTTP 500 with JSON body — retrying with MD5 hashed password',
-            `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
-          );
-          return this.authenticate(this.hash, true, true, true, _trace);
-        }
-        if (!_skipRehash && !_jsonBody) {
-          // Regular HTTP 500 (encrypted error, not a Lua crash) — some firmware returns 500
-          // when the raw password is wrong and expects RSA(MD5(admin+password)) instead.
-          this.logger.log(
-            'client.ts: authenticate: HTTP 500 on login — retrying with hashed password format',
-            `(RSA(MD5(admin+password)) instead of RSA(raw_password))`,
-          );
-          this.c.forceJsonContentType = true;
-          return this.authenticate(this.hash, true, true, false, _trace);
-        }
-        // All formats tried — credentials are wrong.
-        this.logger.error('client.ts: authenticate: HTTP 500 on login POST — wrong password (all formats tried)');
-        throw new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).');
-      }
-      this.logger.error('client.ts: authenticate: network error during login POST:', e);
-      throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
     }
 
-    attempt.httpStatus = 200;
-    attempt.errorCode = result?.error_code ?? null;
-    attempt.msg = result?.msg ?? null;
-
-    this.logger.log('client.ts: authenticate: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
-
-    // "no such callback" means the firmware rejected the Content-Type we used.
-    // This happens on newer HTTPS firmware that needs application/json even
-    // over HTTPS (opposite of older HTTPS firmware that needed form-urlencoded).
-    // Flip the flag and retry the full auth sequence once with the other encoding.
-    if (result?.error_code === 1 && result?.msg === 'no such callback' && !_retried) {
-      this.logger.log(
-        'client.ts: authenticate: "no such callback" — firmware rejected current Content-Type;',
-        `switching to ${this.c.forceJsonContentType ? 'form-urlencoded' : 'JSON'} and retrying`,
-      );
-      this.c.forceJsonContentType = !this.c.forceJsonContentType;
-      return this.authenticate(password, true, false, false, _trace);
-    }
-
-    // Only update this.stok when we have a confirmed valid token.
-    // Assigning before the check would clobber the previous valid stok with
-    // undefined on a failed re-auth, causing concurrent devices on the shared
-    // client to use stok=undefined in their request paths.
-    const newStok = result?.result?.stok;
-    if (!newStok) {
-      this.logger.error('client.ts: authenticate: login response missing stok — likely wrong password. Full response:', JSON.stringify(result));
+    // Every combo failed. If at least one attempt got a clean HTTP 200 with a
+    // recognisable response shape, the router understood our requests fine —
+    // this is a wrong-password case, not an unrecognised protocol. Otherwise
+    // nothing about this firmware's login matched any known combo.
+    const anyFormatUnderstood = _trace.some((a) => a.httpStatus === 200);
+    this.logger.error('client.ts: authenticate: all login combos exhausted.', JSON.stringify(_trace));
+    if (anyFormatUnderstood) {
       throw Object.assign(
         new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).'),
-        { loginTrace: _trace },
+        { loginTrace: _trace, cause: lastError },
       );
     }
-    this.stok = newStok;
-
-    this.logger.log('client.ts: authenticate: login successful');
-    return true;
+    throw Object.assign(new Error(`All login formats failed for ${this.host}.`), { loginTrace: _trace, cause: lastError });
   }
 
   // Public method to retrieve Wan data
