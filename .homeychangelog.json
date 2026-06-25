@@ -316,5 +316,8 @@
   },
   "1.4.52": {
     "en": "Login requests now match what a real browser sends to your Deco's admin page more closely, which may resolve some remaining \"no such callback\" login errors on certain firmware."
+  },
+  "1.4.53": {
+    "en": "Diagnostic reports now include the exact request headers sent during login, making it easier to troubleshoot connection issues without needing a separate browser capture."
   }
 }

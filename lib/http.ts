@@ -68,6 +68,12 @@ export class HttpClient {
       `body=${config.data.length}B`,
       cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
     );
+    // Logged separately from the line above (rather than inlined) so a diagnostic
+    // report alone is enough to confirm the exact request shape against a real
+    // browser HAR capture — no need to ask the reporter for a fresh HAR just to
+    // check headers again, the way we had to for the Content-Type/Origin/Referer
+    // investigation this week.
+    this.logger.log('http.ts: request headers:', JSON.stringify(config.headers));
 
     // Up to 2 attempts: first over http, then https if the router redirects.
     // redirect:'manual' prevents the runtime from re-reading the POST body on redirect.
