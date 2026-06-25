@@ -83,27 +83,45 @@ export class HttpClient {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeout);
 
+      // Backstop: undici's fetch has been observed not honoring AbortController
+      // during the DNS-resolution/connect phase (a known Node 22 quirk — see
+      // reference_homey_sdk_docs memory), letting a request hang well past
+      // `this.timeout` regardless of the abort signal. A request that hangs to
+      // ~30s blows straight through Homey's own hard 30s pairing RPC limit,
+      // showing the user a "Timeout after 30000ms" alert even when the login
+      // eventually succeeds a moment too late. Race a plain timer alongside
+      // the abort-based one so a hang is bounded no matter what fetch does.
+      let hardTimer: NodeJS.Timeout;
+      const hardTimeout = new Promise<never>((_, reject) => {
+        hardTimer = setTimeout(() => reject(Object.assign(new Error('ETIMEDOUT'), { name: 'AbortError' })), this.timeout + 2000);
+      });
+
       let response: Response;
       try {
-        response = await fetch(urlStr, {
-          method: 'POST',
-          headers: {
-            ...config.headers,
-            ...(cookieStr ? { Cookie: cookieStr } : {}),
-          },
-          // Always use a fresh copy so retries after a redirect still have the body.
-          body: Buffer.from(config.data),
-          signal: controller.signal,
-          redirect: 'manual',
-        } as RequestInit);
+        response = await Promise.race([
+          fetch(urlStr, {
+            method: 'POST',
+            headers: {
+              ...config.headers,
+              ...(cookieStr ? { Cookie: cookieStr } : {}),
+            },
+            // Always use a fresh copy so retries after a redirect still have the body.
+            body: Buffer.from(config.data),
+            signal: controller.signal,
+            redirect: 'manual',
+          } as RequestInit),
+          hardTimeout,
+        ]);
       } catch (e: any) {
         clearTimeout(timer);
+        clearTimeout(hardTimer!);
         const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
         this.logger.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
         throw e;
       }
 
       clearTimeout(timer);
+      clearTimeout(hardTimer!);
 
       // Handle HTTP→HTTPS (or other) redirects manually.
       if (response.status >= 300 && response.status < 400) {

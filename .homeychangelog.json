@@ -343,5 +343,8 @@
   },
   "1.4.61": {
     "en": "Fixed pairing succeeding but never showing your devices to add — login was working correctly, but a pairing-screen navigation bug sent you back to the login screen or the wrong screen instead of the device list. This affected every successful pairing since v1.4.51."
+  },
+  "1.4.62": {
+    "en": "Fixed pairing showing a \"Timeout after 30000ms\" error on slow routers even when login was about to succeed — a network request could hang well past its intended timeout. Login now gives up and reports a clear error well before Homey's own pairing screen times out, instead of silently running past it."
   }
 }

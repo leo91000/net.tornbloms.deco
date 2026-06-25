@@ -565,7 +565,24 @@ export default class DecoAPIWraper {
     const combos = this.buildLoginCombos();
     let lastError: any = null;
 
+    // Homey's own pairing UI enforces a hard ~30s timeout on the 'login' RPC
+    // call from the frontend — if we don't resolve within that window, the
+    // user sees a generic "Timeout after 30000ms" alert even if the backend
+    // goes on to succeed a moment later. Trying multiple combos (each with
+    // its own password-key/session-key/login round trips) can add up past
+    // that ceiling on a slow router, so stop trying further combos once
+    // we're past a safe budget and fail fast with a clear error instead of
+    // silently exceeding Homey's own timeout.
+    const deadline = Date.now() + 25000;
+
     for (const combo of combos) {
+      if (Date.now() > deadline) {
+        this.logger.error('client.ts: authenticate: stopping combo attempts — over time budget, router is responding too slowly.');
+        throw Object.assign(
+          new Error(`NETWORK: Router at ${this.host} is responding too slowly to complete login. Try again, or check the connection.`),
+          { loginTrace: _trace, cause: lastError },
+        );
+      }
       try {
         await this.attemptLogin(password, combo, _trace);
         return true;
