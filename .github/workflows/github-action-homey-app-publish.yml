@@ -21,6 +21,23 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # env.json is gitignored (it holds the Sentry/BetterStack ingest
+      # credentials) so it never reaches this checkout — without it, every
+      # CI-published build silently ships with no error/log reporting
+      # wired up (Homey.env.* reads come back undefined at runtime, logged
+      # as "environment variable has not been set" warnings on every boot).
+      # Reconstruct it here from repo secrets before building.
+      - name: Write env.json
+        run: |
+          cat <<EOF > env.json
+          {
+            "HOMEY_LOG_FORCE": "1",
+            "HOMEY_LOG_URL": "${{ secrets.HOMEY_LOG_URL }}",
+            "HOMEY_BETTERSTACK_CONFIG": ${{ secrets.HOMEY_BETTERSTACK_CONFIG }},
+            "HOMEY_BETTERSTACK_TOKEN": "${{ secrets.HOMEY_BETTERSTACK_TOKEN }}"
+          }
+          EOF
+
       - name: Validate Homey App
         uses: athombv/github-action-homey-app-validate@master
         with:
