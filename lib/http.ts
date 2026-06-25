@@ -28,12 +28,21 @@ export class HttpClient {
   baseURL: string;
   private readonly timeout: number;
   /**
-   * When true, doEncryptedPost will always use application/json for the
-   * encrypted POST body even over HTTPS. Set automatically when the first
-   * auth attempt detects a "no such callback" error, which indicates newer
-   * HTTPS firmware that needs JSON rather than form-urlencoded.
+   * Content-Type to use for doEncryptedPost over HTTPS: application/json when
+   * true, application/x-www-form-urlencoded when false. Defaults to true —
+   * a HAR capture of a real browser logging into a Deco X50 (2026-06-25)
+   * showed every login request uses Content-Type: application/json from the
+   * very first attempt, even though the body itself stays form-encoded
+   * ("sign=...&data=..." — see forceJsonBody below, which is a separate,
+   * rarer case). Most field logs agree: the form-urlencoded-first attempt
+   * almost always fails with "no such callback" before falling back to
+   * JSON, wasting a login POST against the router on every fresh pairing —
+   * not just inefficient, but extra traffic that can contribute to the
+   * router's session-limit lockout. client.ts flips this (`= !forceJsonContentType`)
+   * on the first "no such callback" response, falling back to the other
+   * Content-Type for firmware that genuinely needs form-urlencoded first.
    */
-  public forceJsonContentType: boolean = false;
+  public forceJsonContentType: boolean = true;
   /**
    * When true, doEncryptedPost sends the body as JSON {"sign":"...","data":"..."}
    * instead of the default URL-encoded form "sign=...&data=...". Required by

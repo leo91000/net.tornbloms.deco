@@ -307,5 +307,8 @@
   },
   "1.4.49": {
     "en": "Fixed devices failing to start up (\"ready_timeout\") when the router was slow or temporarily unreachable — login now happens just before the first scheduled check instead of blocking the device's startup."
+  },
+  "1.4.50": {
+    "en": "Sped up login by trying the connection format that real Deco firmware actually uses first, instead of guessing wrong and retrying — fewer login attempts hit your router during pairing, which should also reduce \"previous session is still active\" errors."
   }
 }

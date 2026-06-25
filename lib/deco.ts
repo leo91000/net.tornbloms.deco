@@ -204,12 +204,11 @@ export default class Deco {
 
       // Send the POST request with encrypted data.
       // There are two distinct HTTPS firmware behaviours:
-      //   - Older HTTPS firmware returns HTTP 500 with JSON → needs form-urlencoded.
-      //   - Newer HTTPS firmware returns "no such callback" with form-urlencoded → needs JSON.
-      // HTTP-only firmware always needs JSON.
-      //
-      // forceJsonContentType is set by client.ts after a "no such callback" retry
-      // to override the default HTTPS→form-urlencoded heuristic.
+      //   - Most firmware (confirmed via a real browser HAR, see http.ts) needs JSON
+      //     Content-Type from the first request — this is now the default.
+      //   - Some older firmware instead returns "no such callback" with JSON and needs
+      //     form-urlencoded — client.ts flips forceJsonContentType to false on that error.
+      // HTTP-only firmware always needs JSON regardless of the flag.
       const encContentType =
         this.c.forceJsonContentType || !this.c.baseURL.startsWith('https://')
           ? 'application/json'

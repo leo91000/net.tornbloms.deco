@@ -147,12 +147,15 @@ class TplinkDecoDevice extends Device {
 
         // Restore the previously-detected content-type preference so the first
         // auth attempt on restart already uses the known-good encoding rather
-        // than retrying via auto-detect every time.
-        const savedForceJson = (this.getStoreValue('forceJsonContentType') as boolean) ?? false;
-        if (savedForceJson) {
-          this.api.c.forceJsonContentType = true;
-          this.log('Restored content-type preference: application/json (from store)');
-        }
+        // than retrying via auto-detect every time. Must apply unconditionally —
+        // an explicitly cached `false` (this device needs form-urlencoded) used
+        // to be silently dropped here, since the old code only ever set `true`
+        // and otherwise left HttpClient's class default in place. That was
+        // harmless while the default was also `false`, but stopped being safe
+        // once the default flipped to `true` (see http.ts).
+        const savedForceJson = (this.getStoreValue('forceJsonContentType') as boolean) ?? this.api.c.forceJsonContentType;
+        this.api.c.forceJsonContentType = savedForceJson;
+        this.log(`Restored content-type preference: ${savedForceJson ? 'application/json' : 'application/x-www-form-urlencoded'} (from store)`);
 
         // Authentication is deliberately NOT awaited here — it happens inside the
         // staggered startup timer below, right before the first poll. onInit()
@@ -313,9 +316,11 @@ class TplinkDecoDevice extends Device {
       try {
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
-        // Clear stored content-type preference so fresh auto-detection runs with new credentials.
-        await this.setStoreValue('forceJsonContentType', false);
-        this.api.c.forceJsonContentType = false;
+        // Clear stored content-type preference so fresh auto-detection runs with new
+        // credentials — reset to true (JSON), the common case, not false, so this
+        // doesn't bias the fresh detection toward the less common firmware behavior.
+        await this.setStoreValue('forceJsonContentType', true);
+        this.api.c.forceJsonContentType = true;
         this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
         if (this.connected) {
           await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
