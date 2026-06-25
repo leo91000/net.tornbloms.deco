@@ -1,0 +1,26 @@
+on:
+  push:
+  pull_request:
+
+jobs:
+  main:
+    name: Validate Homey App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Node.js and dependencies — needed here because, unlike the
+      # publish/version actions, github-action-homey-app-validate does not
+      # run npm install itself before calling `homey app validate`.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22' # matches the Node version Homey apps run on (v12.9.0+)
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate Homey App
+        uses: athombv/github-action-homey-app-validate@master
+        with:
+          level: verified
