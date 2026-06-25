@@ -340,5 +340,8 @@
   },
   "1.4.60": {
     "en": "Rebuilt login format detection during pairing to try every known login format for your Deco model instead of guessing one and only retrying on specific error patterns — this should resolve \"unrecognised login protocol\" failures across more models and firmware versions going forward, including ones that don't fail in a way the app previously recognised."
+  },
+  "1.4.61": {
+    "en": "Fixed pairing succeeding but never showing your devices to add — login was working correctly, but a pairing-screen navigation bug sent you back to the login screen or the wrong screen instead of the device list. This affected every successful pairing since v1.4.51."
   }
 }

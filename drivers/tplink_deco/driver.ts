@@ -360,20 +360,20 @@ class TplinkDecoDriver extends Driver {
             this.log('Successfully connected to TP-Link Deco');
             // Navigate explicitly rather than relying on a declarative
             // navigation.next on this step (see v1.4.51) — but kept OUTSIDE
-            // the error-handling logic below: a PairSession.nextView() failure
+            // the error-handling logic below: a PairSession.showView() failure
             // (e.g. the pairing UI already moved on) is not an auth error and
             // must never be miscategorised as one. Mis-categorising it here
             // previously fell into the "unknown protocol" branch below, which
-            // tried session.nextView('login_failed') on the same broken
+            // tried session.showView('login_failed') on the same broken
             // session — an unhandled rejection that crashed the app silently
             // (homey-log's own crash-report path has an unrelated bug that
             // swallows the resulting error, so nothing showed up anywhere).
             // Login already succeeded at this point, so a navigation hiccup
             // is logged and ignored rather than failing the whole pairing.
             try {
-              await session.nextView('list_devices');
+              await session.showView('list_devices');
             } catch (navError: any) {
-              this.error('pair: session.nextView(list_devices) failed (login already succeeded, ignoring)', navError);
+              this.error('pair: session.showView(list_devices) failed (login already succeeded, ignoring)', navError);
             }
             return true;
           } catch (error: any) {
@@ -409,9 +409,9 @@ class TplinkDecoDriver extends Driver {
               { hostname, loginTrace: lastLoginTrace },
             );
             try {
-              await session.nextView('login_failed');
+              await session.showView('login_failed');
             } catch (navError: any) {
-              this.error('pair: session.nextView(login_failed) failed (session likely already gone)', navError);
+              this.error('pair: session.showView(login_failed) failed (session likely already gone)', navError);
             }
             return false;
           }
@@ -436,7 +436,7 @@ class TplinkDecoDriver extends Driver {
     });
 
     session.setHandler('goto_login', async () => {
-      await session.nextView('login_credentials');
+      await session.showView('login_credentials');
       return true;
     });
 
