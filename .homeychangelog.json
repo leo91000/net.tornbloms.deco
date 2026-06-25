@@ -325,5 +325,8 @@
   },
   "1.4.55": {
     "en": "Added missing translations to a few flow card menus (no user-visible behavior change)."
+  },
+  "1.4.56": {
+    "en": "Fixed a rare silent app crash during pairing introduced in a previous fix — a pairing-screen navigation hiccup could, in some cases, crash the entire app without any error being logged."
   }
 }

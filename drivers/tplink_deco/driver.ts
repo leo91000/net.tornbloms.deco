@@ -359,14 +359,22 @@ class TplinkDecoDriver extends Driver {
             await this.sharedAuthenticate(hostname, password, this.makeLogger());
             this.log('Successfully connected to TP-Link Deco');
             // Navigate explicitly rather than relying on a declarative
-            // navigation.next on this step — that renders a generic "Next"
-            // button on the credentials screen itself (alongside the
-            // template's own "Login" button) that skips this handler
-            // entirely when pressed, landing on list_devices with no
-            // authenticated session. Reported as a confusing extra button
-            // and the likely cause of a "cannot read properties of null"
-            // crash report before list_devices was hardened to return [].
-            await session.nextView('list_devices');
+            // navigation.next on this step (see v1.4.51) — but kept OUTSIDE
+            // the error-handling logic below: a PairSession.nextView() failure
+            // (e.g. the pairing UI already moved on) is not an auth error and
+            // must never be miscategorised as one. Mis-categorising it here
+            // previously fell into the "unknown protocol" branch below, which
+            // tried session.nextView('login_failed') on the same broken
+            // session — an unhandled rejection that crashed the app silently
+            // (homey-log's own crash-report path has an unrelated bug that
+            // swallows the resulting error, so nothing showed up anywhere).
+            // Login already succeeded at this point, so a navigation hiccup
+            // is logged and ignored rather than failing the whole pairing.
+            try {
+              await session.nextView('list_devices');
+            } catch (navError: any) {
+              this.error('pair: session.nextView(list_devices) failed (login already succeeded, ignoring)', navError);
+            }
             return true;
           } catch (error: any) {
             const msg: string = error?.message ?? '';
@@ -400,7 +408,11 @@ class TplinkDecoDriver extends Driver {
               `Pairing: unrecognised login protocol (hostname=${hostname})`,
               { hostname, loginTrace: lastLoginTrace },
             );
-            await session.nextView('login_failed');
+            try {
+              await session.nextView('login_failed');
+            } catch (navError: any) {
+              this.error('pair: session.nextView(login_failed) failed (session likely already gone)', navError);
+            }
             return false;
           }
         }
