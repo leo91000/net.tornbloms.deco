@@ -79,6 +79,10 @@ class TplinkDecoDevice extends Device {
   // string = form prefix (e.g. 'lte', '5g', 'nr'); forms are <prefix>_intf_cfg / <prefix>_link_cfg.
   private lteFormCache: string | null | undefined = undefined;
 
+  // Guards the one-time "Auth method: ... model=... fw=..." report so it only
+  // fires once per device per app run, not on every poll cycle.
+  private authMethodReported = false;
+
   // Returns a logger that routes through the Homey SDK so output appears
   // in diagnostics reports as well as the real-time developer tools.
   private makeLogger(): AppLogger {
@@ -486,6 +490,21 @@ class TplinkDecoDevice extends Device {
         this.debug(`${settings.hostname} onInit():Filtered device: `, device);
 
         if (device) {
+          // Report the settled auth method (Content-Type / body format / password
+          // mode, all cached on this.api.c after the first successful login) paired
+          // with this device's exact model/firmware. Building this up across users
+          // in Sentry over time is the cheap alternative to asking for a fresh HAR
+          // every time a new login quirk shows up — if a specific model/firmware
+          // combo consistently needs unusual handling, this is how we'd notice
+          // without already suspecting it. One report per device per app run.
+          if (!this.authMethodReported) {
+            this.authMethodReported = true;
+            (this.homey.app as any).reportIssue?.(
+              `Auth method: contentType=${this.api.c.forceJsonContentType ? 'json' : 'urlencoded'} bodyFormat=${this.api.c.forceJsonBody ? 'json' : 'form'} model=${device.device_model} fw=${device.software_ver}`,
+              { model: device.device_model, hardware_ver: device.hardware_ver, software_ver: device.software_ver },
+            );
+          }
+
           // Update device settings with retrieved information
           await this.setSettings({
             hardware_ver: device.hardware_ver,

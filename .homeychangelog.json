@@ -319,5 +319,8 @@
   },
   "1.4.53": {
     "en": "Diagnostic reports now include the exact request headers sent during login, making it easier to troubleshoot connection issues without needing a separate browser capture."
+  },
+  "1.4.54": {
+    "en": "Now anonymously reports which login method worked for your Deco model and firmware, helping us spot patterns across different devices over time."
   }
 }
