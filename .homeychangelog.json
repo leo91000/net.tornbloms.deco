@@ -331,5 +331,8 @@
   },
   "1.4.57": {
     "en": "Fixed the \"unrecognised login protocol\" pairing screen getting stuck on \"Loading…\", with the Copy debug report and Back to login buttons doing nothing — they were using an outdated communication method that no longer works."
+  },
+  "1.4.58": {
+    "en": "Fixed the \"unrecognised login protocol\" pairing screen showing a hard error popup (\"Homey.emit is not a function\") on the web/desktop pairing flow — that screen now degrades gracefully on every platform instead of crashing the dialog."
   }
 }

@@ -90,12 +90,35 @@
     <script type="text/javascript">
       var traceData = [];
 
+      // Wraps Homey.emit() so this view works regardless of which signature
+      // this particular Homey client implements: SDK v3's homey.js returns a
+      // Promise from Homey.emit(event, data); some clients (confirmed on
+      // my.homey.app web pairing) instead only support the SDK v2-style
+      // Homey.emit(event, data, callback) and don't expose emit as a 2-arg
+      // Promise call at all, throwing "Homey.emit is not a function" the
+      // instant a 2-arg call is attempted. Always pass the callback AND
+      // chain .then() on whatever (if anything) comes back, with a
+      // try/catch so a hard signature mismatch never throws uncaught.
+      function emit(event, data) {
+        return new Promise(function (resolve, reject) {
+          try {
+            var maybePromise = Homey.emit(event, data, function (err, result) {
+              if (err) reject(err);
+              else resolve(result);
+            });
+            if (maybePromise && typeof maybePromise.then === 'function') {
+              maybePromise.then(resolve, reject);
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+
       function onHomeyReady(Homey) {
         Homey.ready();
 
-        // Homey.emit() is Promise-based in SDK v3 (no callback argument —
-        // that signature only exists in SDK v2's session.emit()).
-        Homey.emit('get_diagnostic', null)
+        emit('get_diagnostic', null)
           .then(function (data) {
             traceData = data && data.trace ? data.trace : [];
             renderTrace(traceData);
@@ -110,14 +133,21 @@
           var firmware = document.getElementById('firmware-input').value.trim() || '(not entered)';
           var report = buildReport(model, firmware, traceData);
           copyToClipboard(report);
-          Homey.emit('report_diagnostic', { model: model, firmware: firmware }).catch(function () {});
+          emit('report_diagnostic', { model: model, firmware: firmware }).catch(function () {});
           var okEl = document.getElementById('copy-ok');
           okEl.style.display = 'block';
           setTimeout(function () { okEl.style.display = 'none'; }, 3000);
         });
 
         document.getElementById('retry-btn').addEventListener('click', function () {
-          Homey.emit('goto_login', null).catch(function () {});
+          // Prefer the documented native navigation method (no backend round-trip,
+          // so it still works even if Homey.emit itself is unavailable on this
+          // client) over emitting 'goto_login' and waiting on the driver.
+          if (typeof Homey.prevView === 'function') {
+            Homey.prevView();
+          } else {
+            emit('goto_login', null).catch(function () {});
+          }
         });
       }
 
