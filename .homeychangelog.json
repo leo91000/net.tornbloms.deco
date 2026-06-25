@@ -313,5 +313,8 @@
   },
   "1.4.51": {
     "en": "Removed a confusing extra \"Continue\" button on the pairing login screen that could skip the login step entirely and crash pairing — you should now only see the \"Login\" button there."
+  },
+  "1.4.52": {
+    "en": "Login requests now match what a real browser sends to your Deco's admin page more closely, which may resolve some remaining \"no such callback\" login errors on certain firmware."
   }
 }

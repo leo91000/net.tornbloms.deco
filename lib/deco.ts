@@ -275,6 +275,18 @@ export default class Deco {
     body: Buffer,
     contentType: string = 'application/json',
   ): Promise<any> {
+    // Origin/Referer/X-Requested-With confirmed present on every login request in
+    // three independent real-browser HAR captures (different Deco models, different
+    // browsers/OSes) — our requests never sent these. The Lua dispatcher's "no such
+    // callback" error is consistent with it routing on one of these headers, so
+    // matching the real browser's request shape may reduce false-negative attempts
+    // (and the extra login POSTs they cause) on top of the Content-Type fix.
+    let origin: string;
+    try {
+      origin = new URL(this.c.baseURL).origin;
+    } catch {
+      origin = this.c.baseURL;
+    }
     const config = {
       method: 'POST' as const,
       url: path,
@@ -282,6 +294,9 @@ export default class Deco {
       headers: {
         'Accept-Encoding': 'gzip',
         'Content-Type': contentType,
+        'X-Requested-With': 'XMLHttpRequest',
+        Origin: origin,
+        Referer: `${origin}/webpages/index.html`,
       },
       params: params,
     };
