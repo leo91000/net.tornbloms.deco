@@ -29,20 +29,20 @@ export class HttpClient {
   private readonly timeout: number;
   /**
    * Content-Type to use for doEncryptedPost over HTTPS: application/json when
-   * true, application/x-www-form-urlencoded when false. Defaults to true —
-   * a HAR capture of a real browser logging into a Deco X50 (2026-06-25)
-   * showed every login request uses Content-Type: application/json from the
-   * very first attempt, even though the body itself stays form-encoded
-   * ("sign=...&data=..." — see forceJsonBody below, which is a separate,
-   * rarer case). Most field logs agree: the form-urlencoded-first attempt
-   * almost always fails with "no such callback" before falling back to
-   * JSON, wasting a login POST against the router on every fresh pairing —
-   * not just inefficient, but extra traffic that can contribute to the
-   * router's session-limit lockout. client.ts flips this (`= !forceJsonContentType`)
-   * on the first "no such callback" response, falling back to the other
-   * Content-Type for firmware that genuinely needs form-urlencoded first.
+   * true, application/x-www-form-urlencoded when false. Defaults to false —
+   * a single HAR capture from one X50 (2026-06-25) suggested JSON-first was
+   * the common case and the default was flipped to true in v1.4.50, but that
+   * broke pairing for users whose firmware needs form-urlencoded first (e.g.
+   * X50-4G, confirmed regression — devices that paired fine on v1.4.49 hit
+   * "unrecognised login protocol" on v1.4.57). Real-world telemetry since
+   * shows both conventions are common across models/firmware, so there's no
+   * single safe default to guess JSON for. Reverted to the older, broadly
+   * proven default; client.ts still flips this (`= !forceJsonContentType`)
+   * on the first "no such callback" response, so JSON-first firmware is
+   * still auto-detected — at the cost of one extra login POST on first
+   * pairing for that case, which is the safer trade-off.
    */
-  public forceJsonContentType: boolean = true;
+  public forceJsonContentType: boolean = false;
   /**
    * When true, doEncryptedPost sends the body as JSON {"sign":"...","data":"..."}
    * instead of the default URL-encoded form "sign=...&data=...". Required by
