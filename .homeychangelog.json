@@ -310,5 +310,8 @@
   },
   "1.4.50": {
     "en": "Sped up login by trying the connection format that real Deco firmware actually uses first, instead of guessing wrong and retrying — fewer login attempts hit your router during pairing, which should also reduce \"previous session is still active\" errors."
+  },
+  "1.4.51": {
+    "en": "Removed a confusing extra \"Continue\" button on the pairing login screen that could skip the login step entirely and crash pairing — you should now only see the \"Login\" button there."
   }
 }

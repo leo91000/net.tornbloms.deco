@@ -358,6 +358,15 @@ class TplinkDecoDriver extends Driver {
           try {
             await this.sharedAuthenticate(hostname, password, this.makeLogger());
             this.log('Successfully connected to TP-Link Deco');
+            // Navigate explicitly rather than relying on a declarative
+            // navigation.next on this step — that renders a generic "Next"
+            // button on the credentials screen itself (alongside the
+            // template's own "Login" button) that skips this handler
+            // entirely when pressed, landing on list_devices with no
+            // authenticated session. Reported as a confusing extra button
+            // and the likely cause of a "cannot read properties of null"
+            // crash report before list_devices was hardened to return [].
+            await session.nextView('list_devices');
             return true;
           } catch (error: any) {
             const msg: string = error?.message ?? '';
