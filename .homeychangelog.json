@@ -328,5 +328,8 @@
   },
   "1.4.56": {
     "en": "Fixed a rare silent app crash during pairing introduced in a previous fix — a pairing-screen navigation hiccup could, in some cases, crash the entire app without any error being logged."
+  },
+  "1.4.57": {
+    "en": "Fixed the \"unrecognised login protocol\" pairing screen getting stuck on \"Loading…\", with the Copy debug report and Back to login buttons doing nothing — they were using an outdated communication method that no longer works."
   }
 }

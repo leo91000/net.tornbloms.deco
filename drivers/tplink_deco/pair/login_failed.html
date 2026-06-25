@@ -93,24 +93,31 @@
       function onHomeyReady(Homey) {
         Homey.ready();
 
-        Homey.emit('get_diagnostic', null, function (err, data) {
-          traceData = data && data.trace ? data.trace : [];
-          renderTrace(traceData);
-        });
+        // Homey.emit() is Promise-based in SDK v3 (no callback argument —
+        // that signature only exists in SDK v2's session.emit()).
+        Homey.emit('get_diagnostic', null)
+          .then(function (data) {
+            traceData = data && data.trace ? data.trace : [];
+            renderTrace(traceData);
+          })
+          .catch(function (err) {
+            document.getElementById('trace-container').innerHTML =
+              '<div class="attempt-row">Could not load attempt details.</div>';
+          });
 
         document.getElementById('copy-btn').addEventListener('click', function () {
           var model = document.getElementById('model-input').value.trim() || '(not entered)';
           var firmware = document.getElementById('firmware-input').value.trim() || '(not entered)';
           var report = buildReport(model, firmware, traceData);
           copyToClipboard(report);
-          Homey.emit('report_diagnostic', { model: model, firmware: firmware }, function () {});
+          Homey.emit('report_diagnostic', { model: model, firmware: firmware }).catch(function () {});
           var okEl = document.getElementById('copy-ok');
           okEl.style.display = 'block';
           setTimeout(function () { okEl.style.display = 'none'; }, 3000);
         });
 
         document.getElementById('retry-btn').addEventListener('click', function () {
-          Homey.emit('goto_login', null, function () {});
+          Homey.emit('goto_login', null).catch(function () {});
         });
       }
 

@@ -499,9 +499,22 @@ class TplinkDecoDevice extends Device {
           // without already suspecting it. One report per device per app run.
           if (!this.authMethodReported) {
             this.authMethodReported = true;
+            // Fixed message so every report dedupes into ONE Sentry issue —
+            // reportIssue()/homey-log dedupes by exact message string, and a
+            // per-model/firmware message here would instead spawn a brand new,
+            // permanent issue for every device variant across all users (it did:
+            // dozens of "Auth method: ..." issues appeared within minutes of
+            // shipping this). The variant data goes in `extra` and is visible
+            // per-event in Sentry without multiplying the issue list.
             (this.homey.app as any).reportIssue?.(
-              `Auth method: contentType=${this.api.c.forceJsonContentType ? 'json' : 'urlencoded'} bodyFormat=${this.api.c.forceJsonBody ? 'json' : 'form'} model=${device.device_model} fw=${device.software_ver}`,
-              { model: device.device_model, hardware_ver: device.hardware_ver, software_ver: device.software_ver },
+              'Auth method reported',
+              {
+                contentType: this.api.c.forceJsonContentType ? 'json' : 'urlencoded',
+                bodyFormat: this.api.c.forceJsonBody ? 'json' : 'form',
+                model: device.device_model,
+                hardware_ver: device.hardware_ver,
+                software_ver: device.software_ver,
+              },
             );
           }
 
