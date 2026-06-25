@@ -322,5 +322,8 @@
   },
   "1.4.54": {
     "en": "Now anonymously reports which login method worked for your Deco model and firmware, helping us spot patterns across different devices over time."
+  },
+  "1.4.55": {
+    "en": "Added missing translations to a few flow card menus (no user-visible behavior change)."
   }
 }

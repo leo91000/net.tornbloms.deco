@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.4.54",
+  "version": "1.4.55",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -482,6 +482,21 @@
           {
             "name": "status",
             "type": "dropdown",
+            "title": {
+              "en": "status",
+              "nl": "status",
+              "da": "status",
+              "de": "Status",
+              "es": "estado",
+              "fr": "état",
+              "it": "stato",
+              "no": "status",
+              "sv": "status",
+              "pl": "stan",
+              "ru": "статус",
+              "ko": "상태",
+              "ar": "الحالة"
+            },
             "values": [
               {
                 "id": "online",
@@ -911,6 +926,21 @@
           {
             "name": "client",
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "placeholder": {
               "en": "client",
               "nl": "klant",
@@ -1085,6 +1115,21 @@
           {
             "name": "client",
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "placeholder": {
               "en": "client",
               "nl": "klant",
@@ -1283,6 +1328,21 @@
           {
             "name": "client",
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "placeholder": {
               "en": "client",
               "nl": "klant",
@@ -1555,6 +1615,21 @@
           {
             "name": "client",
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "placeholder": {
               "en": "client",
               "nl": "klant",
@@ -1574,6 +1649,21 @@
           {
             "name": "status",
             "type": "dropdown",
+            "title": {
+              "en": "status",
+              "nl": "status",
+              "da": "status",
+              "de": "Status",
+              "es": "estado",
+              "fr": "état",
+              "it": "stato",
+              "no": "status",
+              "sv": "status",
+              "pl": "stan",
+              "ru": "статус",
+              "ko": "상태",
+              "ar": "الحالة"
+            },
             "values": [
               {
                 "id": "online",
@@ -1667,6 +1757,21 @@
           {
             "name": "cpu_usage",
             "type": "number",
+            "title": {
+              "en": "CPU Usage",
+              "nl": "CPU-gebruik",
+              "da": "CPU-brug",
+              "de": "CPU-Auslastung",
+              "es": "Uso de CPU",
+              "fr": "Utilisation du CPU",
+              "it": "Utilizzo della CPU",
+              "no": "CPU-bruk",
+              "sv": "CPU-användning",
+              "pl": "Zużycie CPU",
+              "ru": "Использование ЦП",
+              "ko": "CPU 사용량",
+              "ar": "استخدام وحدة المعالجة المركزية"
+            },
             "filter": "driver_id=tplink_deco"
           }
         ]
@@ -1722,6 +1827,21 @@
           {
             "name": "mem_usage",
             "type": "number",
+            "title": {
+              "en": "Memory Usage",
+              "nl": "Geheugengebruik",
+              "da": "Hukommelsesforbrug",
+              "de": "Speichernutzung",
+              "es": "Uso de Memoria",
+              "fr": "Utilisation de la Mémoire",
+              "it": "Utilizzo della Memoria",
+              "no": "Minnestatus",
+              "sv": "Minnesanvändning",
+              "pl": "Zużycie Pamięci",
+              "ru": "Использование Памяти",
+              "ko": "메모리 사용량",
+              "ar": "استخدام الذاكرة"
+            },
             "filter": "driver_id=tplink_deco"
           }
         ]
@@ -1767,6 +1887,21 @@
           },
           {
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "name": "client",
             "placeholder": {
               "en": "client",
@@ -1836,6 +1971,21 @@
         "args": [
           {
             "type": "autocomplete",
+            "title": {
+              "en": "client",
+              "nl": "klant",
+              "da": "klient",
+              "de": "Kunde",
+              "es": "cliente",
+              "fr": "client",
+              "it": "cliente",
+              "no": "klient",
+              "sv": "klient",
+              "pl": "klient",
+              "ru": "клиент",
+              "ko": "클라이언트",
+              "ar": "عميل"
+            },
             "name": "client",
             "placeholder": {
               "en": "client",

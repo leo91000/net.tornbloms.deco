@@ -211,6 +211,21 @@
     {
       "name": "status",
       "type": "dropdown",
+      "title": {
+        "en": "status",
+        "nl": "status",
+        "da": "status",
+        "de": "Status",
+        "es": "estado",
+        "fr": "état",
+        "it": "stato",
+        "no": "status",
+        "sv": "status",
+        "pl": "stan",
+        "ru": "статус",
+        "ko": "상태",
+        "ar": "الحالة"
+      },
       "values": [
         {
           "id": "online",

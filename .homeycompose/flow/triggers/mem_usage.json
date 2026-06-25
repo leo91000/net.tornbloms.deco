@@ -49,6 +49,21 @@
     {
       "name": "mem_usage",
       "type": "number",
+      "title": {
+        "en": "Memory Usage",
+        "nl": "Geheugengebruik",
+        "da": "Hukommelsesforbrug",
+        "de": "Speichernutzung",
+        "es": "Uso de Memoria",
+        "fr": "Utilisation de la Mémoire",
+        "it": "Utilizzo della Memoria",
+        "no": "Minnestatus",
+        "sv": "Minnesanvändning",
+        "pl": "Zużycie Pamięci",
+        "ru": "Использование Памяти",
+        "ko": "메모리 사용량",
+        "ar": "استخدام الذاكرة"
+      },
       "filter": "driver_id=tplink_deco"
     }
   ]

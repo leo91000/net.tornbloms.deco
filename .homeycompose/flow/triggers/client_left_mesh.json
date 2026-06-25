@@ -153,6 +153,21 @@
     {
       "name": "client",
       "type": "autocomplete",
+      "title": {
+        "en": "client",
+        "nl": "klant",
+        "da": "klient",
+        "de": "Kunde",
+        "es": "cliente",
+        "fr": "client",
+        "it": "cliente",
+        "no": "klient",
+        "sv": "klient",
+        "pl": "klient",
+        "ru": "клиент",
+        "ko": "클라이언트",
+        "ar": "عميل"
+      },
       "placeholder": {
         "en": "client",
         "nl": "klant",

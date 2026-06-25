@@ -49,6 +49,21 @@
     {
       "name": "cpu_usage",
       "type": "number",
+      "title": {
+        "en": "CPU Usage",
+        "nl": "CPU-gebruik",
+        "da": "CPU-brug",
+        "de": "CPU-Auslastung",
+        "es": "Uso de CPU",
+        "fr": "Utilisation du CPU",
+        "it": "Utilizzo della CPU",
+        "no": "CPU-bruk",
+        "sv": "CPU-användning",
+        "pl": "Zużycie CPU",
+        "ru": "Использование ЦП",
+        "ko": "CPU 사용량",
+        "ar": "استخدام وحدة المعالجة المركزية"
+      },
       "filter": "driver_id=tplink_deco"
     }
   ]
