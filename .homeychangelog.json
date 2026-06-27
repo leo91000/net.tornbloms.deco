@@ -346,5 +346,8 @@
   },
   "1.4.62": {
     "en": "Fixed pairing showing a \"Timeout after 30000ms\" error on slow routers even when login was about to succeed — a network request could hang well past its intended timeout. Login now gives up and reports a clear error well before Homey's own pairing screen times out, instead of silently running past it."
+  },
+  "1.4.63": {
+    "en": "Slowed down login format detection during pairing — trying several login formats back-to-back with no delay could look like a brute-force attempt to your router's security and trigger a temporary lockout (showing as a persistent \"session limit\" error). Login now paces these attempts out."
   }
 }

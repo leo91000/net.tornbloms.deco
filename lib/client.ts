@@ -594,7 +594,20 @@ export default class DecoAPIWraper {
           throw Object.assign(e, { loginTrace: _trace });
         }
         lastError = e;
-        // Anything else (FORMAT:/RSA failure/etc.) — try the next combo.
+        // Anything else (FORMAT:/RSA failure/etc.) — try the next combo, but
+        // not immediately. Each combo is 3 requests (password key, session
+        // key, login POST); with no delay, a genuinely unrecognised router
+        // gets hit with up to ~18 login-related POSTs in well under a
+        // second — a burst that looks identical to a brute-force script to
+        // most routers' rate-limiting, and can trip a temporary IP lockout
+        // that then shows up as persistent 403s on every later attempt
+        // (including from this same Homey, but not from someone's browser
+        // on a different device/IP — which is why "I can log in fine via
+        // the web UI" doesn't contradict this). Pace combo attempts like a
+        // human trying a few times, not a script hammering the endpoint.
+        if (combo !== combos[combos.length - 1]) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
       }
     }
 
