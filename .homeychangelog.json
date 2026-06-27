@@ -349,5 +349,8 @@
   },
   "1.4.63": {
     "en": "Slowed down login format detection during pairing — trying several login formats back-to-back with no delay could look like a brute-force attempt to your router's security and trigger a temporary lockout (showing as a persistent \"session limit\" error). Login now paces these attempts out."
+  },
+  "1.4.64": {
+    "en": "Sped up first-time pairing by trying the login format that real Deco firmware actually uses most often first, based on real browser captures and data from many users' devices, instead of the less common format — fewer wasted login attempts per pairing."
   }
 }

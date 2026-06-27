@@ -29,20 +29,24 @@ export class HttpClient {
   private readonly timeout: number;
   /**
    * Content-Type to use for doEncryptedPost over HTTPS: application/json when
-   * true, application/x-www-form-urlencoded when false. Defaults to false —
-   * a single HAR capture from one X50 (2026-06-25) suggested JSON-first was
-   * the common case and the default was flipped to true in v1.4.50, but that
-   * broke pairing for users whose firmware needs form-urlencoded first (e.g.
-   * X50-4G, confirmed regression — devices that paired fine on v1.4.49 hit
-   * "unrecognised login protocol" on v1.4.57). Real-world telemetry since
-   * shows both conventions are common across models/firmware, so there's no
-   * single safe default to guess JSON for. Reverted to the older, broadly
-   * proven default; client.ts still flips this (`= !forceJsonContentType`)
-   * on the first "no such callback" response, so JSON-first firmware is
-   * still auto-detected — at the cost of one extra login POST on first
-   * pairing for that case, which is the safer trade-off.
+   * true, application/x-www-form-urlencoded when false. This only decides
+   * which combo client.ts's authenticate() tries FIRST for a brand-new
+   * device — every combo is tried regardless (see buildLoginCombos), so this
+   * default is purely a speed optimisation, never a correctness requirement.
+   * Defaults to true based on two independent real-browser HAR captures
+   * (different routers, different networks, 2026-06-25/26) both showing
+   * Content-Type: application/json from the first request, corroborated by
+   * "Auth method reported" telemetry across ~16 distinct models showing the
+   * same combo as the eventual working one in the large majority of cases.
+   * (This was briefly reverted to false in v1.4.59 after a report that looked
+   * like a content-type regression on X50-4G — but that was during the same
+   * window session.nextView(viewId) was silently ignoring its argument
+   * [fixed v1.4.61], which alone explains a "successful login that never
+   * shows devices to add". Telemetry since confirms X50-4G's actual working
+   * combo is contentType=json, so the original regression report likely
+   * wasn't a content-type issue at all.)
    */
-  public forceJsonContentType: boolean = false;
+  public forceJsonContentType: boolean = true;
   /**
    * When true, doEncryptedPost sends the body as JSON {"sign":"...","data":"..."}
    * instead of the default URL-encoded form "sign=...&data=...". Required by
