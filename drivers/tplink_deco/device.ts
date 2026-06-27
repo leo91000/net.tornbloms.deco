@@ -1207,8 +1207,11 @@ class TplinkDecoDevice extends Device {
       let detectedIntfCfg: LteIntfCfgResponse | undefined;
 
       for (const prefix of probePrefixes) {
+        // silent=true: 2 of 3 prefixes failing with "no such callback" is the
+        // expected outcome here (a model only supports one of lte/5g/nr, if
+        // any) — not worth logging as an error on every poll cycle.
         const probe = await this.safeApiCall<LteIntfCfgResponse>(
-          () => this.api.custom('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody),
+          () => this.api.custom('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody, true),
           defaultResp,
           `${prefix}_intf_cfg probe`,
         );

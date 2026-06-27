@@ -1179,6 +1179,7 @@ export default class DecoAPIWraper {
     path: string,
     params: EndpointArgs,
     body: Buffer,
+    silent: boolean = false,
   ): Promise<any | ErrorResponse> {
     // this.logger.log('client.ts: ' + `Sending custom request to path: ${path}`);
     const decoInstance = new Deco(
@@ -1194,6 +1195,9 @@ export default class DecoAPIWraper {
       params,
       body,
       false,
+      undefined,
+      undefined,
+      silent,
     )) as any;
 
     // Check if result is an error

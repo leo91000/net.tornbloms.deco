@@ -152,6 +152,13 @@ export default class Deco {
     isLogin: boolean,
     key: KeyObject = this.rsa,
     sequence: number = this.sequence,
+    // When true, a non-zero error_code in an otherwise-successful response is
+    // logged at `log` level instead of `error` level. For capability-detection
+    // probes (e.g. LTE/5G/NR endpoint discovery) a rejection is an expected,
+    // routine outcome on models that don't support that endpoint — logging it
+    // as an error on every poll cycle is just noise that can mask genuine
+    // failures in diagnostic reports.
+    silent: boolean = false,
   ): Promise<any> {
     if (!key) {
       throw new Error('RSA key is missing or undefined.');
@@ -227,7 +234,8 @@ export default class Deco {
 
       const parsed = JSON.parse(decoded);
       if (parsed?.error_code !== undefined && parsed.error_code !== 0) {
-        this.logger.error(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
+        const logFn = silent ? this.logger.log : this.logger.error;
+        logFn(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
       }
       return parsed;
     } catch (e: any) {
