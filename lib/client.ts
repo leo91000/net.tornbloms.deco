@@ -519,6 +519,23 @@ export default class DecoAPIWraper {
     attempt.msg = result?.msg ?? null;
     this.logger.log('client.ts: attemptLogin: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
 
+    // error_code -5002 unambiguously means "wrong password" on every Deco
+    // firmware seen so far (confirmed independently by the amosyuen/
+    // ha-tplink-deco Home Assistant integration, which decodes the same
+    // code) — the router parsed our request fine, this is never a format
+    // issue. Surface the attempts-remaining count it provides instead of a
+    // generic message, and stop trying other combos immediately: unlike a
+    // missing-stok response with no error code (ambiguous between "wrong
+    // combo" and "wrong password"), this code is decisive on its own.
+    if (result?.error_code === -5002) {
+      const attemptsAllowed = result?.result?.attemptsAllowed;
+      const suffix = attemptsAllowed !== undefined ? ` (${attemptsAllowed} attempt${attemptsAllowed === 1 ? '' : 's'} remaining before a lockout)` : '';
+      throw Object.assign(
+        new Error(`CREDENTIALS: Wrong password${suffix}. Use the local admin password from the Deco app (not your TP-Link account password).`),
+        { loginTrace: trace },
+      );
+    }
+
     const newStok = result?.result?.stok;
     if (!newStok) {
       // Router understood the request (HTTP 200, valid response shape) but
@@ -588,9 +605,10 @@ export default class DecoAPIWraper {
         return true;
       } catch (e: any) {
         const msg: string = e?.message ?? '';
-        if (msg.startsWith('NETWORK:') || msg.startsWith('RETRY:')) {
+        if (msg.startsWith('NETWORK:') || msg.startsWith('RETRY:') || msg.startsWith('CREDENTIALS:')) {
           // Not a format issue — bail immediately rather than burning more
-          // login attempts against an unreachable or session-limited router.
+          // login attempts against an unreachable, session-limited, or (per
+          // error_code -5002 above) definitively wrong-password router.
           throw Object.assign(e, { loginTrace: _trace });
         }
         lastError = e;
