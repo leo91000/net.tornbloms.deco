@@ -358,5 +358,8 @@
   },
   "1.4.66": {
     "en": "Quieted diagnostic logs: detecting whether a Deco model supports cellular (LTE/5G) capabilities was logging an error for every endpoint that model doesn't support, even though that's the expected outcome on most non-cellular models. No functional change — diagnostic reports are just easier to read now."
+  },
+  "1.4.67": {
+    "en": "Fixed pairing showing a \"Timeout after 30000ms\" error in the middle of an otherwise successful pairing, when the router briefly rejected a login due to a session conflict — the retry-with-backoff logic could take longer than Homey's own pairing timeout, even though it would go on to succeed. Pairing now gives up with a clear message well before that timeout instead of running past it."
   }
 }

@@ -13,6 +13,17 @@ import decoapiwrapper, { AppLogger, DeviceListResponse, LoginAttempt } from '../
 // more time to expire the old session before giving up.
 const SESSION_LIMIT_RETRY_BACKOFF_MS = [3000, 5000, 8000, 12000];
 
+// This schedule's delays alone sum to 28s — already over Homey's own ~30s
+// hard timeout on the pairing 'login'/'repair' RPC call, before counting any
+// actual request time. A user confirmed this in practice: the frontend's
+// "Timeout after 30000ms" alert fired mid-pairing while the backend kept
+// retrying in the background and went on to succeed anyway — confusing, since
+// the dialog implies failure but pairing actually completes. Cap the total
+// time spent in the retry loop so it reliably resolves (success or a clear
+// friendly error) well before Homey gives up, instead of working past a
+// deadline the frontend has already abandoned.
+const PAIRING_RETRY_DEADLINE_MS = 20000;
+
 class TplinkDecoDriver extends Driver {
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
   private api: decoapiwrapper | any;
@@ -354,6 +365,7 @@ class TplinkDecoDriver extends Driver {
         // routers (e.g. reports from Homey Pro mini / homey6q) need longer than a
         // flat few seconds to release the stale session.
         const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
+        const pairingRetryStart = Date.now();
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await this.sharedAuthenticate(hostname, password, this.makeLogger());
@@ -389,13 +401,14 @@ class TplinkDecoDriver extends Driver {
               throw new Error(msg.replace('CREDENTIALS: ', ''));
             }
             if (msg.startsWith('RETRY:')) {
-              if (attempt < maxAttempts) {
-                const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+              const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+              const elapsed = Date.now() - pairingRetryStart;
+              if (attempt < maxAttempts && elapsed + delayMs < PAIRING_RETRY_DEADLINE_MS) {
                 this.log(`pair: login rejected (router session limit) — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxAttempts})`);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
               }
-              this.error('pair: login still rejected after retries — a previous session is likely still active on the router:', msg);
+              this.error(`pair: login still rejected after retries (or over the ${PAIRING_RETRY_DEADLINE_MS / 1000}s pairing time budget) — a previous session is likely still active on the router:`, msg);
               (this.homey.app as any).reportIssue?.(
                 `Pairing: router session limit not released after ${maxAttempts} retries (hostname=${hostname})`,
                 { hostname, loginTrace: lastLoginTrace },
@@ -581,6 +594,7 @@ class TplinkDecoDriver extends Driver {
         // sharedAuthenticate/getOrCreateSharedApi instead of a fresh instance,
         // and for why RETRY: needs its own retry/branch.
         const maxAttempts = SESSION_LIMIT_RETRY_BACKOFF_MS.length + 1;
+        const repairRetryStart = Date.now();
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await this.sharedAuthenticate(hostname, password, this.makeLogger());
@@ -593,8 +607,9 @@ class TplinkDecoDriver extends Driver {
               return { success: false, error: msg.replace(/^(NETWORK|CREDENTIALS): /, '') };
             }
             if (msg.startsWith('RETRY:')) {
-              if (attempt < maxAttempts) {
-                const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+              const delayMs = SESSION_LIMIT_RETRY_BACKOFF_MS[attempt - 1];
+              const elapsed = Date.now() - repairRetryStart;
+              if (attempt < maxAttempts && elapsed + delayMs < PAIRING_RETRY_DEADLINE_MS) {
                 this.log(`pair: repair login rejected (router session limit) — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxAttempts})`);
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
