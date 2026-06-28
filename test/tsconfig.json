@@ -1,0 +1,10 @@
+{
+  "extends": "@tsconfig/node16/tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "node16",
+    "outDir": "dist",
+    "noImplicitAny": false,
+    "typeRoots": ["../node_modules/@types", "../types"]
+  },
+  "include": ["regression-login-combo-state.ts", "../lib/**/*.ts"]
+}

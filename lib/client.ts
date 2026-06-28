@@ -388,13 +388,17 @@ export default class DecoAPIWraper {
    * and bail out immediately (see authenticate() below).
    * jsonBody is only meaningful paired with contentType=json (the firmware
    * parses the body according to Content-Type), so urlencoded+jsonBody is
-   * never tried. The cached/current settings (`this.c.forceJsonContentType`/
-   * `forceJsonBody`, restored per-device from the device store) are tried
-   * first so an already-paired device's known-working combo still succeeds
-   * in a single attempt.
+   * never tried. `current` is a snapshot of the cached/known-good combo
+   * (`this.c.forceJsonContentType`/`forceJsonBody`, restored per-device from
+   * the device store) taken by the caller *before* any combo attempt has
+   * mutated those fields — see authenticate(), which must not read them
+   * directly here since attemptLogin() overwrites them on every attempt,
+   * including failed ones.
    */
-  private buildLoginCombos(): Array<{ contentType: boolean; jsonBody: boolean; hashed: boolean }> {
-    const current = { contentType: this.c.forceJsonContentType, jsonBody: this.c.forceJsonBody };
+  private buildLoginCombos(current: {
+    contentType: boolean;
+    jsonBody: boolean;
+  }): Array<{ contentType: boolean; jsonBody: boolean; hashed: boolean }> {
     const all = [
       { contentType: false, jsonBody: false },
       { contentType: true, jsonBody: false },
@@ -579,7 +583,14 @@ export default class DecoAPIWraper {
     // password reuse this rather than re-hashing.
     this.hash = crypto.createHash('md5').update(`${userName}${password}`).digest('hex');
 
-    const combos = this.buildLoginCombos();
+    // Snapshot the cached/known-good combo *before* attemptLogin() gets a
+    // chance to mutate this.c.forceJsonContentType/forceJsonBody. attemptLogin
+    // overwrites those fields on every attempt — including failed ones — so
+    // reading them after even one failure would anchor buildLoginCombos() on
+    // whatever combo happened to be active when we stopped, not the combo
+    // that's actually known to work for this router.
+    const baselineCombo = { contentType: this.c.forceJsonContentType, jsonBody: this.c.forceJsonBody };
+    const combos = this.buildLoginCombos(baselineCombo);
     let lastError: any = null;
 
     // Homey's own pairing UI enforces a hard ~30s timeout on the 'login' RPC
@@ -592,9 +603,23 @@ export default class DecoAPIWraper {
     // silently exceeding Homey's own timeout.
     const deadline = Date.now() + 25000;
 
+    // Restores this.c to the pre-attempt baseline before any failure exit.
+    // Without this, a thrown RETRY: (403 session-limit) leaves whatever combo
+    // was active on the shared HttpClient — e.g. jsonBody flipped on after an
+    // earlier HTTP 500 — permanently stuck there. The outer pairing retry loop
+    // in driver.ts calls authenticate() again, buildLoginCombos() reads that
+    // poisoned state as "current", and every subsequent retry (all the way
+    // through the 403 backoff schedule) keeps re-trying the same wrong combo
+    // instead of ever getting a fair shot at the others.
+    const restoreBaseline = () => {
+      this.c.forceJsonContentType = baselineCombo.contentType;
+      this.c.forceJsonBody = baselineCombo.jsonBody;
+    };
+
     for (const combo of combos) {
       if (Date.now() > deadline) {
         this.logger.error('client.ts: authenticate: stopping combo attempts — over time budget, router is responding too slowly.');
+        restoreBaseline();
         throw Object.assign(
           new Error(`NETWORK: Router at ${this.host} is responding too slowly to complete login. Try again, or check the connection.`),
           { loginTrace: _trace, cause: lastError },
@@ -609,6 +634,7 @@ export default class DecoAPIWraper {
           // Not a format issue — bail immediately rather than burning more
           // login attempts against an unreachable, session-limited, or (per
           // error_code -5002 above) definitively wrong-password router.
+          restoreBaseline();
           throw Object.assign(e, { loginTrace: _trace });
         }
         lastError = e;
@@ -635,6 +661,7 @@ export default class DecoAPIWraper {
     // nothing about this firmware's login matched any known combo.
     const anyFormatUnderstood = _trace.some((a) => a.httpStatus === 200);
     this.logger.error('client.ts: authenticate: all login combos exhausted.', JSON.stringify(_trace));
+    restoreBaseline();
     if (anyFormatUnderstood) {
       throw Object.assign(
         new Error('CREDENTIALS: Wrong password. Use the local admin password from the Deco app (not your TP-Link account password).'),

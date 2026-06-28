@@ -15,5 +15,6 @@
 
     "typeRoots": ["./node_modules/@types", "types"],
     "inlineSources": true
-  }
+  },
+  "exclude": ["test", ".homeybuild"]
 }
