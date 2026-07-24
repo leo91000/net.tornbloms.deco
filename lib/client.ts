@@ -336,6 +336,23 @@ export default class DecoAPIWraper {
     return false;
   }
 
+  // Retries a single password-key/session-key fetch once after a short delay
+  // on network failure (ETIMEDOUT, ECONNRESET, …) before giving up. A NETWORK:
+  // error here bails authenticate() out of its entire combo loop immediately
+  // (see authenticate()) rather than trying the next format — so one transient
+  // timeout on an otherwise-reachable mesh node (e.g. a satellite a couple of
+  // backhaul hops away under load) used to fail the whole login attempt
+  // outright instead of just this one request.
+  private async fetchKeyWithRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+    try {
+      return await fn();
+    } catch (e: any) {
+      this.logger.log(`client.ts: fetchKeyWithRetry: ${label} fetch failed (${e?.code ?? e?.message}), retrying once`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return fn();
+    }
+  }
+
   // Private method to ensure the Deco instance is initialized or updated
   private ensureDecoInstance() {
     if (!this.decoInstance) {
@@ -440,7 +457,7 @@ export default class DecoAPIWraper {
     this.logger.log('client.ts: attemptLogin: retrieving password key');
     let passwordKey;
     try {
-      passwordKey = await this.decoInstance!.getPasswordKey();
+      passwordKey = await this.fetchKeyWithRetry(() => this.decoInstance!.getPasswordKey(), 'password key');
     } catch (e: any) {
       this.logger.error('client.ts: attemptLogin: network error fetching password key:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
@@ -458,7 +475,7 @@ export default class DecoAPIWraper {
     this.logger.log('client.ts: attemptLogin: retrieving session key');
     let sessionKey, sequence;
     try {
-      ({ key: sessionKey, seq: sequence } = await this.decoInstance!.getSessionKey());
+      ({ key: sessionKey, seq: sequence } = await this.fetchKeyWithRetry(() => this.decoInstance!.getSessionKey(), 'session key'));
     } catch (e: any) {
       this.logger.error('client.ts: attemptLogin: network error fetching session key:', e);
       throw Object.assign(new Error(`NETWORK: Cannot reach router at ${this.host}. Check the IP and that Homey is on the same network.`), { cause: e });
