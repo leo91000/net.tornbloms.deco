@@ -367,5 +367,8 @@
   },
   "1.4.69": {
     "en": "Reverted a loading screen added in 1.4.68 for the login step — it caused pairing to get stuck right after entering your hostname and password, with no way to continue. Login now works the same way it did before that change."
+  },
+  "1.4.70": {
+    "en": "Fixed a burst of \"RSA key is missing or undefined\" errors flooding diagnostic logs whenever a device's session couldn't be restored — polling now skips cleanly until the next re-authentication succeeds instead of hammering the router with requests guaranteed to fail. A single slow/dropped network reply while logging in (common on Deco nodes a couple of mesh hops away) no longer fails the whole login attempt — it's retried once before giving up. Also fixed the master Deco showing as a stale, unreachable node (with a wrong client count) after swapping which router is the mesh's main unit — flow cards and client presence now prefer whichever paired master is actually reachable."
   }
 }

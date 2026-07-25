@@ -266,11 +266,22 @@ class TplinkDecoDriver extends Driver {
   /**
    * Finds the paired device representing the mesh's master node, which is the only
    * device that maintains meshTrackedClients. Returns undefined if no master is paired.
+   *
+   * A device's `role` setting is only refreshed on a successful poll (see
+   * updateDeviceMetrics in device.ts), so a node that stops being reachable —
+   * e.g. because the mesh's main router was swapped and this node is no longer
+   * (or never was, post-swap) the master — keeps reporting whatever role it
+   * last successfully saw indefinitely. Prefer a master device that's still
+   * marked available (i.e. has polled successfully recently); only fall back
+   * to a stale/unavailable one if that's genuinely all we have, so autocomplete
+   * and mesh-presence flow cards don't go dark just because none happen to be
+   * "fresh" yet (e.g. right after Homey restarts).
    */
   private getMasterDevice(): any | undefined {
-    return this.getDevices().find(
+    const masters = this.getDevices().filter(
       (d: any) => (d.getSettings?.().role ?? '').toLowerCase() === 'master',
     );
+    return masters.find((d: any) => d.getAvailable?.() !== false) ?? masters[0];
   }
 
   /**

@@ -83,6 +83,15 @@ class TplinkDecoDevice extends Device {
   // fires once per device per app run, not on every poll cycle.
   private authMethodReported = false;
 
+  // Consecutive failed polls (device unreachable, or absent from its own
+  // mesh's device_list). Used to mark the device unavailable after a
+  // sustained outage — see pollTick()/updateDeviceMetrics() — so a stale
+  // "master"/role setting from a node that's no longer reachable (e.g. after
+  // swapping which node is the mesh's main router) stops being trusted by
+  // getMasterDevice() in driver.ts.
+  private consecutiveFailures = 0;
+  private static readonly UNAVAILABLE_AFTER_FAILURES = 3;
+
   // Returns a logger that routes through the Homey SDK so output appears
   // in diagnostics reports as well as the real-time developer tools.
   private makeLogger(): AppLogger {
@@ -225,7 +234,7 @@ class TplinkDecoDevice extends Device {
           } else {
             const resumedInterval = (this.getSettings().timeoutSeconds || 30) * 1000;
             try {
-              await this.updateDeviceMetrics();
+              await this.pollTick();
             } catch (e: any) {
               this.error('Resume poll failed', e);
             }
@@ -275,10 +284,7 @@ class TplinkDecoDevice extends Device {
         this.startupDelayTimerId = setTimeout(async () => {
           this.startupDelayTimerId = null;
           try {
-            if (!this.connected) {
-              await this.reAuthenticate();
-            }
-            await this.updateDeviceMetrics();
+            await this.pollTick();
             this.setUpdateInterval(interval);
           } catch (e: any) {
             this.log('Startup delay timer: device already gone, skipping', e?.message);
@@ -382,10 +388,51 @@ class TplinkDecoDevice extends Device {
     // Set up a new interval with a small jitter (0–5 s) to prevent
     // devices that started at the same offset from drifting back in sync.
     this.timeoutSecondsIntervalId = setInterval(
-      this.updateDeviceMetrics.bind(this),
+      this.pollTick.bind(this),
       interval + Math.random() * 5000,
     );
     this.log(`Set update interval to ${interval / 1000} seconds`);
+  }
+
+  /**
+   * Single entry point for every periodic poll (startup timer, resume, and
+   * the recurring interval). Re-authenticates first when the session isn't
+   * known-good, and — unlike calling updateDeviceMetrics() directly — skips
+   * the poll entirely when that re-auth fails, instead of charging ahead
+   * into a run of API calls that are guaranteed to fail with "RSA key is
+   * missing or undefined" (this.api.rsa is only ever set by a successful
+   * login). That guaranteed-fail run used to produce a burst of duplicate
+   * error logs every poll cycle instead of one clear "still unreachable"
+   * line, without changing the eventual outcome (updateDeviceMetrics's own
+   * device_list check already re-triggers reAuthenticate on failure).
+   */
+  private async pollTick(): Promise<void> {
+    if (!this.connected) {
+      const ok = await this.reAuthenticate();
+      if (!ok) {
+        this.log('pollTick: not authenticated, skipping this poll cycle');
+        this.consecutiveFailures += 1;
+        await this.markUnavailableIfPersistent();
+        return;
+      }
+    }
+    await this.updateDeviceMetrics();
+  }
+
+  /**
+   * Marks the device unavailable after several consecutive failed polls, and
+   * clears that state as soon as a poll succeeds again (see updateDeviceMetrics).
+   * This exists so driver.ts's getMasterDevice() can tell a genuinely-stale
+   * device (e.g. a node that stopped being reachable after the mesh's main
+   * router was swapped) apart from one that's just mid-poll — its cached
+   * `role` setting is otherwise never refreshed, so a device that used to be
+   * master keeps reporting as master indefinitely once it can no longer be
+   * reached.
+   */
+  private async markUnavailableIfPersistent(): Promise<void> {
+    if (this.consecutiveFailures >= TplinkDecoDevice.UNAVAILABLE_AFTER_FAILURES && this.getAvailable()) {
+      await this.setUnavailable('Cannot reach this Deco node.').catch(this.error);
+    }
   }
 
   /**
@@ -477,6 +524,8 @@ class TplinkDecoDevice extends Device {
       // If the API returns an error or device_list is missing (empty stok returns { error_code:0, result:{} }),
       // the session has expired or was never established — re-auth and wait for next poll
       if (deviceList.error_code !== 0 || !deviceList.result?.device_list) {
+        this.consecutiveFailures += 1;
+        await this.markUnavailableIfPersistent();
         await this.reAuthenticate();
         return;
       }
@@ -490,6 +539,13 @@ class TplinkDecoDevice extends Device {
         this.debug(`${settings.hostname} onInit():Filtered device: `, device);
 
         if (device) {
+          // Successfully found ourselves in the mesh's own device_list — this
+          // node (and the `role` setting below) is fresh, not stale. Undo any
+          // unavailable state a prior outage left behind.
+          this.consecutiveFailures = 0;
+          if (!this.getAvailable()) {
+            await this.setAvailable().catch(this.error);
+          }
           // Report the settled auth method (Content-Type / body format / password
           // mode, all cached on this.api.c after the first successful login) paired
           // with this device's exact model/firmware. Building this up across users
