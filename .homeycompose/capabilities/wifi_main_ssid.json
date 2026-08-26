@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "Main Wi-Fi", "fr": "Wi-Fi principal" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

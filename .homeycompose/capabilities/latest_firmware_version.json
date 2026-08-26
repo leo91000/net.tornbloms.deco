@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "Latest firmware", "fr": "Dernier firmware" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/cloud-arrow-down-svgrepo-com.svg"
+}

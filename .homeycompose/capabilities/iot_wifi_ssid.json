@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "IoT Wi-Fi name", "fr": "Nom du Wi-Fi IoT" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "Guest Wi-Fi name", "fr": "Nom du Wi-Fi invité" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

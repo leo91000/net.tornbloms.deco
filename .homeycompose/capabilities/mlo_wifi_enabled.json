@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "MLO Wi-Fi", "fr": "Wi-Fi MLO" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "uiQuickAction": false,
+  "insights": true,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

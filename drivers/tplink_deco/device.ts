@@ -8,6 +8,11 @@ import {
 } from '../../lib/polling';
 import { redactSensitiveData } from '../../lib/redaction';
 import { assertDangerousActionAllowed } from '../../lib/action-safety';
+import {
+  DecoFeatureController,
+  WirelessNetworkKind,
+  WirelessSnapshot,
+} from '../../lib/deco-features';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
 import {
@@ -28,6 +33,31 @@ const TRACKED_CLIENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // (≈60s at the default 30s interval) to absorb the brief gap that can occur while a
 // client re-associates with a different node during normal roaming.
 const MESH_LEFT_GRACE_POLLS = 2;
+
+const WIRELESS_POLL_INTERVAL_MS = 5 * 60 * 1000;
+const FIRMWARE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const MASTER_FEATURE_CAPABILITIES = [
+  'wan_ipv4_uptime',
+  'wifi_main_ssid',
+  'wifi_bands',
+  'guest_wifi_enabled',
+  'guest_wifi_ssid',
+  'iot_wifi_enabled',
+  'iot_wifi_ssid',
+  'mlo_wifi_enabled',
+  'mlo_wifi_ssid',
+  'alarm_firmware_update',
+  'latest_firmware_version',
+];
+
+function formatUptime(rawSeconds: unknown): string {
+  const totalSeconds = Number(rawSeconds);
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '–';
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return `${days}d ${hours}h ${minutes}m`;
+}
 
 export interface TrackedClient {
   mac: string;
@@ -67,6 +97,12 @@ class TplinkDecoDevice extends Device {
   private rebootTimerId: ReturnType<typeof setTimeout> | null = null;
   private startupDelayTimerId: ReturnType<typeof setTimeout> | null = null;
   private api: decoapiwrapper | any;
+  private featureController: DecoFeatureController | undefined;
+  private lastWirelessPollAt = 0;
+  private lastFirmwarePollAt = 0;
+  private wirelessSnapshot: WirelessSnapshot | undefined;
+  private configuredAsMaster: boolean | undefined;
+  private apiRoleReported = false;
 
   connected = false; // Connection status
   clients: any[] = []; // Currently online clients (raw, for state comparison)
@@ -129,25 +165,14 @@ class TplinkDecoDevice extends Device {
         await this.removeCapability('alarm_wan_ipv6_state');
       }
 
-      // Slave-only capabilities: only meaningful on satellite nodes.
-      // Add for slaves, remove for master (avoids showing redundant "–" / "master" values).
       const initIsMaster = (settings.role ?? '').toLowerCase() === 'master';
-      for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
-        if (initIsMaster && this.hasCapability(cap)) {
-          await this.removeCapability(cap);
-        } else if (!initIsMaster && !this.hasCapability(cap)) {
-          await this.addCapability(cap);
-        }
-      }
-      // Master-only capabilities: CPU, RAM, and WAN status are only reported by the
-      // master node. Remove from slaves to avoid stale or never-set values in the UI.
-      for (const cap of ['measure_cpu_usage', 'measure_mem_usage', 'alarm_wan_ipv4_state', 'wan_ipv4_ipaddr']) {
-        if (!initIsMaster && this.hasCapability(cap)) {
-          await this.removeCapability(cap);
-        }
-      }
-      if (initIsMaster && !this.hasCapability('wan_ipv4_ipaddr')) {
-        await this.addCapability('wan_ipv4_ipaddr');
+      await this.syncRoleCapabilities(initIsMaster);
+      for (const cap of [
+        'connected_clients_guest',
+        'connected_clients_iot',
+        'connected_clients_mlo',
+      ]) {
+        if (!this.hasCapability(cap)) await this.addCapability(cap);
       }
 
       // Check if hostname and password are provided
@@ -157,6 +182,7 @@ class TplinkDecoDevice extends Device {
         // the Deco only allows one active login at a time.
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(settings.hostname, this.makeLogger());
+        this.featureController = new DecoFeatureController(this.api);
 
         // Restore the previously-detected content-type preference so the first
         // auth attempt on restart already uses the known-good encoding rather
@@ -247,33 +273,11 @@ class TplinkDecoDevice extends Device {
           }
         });
 
-        const clientStateFlow = this.homey.flow.getDeviceTriggerCard(
-          'client_state_changed',
-        );
-        clientStateFlow.registerRunListener(async (args, state) => {
-          return (
-            args.status === state.status && args.client.mac === state.client.mac
-          );
-        });
-
-        // any_client_state_changed — fires for every state change, filtered only by status
-        const anyClientStateFlow = this.homey.flow.getDeviceTriggerCard('any_client_state_changed');
-        anyClientStateFlow.registerRunListener(async (args, state) => {
-          return args.status === state.status;
-        });
-
-        // client_node_changed — fires when a specific client roams to a different Deco node
-        const clientNodeChangedFlow = this.homey.flow.getDeviceTriggerCard('client_node_changed');
-        clientNodeChangedFlow.registerRunListener(async (args, state) => {
-          return args.client.mac === state.mac;
-        });
-        clientNodeChangedFlow.registerArgumentAutocompleteListener(
-          'client',
-          async (query, args) => {
-            const driver = this.driver as TplinkDecoDriver;
-            return driver.buildClientAutocomplete(this, query);
-          },
-        );
+        if (initIsMaster) {
+          this.registerWirelessCapabilityListener('guest_wifi_enabled', 'guest');
+          this.registerWirelessCapabilityListener('iot_wifi_enabled', 'iot');
+          this.registerWirelessCapabilityListener('mlo_wifi_enabled', 'mlo');
+        }
 
         if (this.getCapabilityValue('polling_active') === false) {
           this.log('Polling paused (restored from saved state) — skipping startup poll');
@@ -306,6 +310,139 @@ class TplinkDecoDevice extends Device {
     }
   }
 
+  private registerWirelessCapabilityListener(
+    capability: string,
+    kind: WirelessNetworkKind,
+  ): void {
+    if (!this.hasCapability(capability)) return;
+    this.registerCapabilityListener(capability, async (value) => {
+      await this.setWirelessNetworkEnabled(kind, Boolean(value));
+    });
+  }
+
+  private async syncRoleCapabilities(isMaster: boolean): Promise<void> {
+    const satelliteCapabilities = [
+      'signal_strength_2g',
+      'signal_strength_5g',
+      'backhaul_connection',
+    ];
+    for (const capability of satelliteCapabilities) {
+      if (isMaster && this.hasCapability(capability)) {
+        await this.removeCapability(capability);
+      } else if (!isMaster && !this.hasCapability(capability)) {
+        await this.addCapability(capability);
+      }
+    }
+
+    const masterCapabilities = [
+      'measure_cpu_usage',
+      'measure_mem_usage',
+      'alarm_wan_ipv4_state',
+      'wan_ipv4_ipaddr',
+      ...MASTER_FEATURE_CAPABILITIES,
+    ];
+    for (const capability of masterCapabilities) {
+      if (!isMaster && this.hasCapability(capability)) {
+        await this.removeCapability(capability);
+      } else if (isMaster && !this.hasCapability(capability)) {
+        await this.addCapability(capability);
+      }
+    }
+    this.configuredAsMaster = isMaster;
+  }
+
+  public async setWirelessNetworkEnabled(
+    kind: WirelessNetworkKind,
+    enabled: boolean,
+  ): Promise<void> {
+    assertDangerousActionAllowed(this.getSettings());
+    if (!this.featureController) throw new Error('Deco feature controller is not initialized.');
+    if (!this.connected && !await this.reAuthenticate()) {
+      throw new Error('Could not authenticate with the Deco.');
+    }
+
+    const previous = this.wirelessSnapshot;
+    try {
+      const snapshot = await this.featureController.setWirelessEnabled(kind, enabled);
+      await this.applyWirelessSnapshot(snapshot);
+      this.lastWirelessPollAt = Date.now();
+      this.log(`${kind} Wi-Fi ${enabled ? 'enabled' : 'disabled'} by user`);
+    } catch (error) {
+      if (previous) await this.applyWirelessSnapshot(previous);
+      throw error;
+    }
+  }
+
+  public async setClientInternetAccess(mac: string, allowed: boolean): Promise<void> {
+    assertDangerousActionAllowed(this.getSettings());
+    if (!this.featureController) throw new Error('Deco feature controller is not initialized.');
+    if (!this.connected && !await this.reAuthenticate()) {
+      throw new Error('Could not authenticate with the Deco.');
+    }
+    await this.featureController.setClientAccess(mac, allowed);
+    this.log(`Client internet access ${allowed ? 'restored' : 'blocked'} for ${mac}`);
+    await this.refreshNow();
+  }
+
+  public async refreshNow(): Promise<void> {
+    if (!this.connected && !await this.reAuthenticate()) {
+      throw new Error('Could not authenticate with the Deco.');
+    }
+    this.lastWirelessPollAt = 0;
+    this.lastFirmwarePollAt = 0;
+    await this.runPollCycle();
+  }
+
+  private async applyWirelessSnapshot(snapshot: WirelessSnapshot): Promise<void> {
+    this.wirelessSnapshot = snapshot;
+    await this.updateCapability('wifi_main_ssid', snapshot.mainSsid || '–');
+    await this.updateCapability('wifi_bands', snapshot.supportedBands.join(' + ') || '–');
+
+    const networks: Array<{
+      supported: boolean;
+      enabledCapability: string;
+      ssidCapability: string;
+      enabled: boolean;
+      ssid: string;
+    }> = [
+      {
+        supported: snapshot.guestSupported,
+        enabledCapability: 'guest_wifi_enabled',
+        ssidCapability: 'guest_wifi_ssid',
+        enabled: snapshot.guestEnabled,
+        ssid: snapshot.guestSsid,
+      },
+      {
+        supported: snapshot.iotSupported,
+        enabledCapability: 'iot_wifi_enabled',
+        ssidCapability: 'iot_wifi_ssid',
+        enabled: snapshot.iotEnabled,
+        ssid: snapshot.iotSsid,
+      },
+      {
+        supported: snapshot.mloSupported,
+        enabledCapability: 'mlo_wifi_enabled',
+        ssidCapability: 'mlo_wifi_ssid',
+        enabled: snapshot.mloEnabled,
+        ssid: snapshot.mloSsid,
+      },
+    ];
+
+    for (const network of networks) {
+      if (!network.supported) {
+        for (const capability of [network.enabledCapability, network.ssidCapability]) {
+          if (this.hasCapability(capability)) await this.removeCapability(capability);
+        }
+        continue;
+      }
+      for (const capability of [network.enabledCapability, network.ssidCapability]) {
+        if (!this.hasCapability(capability)) await this.addCapability(capability);
+      }
+      await this.updateCapability(network.enabledCapability, network.enabled);
+      await this.updateCapability(network.ssidCapability, network.ssid || '–');
+    }
+  }
+
   /**
    * Handles updates to the device settings.
    * Reinitializes the API connection if relevant settings are changed.
@@ -334,12 +471,20 @@ class TplinkDecoDevice extends Device {
       try {
         const driver = this.driver as TplinkDecoDriver;
         this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
+        this.featureController = new DecoFeatureController(this.api);
+        this.lastWirelessPollAt = 0;
+        this.lastFirmwarePollAt = 0;
         // Clear the stored content-type preference for new credentials — authenticate()
         // tries every contentType/bodyFormat/passwordMode combo regardless of where
         // forceJsonContentType currently sits, so there's no "common case" to bias
         // toward here; just drop the stale preference and let it re-detect.
         await this.unsetStoreValue('forceJsonContentType');
-        this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
+        this.connected = await driver.sharedAuthenticate(
+          newSettings.hostname,
+          newSettings.password,
+          this.makeLogger(),
+          true,
+        );
         if (this.connected) {
           await this.setStoreValue(
             'forceJsonContentType',
@@ -422,7 +567,7 @@ class TplinkDecoDevice extends Device {
    * Re-authenticates the API session when the STOK has expired.
    * Returns true if re-authentication succeeded.
    */
-  private async reAuthenticate(): Promise<boolean> {
+  private async reAuthenticate(force = false): Promise<boolean> {
     try {
       const settings = this.getSettings();
       this.log('Session expired, re-authenticating...');
@@ -433,6 +578,7 @@ class TplinkDecoDevice extends Device {
         settings.hostname,
         settings.password,
         this.makeLogger(),
+        force,
       );
       if (this.connected) {
         // Persist the content-type preference that worked so restarts skip re-detection.
@@ -475,7 +621,7 @@ class TplinkDecoDevice extends Device {
       // If the API returns an error or device_list is missing (empty stok returns { error_code:0, result:{} }),
       // the session has expired or was never established — re-auth and wait for next poll
       if (!deviceList || deviceList.error_code !== 0 || !deviceList.result?.device_list) {
-        const reauthenticated = await this.reAuthenticate();
+        const reauthenticated = await this.reAuthenticate(true);
         if (!reauthenticated) await this.markPollFailed();
         return;
       }
@@ -536,14 +682,13 @@ class TplinkDecoDevice extends Device {
           // Signal strength and backhaul are only meaningful on satellite nodes.
           // Dynamically add/remove so they never appear on the master tile.
           const isMaster = device.role.toLowerCase() === 'master';
-          for (const cap of ['signal_strength_2g', 'signal_strength_5g', 'backhaul_connection']) {
-            if (isMaster && this.hasCapability(cap)) {
-              await this.removeCapability(cap);
-            } else if (!isMaster && !this.hasCapability(cap)) {
-              await this.addCapability(cap);
-            }
+          if (!this.apiRoleReported) {
+            this.apiRoleReported = true;
+            this.log(`Resolved mesh role from API: ${device.role}`);
           }
-
+          if (this.configuredAsMaster !== isMaster) {
+            await this.syncRoleCapabilities(isMaster);
+          }
           if (!isMaster) {
             const signalLabel = (v: string | undefined) => {
               if (v === '1') return 'Weak';
@@ -597,6 +742,35 @@ class TplinkDecoDevice extends Device {
             }
           }
 
+          if (
+            isMaster
+            && this.featureController
+            && Date.now() - this.lastWirelessPollAt >= WIRELESS_POLL_INTERVAL_MS
+          ) {
+            this.lastWirelessPollAt = Date.now();
+            try {
+              const wireless = await this.featureController.readWireless();
+              await this.applyWirelessSnapshot(wireless);
+            } catch (error) {
+              this.error('Failed to retrieve wireless feature state', error);
+            }
+          }
+
+          if (
+            isMaster
+            && this.featureController
+            && Date.now() - this.lastFirmwarePollAt >= FIRMWARE_POLL_INTERVAL_MS
+          ) {
+            this.lastFirmwarePollAt = Date.now();
+            try {
+              const firmware = await this.featureController.checkFirmwareUpdate(devicedata.id);
+              await this.updateCapability('alarm_firmware_update', firmware.available);
+              await this.updateCapability('latest_firmware_version', firmware.version || 'Up to date');
+            } catch (error) {
+              this.error('Failed to check firmware updates', error);
+            }
+          }
+
           // Fetch WAN IP address
           if (device.role.toLowerCase() === 'master') {
             const wanResponse = await tryApiCall<WANResponse>(
@@ -612,6 +786,18 @@ class TplinkDecoDevice extends Device {
             if (wanResponse?.error_code === 0) {
               const wanIpAddress = wanResponse.result?.wan?.ip_info?.ip ?? '';
               await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
+              const uptime = (wanResponse.result?.wan as any)?.uptime
+                ?? (wanResponse.result?.wan?.ip_info as any)?.uptime;
+              if (uptime === undefined || uptime === null) {
+                if (this.hasCapability('wan_ipv4_uptime')) {
+                  await this.removeCapability('wan_ipv4_uptime');
+                }
+              } else {
+                if (!this.hasCapability('wan_ipv4_uptime')) {
+                  await this.addCapability('wan_ipv4_uptime');
+                }
+                await this.updateCapability('wan_ipv4_uptime', formatUptime(uptime));
+              }
             }
           }
           // Fetch Internet status — only available on master node
@@ -711,6 +897,15 @@ class TplinkDecoDevice extends Device {
           await this.setSettings({ clients: clientNames });
           // Update capability with the number of connected clients
           await this.updateCapability('connected_clients', clientList.length);
+          const interfaceCounts = { guest: 0, iot: 0, mlo: 0 };
+          for (const client of clientList) {
+            if (Object.hasOwn(interfaceCounts, client.interface)) {
+              interfaceCounts[client.interface as keyof typeof interfaceCounts] += 1;
+            }
+          }
+          await this.updateCapability('connected_clients_guest', interfaceCounts.guest);
+          await this.updateCapability('connected_clients_iot', interfaceCounts.iot);
+          await this.updateCapability('connected_clients_mlo', interfaceCounts.mlo);
 
           // Build a MAC → friendly-name map for the Deco nodes so the
           // client_node_changed token shows a human-readable name.
@@ -1284,6 +1479,7 @@ class TplinkDecoDevice extends Device {
    */
   private async updateCapability(capability: string, value: any) {
     try {
+      if (!this.hasCapability(capability)) return;
       const currentValue = this.getCapabilityValue(capability);
       if (currentValue !== value) {
         await this.setCapabilityValue(capability, value);

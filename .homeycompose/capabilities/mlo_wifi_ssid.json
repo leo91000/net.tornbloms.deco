@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "MLO Wi-Fi name", "fr": "Nom du Wi-Fi MLO" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "set_wireless_network",
+  "title": { "en": "Set a secondary Wi-Fi network", "fr": "Régler un réseau Wi-Fi secondaire" },
+  "titleFormatted": { "en": "Set [[network]] to [[state]]", "fr": "Régler [[network]] sur [[state]]" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    {
+      "name": "network",
+      "type": "dropdown",
+      "title": { "en": "Network", "fr": "Réseau" },
+      "values": [
+        { "id": "guest", "title": { "en": "Guest", "fr": "Invité" } },
+        { "id": "iot", "title": { "en": "IoT", "fr": "IoT" } },
+        { "id": "mlo", "title": { "en": "MLO", "fr": "MLO" } }
+      ]
+    },
+    {
+      "name": "state",
+      "type": "dropdown",
+      "title": { "en": "State", "fr": "État" },
+      "values": [
+        { "id": "enabled", "title": { "en": "Enabled", "fr": "Activé" } },
+        { "id": "disabled", "title": { "en": "Disabled", "fr": "Désactivé" } }
+      ]
+    }
+  ]
+}

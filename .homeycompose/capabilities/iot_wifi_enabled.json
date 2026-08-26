@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "IoT Wi-Fi", "fr": "Wi-Fi IoT" },
+  "getable": true,
+  "setable": true,
+  "uiComponent": "toggle",
+  "uiQuickAction": false,
+  "insights": true,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

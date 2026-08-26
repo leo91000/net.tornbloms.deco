@@ -124,7 +124,21 @@
     "connected_clients",
     "device_role",
     "reboot",
-    "polling_active"
+    "polling_active",
+    "wan_ipv4_uptime",
+    "wifi_main_ssid",
+    "wifi_bands",
+    "guest_wifi_enabled",
+    "guest_wifi_ssid",
+    "iot_wifi_enabled",
+    "iot_wifi_ssid",
+    "mlo_wifi_enabled",
+    "mlo_wifi_ssid",
+    "alarm_firmware_update",
+    "latest_firmware_version",
+    "connected_clients_guest",
+    "connected_clients_iot",
+    "connected_clients_mlo"
   ],
   "platforms": [
     "local"

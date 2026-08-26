@@ -1,0 +1,10 @@
+{
+  "type": "number",
+  "title": { "en": "Guest clients", "fr": "Clients invités" },
+  "units": { "en": "clients", "fr": "clients" },
+  "decimals": 0,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "icon": "./assets/capabilities/connected_clients.svg"
+}

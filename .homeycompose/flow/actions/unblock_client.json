@@ -1,0 +1,9 @@
+{
+  "id": "unblock_client",
+  "title": { "en": "Restore a client's internet access", "fr": "Rétablir l'accès Internet d'un client" },
+  "titleFormatted": { "en": "Restore access for [[client]]", "fr": "Rétablir l'accès de [[client]]" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    { "name": "client", "type": "autocomplete", "title": { "en": "Client", "fr": "Client" } }
+  ]
+}

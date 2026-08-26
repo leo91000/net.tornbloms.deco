@@ -1,0 +1,7 @@
+{
+  "id": "refresh_deco",
+  "title": { "en": "Refresh Deco data now", "fr": "Actualiser les données Deco" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" }
+  ]
+}

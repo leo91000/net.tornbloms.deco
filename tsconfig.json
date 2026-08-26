@@ -2,6 +2,7 @@
   "extends": "@tsconfig/node16/tsconfig.json",
   "compilerOptions": {
     "moduleResolution": "node16",
+    "lib": ["ES2022"],
     "allowJs": true,
     "outDir": ".homeybuild/",
     "forceConsistentCasingInFileNames": true,

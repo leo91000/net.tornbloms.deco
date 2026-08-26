@@ -1,0 +1,10 @@
+{
+  "type": "boolean",
+  "title": { "en": "Firmware update available", "fr": "Mise à jour disponible" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "insights": true,
+  "icon": "./assets/capabilities/cloud-arrow-down-svgrepo-com.svg"
+}

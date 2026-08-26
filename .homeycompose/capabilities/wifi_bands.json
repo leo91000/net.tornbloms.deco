@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "title": { "en": "Active Wi-Fi bands", "fr": "Bandes Wi-Fi actives" },
+  "getable": true,
+  "setable": false,
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}
