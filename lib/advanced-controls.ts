@@ -10,6 +10,19 @@ export interface BackhaulDiagnostic {
   signal6g: string;
 }
 
+export interface ClientStatistics {
+  name: string;
+  mac: string;
+  ip: string;
+  online: boolean;
+  decoNode: string;
+  connectionType: string;
+  network: string;
+  downKiloBytesPerSecond: number;
+  upKiloBytesPerSecond: number;
+  prioritized: boolean;
+}
+
 const signalLabels: Record<string, string> = {
   '1': 'Weak',
   '2': 'Good',
@@ -41,6 +54,22 @@ export function countPrioritizedClients(clients: any[]): number {
     (count, client) => count + (client?.enable_priority === true ? 1 : 0),
     0,
   );
+}
+
+export function buildClientStatistics(client: any): ClientStatistics {
+  const online = client?.online === true;
+  return {
+    name: client?.name ?? client?.mac ?? '',
+    mac: client?.mac ?? '',
+    ip: client?.ip ?? '',
+    online,
+    decoNode: client?.decoNode ?? client?.access_host ?? '',
+    connectionType: client?.connectionType ?? client?.connection_type ?? '',
+    network: client?.interface ?? '',
+    downKiloBytesPerSecond: online ? Number(client?.downSpeed ?? client?.down_speed) || 0 : 0,
+    upKiloBytesPerSecond: online ? Number(client?.upSpeed ?? client?.up_speed) || 0 : 0,
+    prioritized: client?.prioritized === true || client?.enable_priority === true,
+  };
 }
 
 export function buildBackhaulDiagnostic(device: any): BackhaulDiagnostic {

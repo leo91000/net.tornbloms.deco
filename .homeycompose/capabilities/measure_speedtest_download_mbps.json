@@ -1,0 +1,12 @@
+{
+  "type": "number",
+  "title": { "en": "Internet download speed", "fr": "Débit Internet descendant" },
+  "units": { "en": "Mbps", "fr": "Mbit/s" },
+  "decimals": 0,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "chartType": "spline",
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/cloud-arrow-down-svgrepo-com.svg"
+}

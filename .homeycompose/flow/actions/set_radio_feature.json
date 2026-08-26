@@ -1,0 +1,26 @@
+{
+  "id": "set_radio_feature",
+  "title": { "en": "Set a Wi-Fi radio feature", "fr": "Régler une fonction radio Wi-Fi" },
+  "titleFormatted": { "en": "Set [[feature]] to [[state]]", "fr": "Régler [[feature]] sur [[state]]" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    {
+      "name": "feature",
+      "type": "dropdown",
+      "title": { "en": "Feature", "fr": "Fonction" },
+      "values": [
+        { "id": "fastRoaming", "title": { "en": "Fast roaming", "fr": "Roaming rapide" } },
+        { "id": "beamforming", "title": { "en": "Beamforming", "fr": "Beamforming" } }
+      ]
+    },
+    {
+      "name": "state",
+      "type": "dropdown",
+      "title": { "en": "State", "fr": "État" },
+      "values": [
+        { "id": "enabled", "title": { "en": "Enabled", "fr": "Activé" } },
+        { "id": "disabled", "title": { "en": "Disabled", "fr": "Désactivé" } }
+      ]
+    }
+  ]
+}

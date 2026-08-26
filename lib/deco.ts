@@ -12,7 +12,7 @@ import { redactRequestPath } from './redaction';
 // Buffer for the default body used in read operations
 const readBody = Buffer.from(JSON.stringify({ operation: 'read' }));
 
-const consoleLogger: AppLogger = { log: console.log, error: console.error };
+const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
 
 // Interface for the structure of the password key response
 interface PasswordKeyResponse {
@@ -89,14 +89,14 @@ export default class Deco {
   // Method to retrieve the password key from the server and generate an RSA key from it
   public async getPasswordKey(): Promise<KeyObject | null> {
     const args: EndpointArgs = { form: 'keys' };
-    this.logger.log('deco.ts: getPasswordKey: requesting /login?form=keys');
+    this.logger.debug?.('deco.ts: getPasswordKey: requesting /login?form=keys');
     try {
       const passKey: PasswordKeyResponse = await this.doPost(
         ';stok=/login',
         args,
         readBody,
       );
-      this.logger.log('deco.ts: getPasswordKey: response error_code:', passKey?.error_code);
+      this.logger.debug?.('deco.ts: getPasswordKey: response error_code:', passKey?.error_code);
 
       if (passKey.error_code !== 0) {
         this.logger.error('deco.ts: getPasswordKey: non-zero error_code, full response:', JSON.stringify(passKey));
@@ -120,14 +120,14 @@ export default class Deco {
     seq: number;
   }> {
     const args: EndpointArgs = { form: 'auth' };
-    this.logger.log('deco.ts: getSessionKey: requesting /login?form=auth');
+    this.logger.debug?.('deco.ts: getSessionKey: requesting /login?form=auth');
     try {
       const passKey: SessionKeyResponse = await this.doPost(
         ';stok=/login',
         args,
         readBody,
       );
-      this.logger.log('deco.ts: getSessionKey: response error_code:', passKey?.error_code, 'seq:', passKey?.result?.seq);
+      this.logger.debug?.('deco.ts: getSessionKey: response error_code:', passKey?.error_code, 'seq:', passKey?.result?.seq);
 
       if (passKey.error_code !== 0) {
         this.logger.error('deco.ts: getSessionKey: non-zero error_code, full response:', JSON.stringify(passKey));
@@ -166,7 +166,7 @@ export default class Deco {
     }
     const safePath = redactRequestPath(path);
 
-    this.logger.log(
+    this.logger.debug?.(
       `deco.ts: doEncryptedPost: path=${safePath} form=${params.form} isLogin=${isLogin}`,
       `aesKeyLen=${String(this.aes.key).length} aesIvLen=${String(this.aes.iv).length}`,
       `seq=${sequence}`,
@@ -175,7 +175,7 @@ export default class Deco {
     try {
       // Encrypt the data using AES
       var encryptedData = AES128Encrypt(body.toString(), this.aes);
-      this.logger.log(`deco.ts: doEncryptedPost: AES encryptedData length=${encryptedData.length}`);
+      this.logger.debug?.(`deco.ts: doEncryptedPost: AES encryptedData length=${encryptedData.length}`);
 
       const length = Number(sequence) + encryptedData.length;
       let sign: string;
@@ -190,15 +190,15 @@ export default class Deco {
       const plainSignLen = sign.length;
       // Encrypt the sign data with RSA, possibly splitting it into two parts
       if (sign.length > 53) {
-        this.logger.log(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (>53, split into 2 RSA blocks)`);
+        this.logger.debug?.(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (>53, split into 2 RSA blocks)`);
         const first = encryptRsa(sign.substring(0, 53), key);
         const second = encryptRsa(sign.substring(53), key);
         sign = `${first}${second}`;
       } else {
-        this.logger.log(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (single RSA block)`);
+        this.logger.debug?.(`deco.ts: doEncryptedPost: sign plaintext=${plainSignLen}B (single RSA block)`);
         sign = encryptRsa(sign, key);
       }
-      this.logger.log(`deco.ts: doEncryptedPost: RSA-encrypted sign length=${sign.length}`);
+      this.logger.debug?.(`deco.ts: doEncryptedPost: RSA-encrypted sign length=${sign.length}`);
 
       // Prepare the final POST data.
       // Default: URL-encoded form body "sign=...&data=..." (works for most firmware).
@@ -209,7 +209,7 @@ export default class Deco {
         : `sign=${encodeURIComponent(sign)}&data=${encodeURIComponent(encryptedData)}`;
 
       const postDataBuffer = Buffer.from(postData);
-      this.logger.log(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
+      this.logger.debug?.(`deco.ts: doEncryptedPost: total POST body=${postDataBuffer.length}B`);
 
       // Send the POST request with encrypted data.
       // There are two distinct HTTPS firmware behaviours:
@@ -222,22 +222,22 @@ export default class Deco {
         this.c.forceJsonContentType || !this.c.baseURL.startsWith('https://')
           ? 'application/json'
           : 'application/x-www-form-urlencoded';
-      this.logger.log(`deco.ts: doEncryptedPost: using Content-Type=${encContentType} (baseURL=${this.c.baseURL.substring(0, 8)}…)`);
+      this.logger.debug?.(`deco.ts: doEncryptedPost: using Content-Type=${encContentType} (baseURL=${this.c.baseURL.substring(0, 8)}…)`);
       const req: ResponseData = await this.doPost(path, params, postDataBuffer, encContentType);
 
       // Decrypt the response data
       const decoded = AES128Decrypt(req.data, this.aes);
-      this.logger.log(`deco.ts: doEncryptedPost: decrypted response length=${decoded.length}B`);
+      this.logger.debug?.(`deco.ts: doEncryptedPost: decrypted response length=${decoded.length}B`);
 
       if (decoded.length === 0) {
-        this.logger.log(`deco.ts: doEncryptedPost: empty decrypt for path=${safePath} form=${params.form} (endpoint not supported by this node)`);
+        this.logger.debug?.(`deco.ts: doEncryptedPost: empty decrypt for path=${safePath} form=${params.form} (endpoint not supported by this node)`);
         return { error_code: 0, result: {} };
       }
 
       const parsed = JSON.parse(decoded);
       if (parsed?.error_code !== undefined && parsed.error_code !== 0) {
-        const logFn = silent ? this.logger.log : this.logger.error;
-        logFn(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${safePath} full=`, JSON.stringify(parsed));
+        const logFn = silent ? this.logger.debug : this.logger.error;
+        logFn?.(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${safePath} full=`, JSON.stringify(parsed));
       }
       return parsed;
     } catch (e: any) {
@@ -251,7 +251,7 @@ export default class Deco {
           decoded = AES128Decrypt(e.responseBody, this.aes);
           if (decoded.length > 0) {
             const parsed = JSON.parse(decoded);
-            this.logger.log(
+            this.logger.debug?.(
               `deco.ts: doEncryptedPost: decrypted HTTP ${e.httpStatus} body:`,
               `error_code=${parsed?.error_code}`,
             );

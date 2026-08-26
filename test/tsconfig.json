@@ -4,8 +4,8 @@
     "moduleResolution": "node16",
     "outDir": "dist",
     "rootDir": "..",
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "typeRoots": ["../node_modules/@types", "../types"]
   },
-  "include": ["regression-*.ts", "../lib/**/*.ts"]
+  "include": ["regression-*.ts", "../lib/**/*.ts", "../types/**/*.d.ts"]
 }

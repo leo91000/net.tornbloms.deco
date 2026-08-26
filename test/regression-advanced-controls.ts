@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildBackhaulDiagnostic,
+  buildClientStatistics,
   countPrioritizedClients,
   normalizeClientMac,
   normalizePauseDurationMinutes,
@@ -17,6 +18,47 @@ assert.equal(countPrioritizedClients([
   { enable_priority: false },
   { enable_priority: true },
 ]), 2);
+
+assert.deepEqual(buildClientStatistics({
+  name: 'Laptop',
+  mac: 'AA-BB-CC-DD-EE-FF',
+  ip: '192.168.1.42',
+  online: true,
+  decoNode: 'Living Room',
+  connectionType: 'wireless',
+  interface: 'host',
+  downSpeed: 123,
+  upSpeed: 45,
+  prioritized: true,
+}), {
+  name: 'Laptop',
+  mac: 'AA-BB-CC-DD-EE-FF',
+  ip: '192.168.1.42',
+  online: true,
+  decoNode: 'Living Room',
+  connectionType: 'wireless',
+  network: 'host',
+  downKiloBytesPerSecond: 123,
+  upKiloBytesPerSecond: 45,
+  prioritized: true,
+});
+assert.deepEqual(buildClientStatistics({
+  mac: 'AA-BB-CC-DD-EE-FF',
+  online: false,
+  downSpeed: 999,
+  upSpeed: 999,
+}), {
+  name: 'AA-BB-CC-DD-EE-FF',
+  mac: 'AA-BB-CC-DD-EE-FF',
+  ip: '',
+  online: false,
+  decoNode: '',
+  connectionType: '',
+  network: '',
+  downKiloBytesPerSecond: 0,
+  upKiloBytesPerSecond: 0,
+  prioritized: false,
+});
 
 assert.deepEqual(buildBackhaulDiagnostic({
   group_status: 'connected',

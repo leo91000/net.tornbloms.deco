@@ -1,0 +1,19 @@
+{
+  "id": "client_speed_above",
+  "title": { "en": "Client speed is above a threshold", "fr": "Le débit d'un client dépasse un seuil" },
+  "titleFormatted": { "en": "[[client]] [[direction]] speed is above [[threshold]] KB/s", "fr": "Le débit [[direction]] de [[client]] dépasse [[threshold]] Ko/s" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    { "name": "client", "type": "autocomplete", "title": { "en": "Client", "fr": "Client" } },
+    {
+      "name": "direction",
+      "type": "dropdown",
+      "title": { "en": "Direction", "fr": "Sens" },
+      "values": [
+        { "id": "download", "title": { "en": "download", "fr": "descendant" } },
+        { "id": "upload", "title": { "en": "upload", "fr": "montant" } }
+      ]
+    },
+    { "name": "threshold", "type": "number", "title": { "en": "Threshold (KB/s)", "fr": "Seuil (Ko/s)" }, "min": 0 }
+  ]
+}

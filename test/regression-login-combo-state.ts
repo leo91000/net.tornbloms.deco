@@ -12,7 +12,7 @@
 // instead of the actual cached/last-known-good combo ever getting a
 // fair shot again.
 //
-// This script drives DecoAPIWraper.authenticate() twice against a fake
+// This script drives DecoAPIWrapper.authenticate() twice against a fake
 // attemptLogin that reproduces the exact failure shape from the field
 // report: combo 1 (true/false — the actually-correct combo per a HAR
 // capture of a successful browser login) fails with a format error,
@@ -23,10 +23,10 @@
 //
 // Run with: npx tsc -p test/tsconfig.json && node test/dist/regression-login-combo-state.js
 
-import DecoAPIWraper from '../lib/client';
+import DecoAPIWrapper from '../lib/client';
 
 async function main() {
-  const api = new (DecoAPIWraper as any)('127.0.0.1', { log: () => {}, error: () => {} }) as any;
+  const api = new (DecoAPIWrapper as any)('127.0.0.1', { log: () => {}, error: () => {} }) as any;
 
   // Known-good baseline, as if restored from device store for an
   // already-paired device (matches the HttpClient defaults).

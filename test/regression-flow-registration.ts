@@ -4,9 +4,11 @@ import { DeviceFlowRegistration } from '../lib/flow-registration';
 class FakeFlowCard {
   runListeners = 0;
   autocompleteListeners = 0;
+  runListener: ((args: any, state?: any) => unknown) | undefined;
 
-  registerRunListener(): void {
+  registerRunListener(listener: (args: any, state?: any) => unknown): void {
     this.runListeners += 1;
+    this.runListener = listener;
   }
 
   registerArgumentAutocompleteListener(): void {
@@ -22,11 +24,21 @@ const getCard = (id: string): FakeFlowCard => {
 
 const flow = {
   getDeviceTriggerCard: getCard,
+  getTriggerCard: getCard,
+  getConditionCard: getCard,
+  getActionCard: getCard,
 };
 const registration = new DeviceFlowRegistration();
+const trackedClients = {};
+const dependencies = {
+  buildClientAutocomplete: async () => [],
+  buildMeshClientAutocomplete: async () => [],
+  getMasterDevice: () => undefined,
+  getTrackedClients: () => trackedClients,
+};
 
-registration.register(flow, async () => []);
-registration.register(flow, async () => []);
+registration.register(flow, dependencies);
+registration.register(flow, dependencies);
 
 assert.equal(getCard('client_state_changed').runListeners, 1);
 assert.equal(getCard('any_client_state_changed').runListeners, 1);
@@ -34,5 +46,12 @@ assert.equal(getCard('client_node_changed').runListeners, 1);
 assert.equal(getCard('client_node_changed').autocompleteListeners, 1);
 assert.equal(getCard('client_priority_changed').runListeners, 1);
 assert.equal(getCard('client_priority_changed').autocompleteListeners, 1);
+assert.equal(getCard('client_is_online').runListeners, 1);
+assert.equal(getCard('client_speed_above').autocompleteListeners, 1);
+assert.equal(getCard('block_client').runListeners, 1);
+assert.equal(getCard('run_speedtest').runListeners, 1);
+assert.equal(getCard('get_client_statistics').autocompleteListeners, 1);
+assert.equal(getCard('client_joined_mesh').runListeners, 1);
+assert.equal(getCard('client_present_in_mesh').autocompleteListeners, 1);
 
-console.log('PASS: global device Flow listeners are registered only once.');
+console.log('PASS: all Deco Flow listeners are registered centrally and only once.');

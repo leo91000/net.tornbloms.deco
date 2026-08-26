@@ -4,6 +4,7 @@ import Deco from './deco';
 import { encryptRsa } from '././utils/rsa';
 import { AESKey, generateAESKey } from '././utils/aes';
 import { HttpClient, AppLogger } from './http';
+import { SerialTaskQueue } from './polling';
 
 
 export type { AppLogger };
@@ -55,76 +56,7 @@ export interface ClientListResponse {
   };
 }
 
-export interface WLANNetworkResponse {
-  error_code: number;
-  result: {
-    band5_1: {
-      backhaul: {
-        channel: number;
-      };
-      guest: {
-        password: string;
-        ssid: string;
-        vlan_id: number;
-        enable: boolean;
-        need_set_vlan: boolean;
-      };
-      host: {
-        password: string;
-        ssid: string;
-        channel: number;
-        enable: boolean;
-        mode: string;
-        channel_width: string;
-        enable_hide_ssid: boolean;
-      };
-    };
-    is_eg: boolean;
-    band2_4: {
-      backhaul: {
-        channel: number;
-      };
-      guest: {
-        password: string;
-        ssid: string;
-        vlan_id: number;
-        enable: boolean;
-        need_set_vlan: boolean;
-      };
-      host: {
-        password: string;
-        ssid: string;
-        channel: number;
-        enable: boolean;
-        mode: string;
-        channel_width: string;
-        enable_hide_ssid: boolean;
-      };
-    };
-  };
-}
-
-export interface Band {
-  backhaul: {
-    channel: number;
-  };
-  guest: {
-    password: string;
-    ssid: string;
-    vlan_id: number;
-    enable: boolean;
-    need_set_vlan: boolean;
-  };
-  host: {
-    password: string;
-    ssid: string;
-    channel: number;
-    enable: boolean;
-    mode: string;
-    channel_width: string;
-    enable_hide_ssid: boolean;
-  };
-}
+export type DecoClient = ClientListResponse['result']['client_list'][number];
 
 // Interface to define the structure of the response for WAN
 export interface WANResponse {
@@ -138,7 +70,9 @@ export interface WANResponse {
         mask: string;
         gateway: string;
         ip: string;
+        uptime?: number;
       };
+      uptime?: number;
       dial_type: string;
       info: string;
       enable_auto_dns: boolean;
@@ -218,14 +152,6 @@ export interface InternetResponse {
   };
 }
 
-// Interface to define the structure of the response for advanced data
-export interface AdvancedResponse {
-  error_code: number;
-  result: {
-    support_dfs: boolean;
-  };
-}
-
 // Interface to define the structure of the response for performance data
 export interface PerformanceResponse {
   error_code: number;
@@ -275,7 +201,7 @@ interface LoginRequest {
 // Interface for generic request parameters
 interface RequestParams {
   operation?: string;
-  params?: { [key: string]: any };
+  params?: Record<string, unknown>;
 }
 
 // Class to handle endpoint arguments and query parameters
@@ -294,10 +220,10 @@ class EndpointArgs {
   }
 }
 
-const consoleLogger: AppLogger = { log: console.log, error: console.error };
+const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
 
 // Main Client class to interact with the API
-export default class DecoAPIWraper {
+export default class DecoAPIWrapper {
   public c: HttpClient;
   public aes: AESKey | undefined;
   public rsa: KeyObject | null = null;
@@ -307,6 +233,7 @@ export default class DecoAPIWraper {
   public host: string;
   public decoInstance: Deco | undefined;
   private logger: AppLogger;
+  private readonly requests = new SerialTaskQueue();
 
   // Constructor to initialize the client with the target host
   constructor(target: string, logger: AppLogger = consoleLogger) {
@@ -438,7 +365,7 @@ export default class DecoAPIWraper {
     this.aes = generateAESKey();
     this.ensureDecoInstance();
 
-    this.logger.log('client.ts: attemptLogin: retrieving password key');
+    this.logger.debug?.('client.ts: attemptLogin: retrieving password key');
     let passwordKey;
     try {
       passwordKey = await this.decoInstance!.getPasswordKey();
@@ -456,7 +383,7 @@ export default class DecoAPIWraper {
       throw new Error('RSA encryption of password failed.');
     }
 
-    this.logger.log('client.ts: attemptLogin: retrieving session key');
+    this.logger.debug?.('client.ts: attemptLogin: retrieving session key');
     let sessionKey, sequence;
     try {
       ({ key: sessionKey, seq: sequence } = await this.decoInstance!.getSessionKey());
@@ -485,7 +412,7 @@ export default class DecoAPIWraper {
     };
     trace.push(attempt);
 
-    this.logger.log(
+    this.logger.debug?.(
       `client.ts: attemptLogin: trying contentType=${attempt.contentType} bodyFormat=${attempt.bodyFormat} passwordMode=${attempt.passwordMode}`,
     );
 
@@ -507,7 +434,7 @@ export default class DecoAPIWraper {
         // Firmware crashed parsing the request body (Lua exception) — this combo
         // is wrong, but the router needs a moment to recover before the next
         // attempt or it may reject that one too.
-        this.logger.log('client.ts: attemptLogin: HTTP 500 body-format error (Lua crash) — waiting 1.5s for router recovery before trying next combo');
+        this.logger.debug?.('client.ts: attemptLogin: HTTP 500 body-format error (Lua crash) — waiting 1.5s for router recovery before trying next combo');
         await new Promise((resolve) => setTimeout(resolve, 1500));
         throw Object.assign(new Error('FORMAT: body format rejected (firmware crash)'), { cause: e });
       }
@@ -515,14 +442,14 @@ export default class DecoAPIWraper {
       // could just be this combo confusing the firmware. Let the caller try
       // the next one; NETWORK: is only thrown for password/session key fetch
       // failures above (those happen before any combo-specific request).
-      this.logger.log('client.ts: attemptLogin: request failed for this combo, trying next:', e?.message ?? e);
+      this.logger.debug?.('client.ts: attemptLogin: request failed for this combo, trying next:', e?.message ?? e);
       throw Object.assign(new Error(`FORMAT: ${e?.message ?? 'request failed'}`), { cause: e });
     }
 
     attempt.httpStatus = 200;
     attempt.errorCode = result?.error_code ?? null;
     attempt.msg = result?.msg ?? null;
-    this.logger.log('client.ts: attemptLogin: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
+    this.logger.debug?.('client.ts: attemptLogin: login response error_code:', result?.error_code, 'has stok:', !!result?.result?.stok);
 
     // error_code -5002 unambiguously means "wrong password" on every Deco
     // firmware seen so far (confirmed independently by the amosyuen/
@@ -554,30 +481,34 @@ export default class DecoAPIWraper {
     // a failed re-auth, causing concurrent devices on the shared client to use
     // stok=undefined in their request paths.
     this.stok = newStok;
-    this.logger.log('client.ts: attemptLogin: login successful');
+    this.logger.debug?.('client.ts: attemptLogin: login successful');
   }
 
-  public async authenticate(password: string, _trace: LoginAttempt[] = []): Promise<boolean> {
+  public authenticate(password: string, trace: LoginAttempt[] = []): Promise<boolean> {
+    return this.requests.run(() => this.authenticateUnlocked(password, trace));
+  }
+
+  private async authenticateUnlocked(password: string, _trace: LoginAttempt[]): Promise<boolean> {
     // Resolve hostname to IPv4 before making any HTTP requests.
     // Homey Pro (2023) has IPv6 enabled; tplinkdeco.net resolves to a
     // link-local IPv6 address causes redirect issues. Always use the IPv4 address.
     try {
       const { address } = await dns.lookup(this.host, { family: 4 });
       if (address !== this.host) {
-        this.logger.log(`client.ts: authenticate: resolved ${this.host} → ${address} (IPv4 forced)`);
+        this.logger.debug?.(`client.ts: authenticate: resolved ${this.host} → ${address} (IPv4 forced)`);
         this.host = address;
         this.c = new HttpClient(`http://${address}/cgi-bin/luci/`, 10000, this.logger);
       }
     } catch (e: any) {
-      this.logger.log(`client.ts: authenticate: IPv4 DNS lookup failed for ${this.host} — using hostname as-is: ${e.message}`);
+      this.logger.debug?.(`client.ts: authenticate: IPv4 DNS lookup failed for ${this.host} — using hostname as-is: ${e.message}`);
     }
 
-    this.logger.log(`client.ts: authenticate: checking host reachability for ${this.host}`);
+    this.logger.debug?.(`client.ts: authenticate: checking host reachability for ${this.host}`);
     const hostIsAlive = await this.pingHost(this.host);
     if (!hostIsAlive) {
-      this.logger.log(`client.ts: authenticate: ping failed for ${this.host} — proceeding with auth anyway (router may block HTTP GET)`);
+      this.logger.debug?.(`client.ts: authenticate: ping failed for ${this.host} — proceeding with auth anyway (router may block HTTP GET)`);
     } else {
-      this.logger.log(`client.ts: authenticate: host ${this.host} is reachable`);
+      this.logger.debug?.(`client.ts: authenticate: host ${this.host} is reachable`);
     }
 
     // MD5(admin+rawPassword) — computed once; combos that need the hashed
@@ -671,509 +602,8 @@ export default class DecoAPIWraper {
     }
     throw Object.assign(new Error(`All login formats failed for ${this.host}.`), { loginTrace: _trace, cause: lastError });
   }
-
-  // Public method to retrieve Wan data
-  async getAdvancedSettings(): Promise<AdvancedResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting advanced data...');
-    const args = new EndpointArgs('power');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const response = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/wireless`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      response &&
-      typeof response === 'object' &&
-      'errorcode' in response &&
-      'success' in response
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: response.errorcode,
-        success: response.success,
-      };
-      // this.logger.log('client.ts: ' + 'Advanced request failed:', errorResponse);
-      return errorResponse;
-    }
-    return response;
-  }
-  // Public method to retrieve Wan data
-  async getWLAN(): Promise<WLANNetworkResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('wlan');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const response = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/wireless`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      response &&
-      typeof response === 'object' &&
-      'errorcode' in response &&
-      'success' in response
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: response.errorcode,
-        success: response.success,
-      };
-      // this.logger.log('client.ts: ' + 'WLAN request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    const decodeBase64 = (encoded: string): string => {
-      try {
-        return Buffer.from(encoded, 'base64').toString('utf-8');
-      } catch (e) {
-        // this.logger.log('client.ts: ' + `Failed to decode base64 string: ${encoded}`,e,);
-        return encoded; // Returnera den ursprungliga strängen om dekodning misslyckas
-      }
-    };
-
-    // Dekodera band5_1
-    response.result.band5_1.guest.ssid = decodeBase64(
-      response.result.band5_1.guest.ssid,
-    );
-    response.result.band5_1.guest.password = decodeBase64(
-      response.result.band5_1.guest.password,
-    );
-    response.result.band5_1.host.ssid = decodeBase64(
-      response.result.band5_1.host.ssid,
-    );
-    response.result.band5_1.host.password = decodeBase64(
-      response.result.band5_1.host.password,
-    );
-
-    // Dekodera band2_4
-    response.result.band2_4.guest.ssid = decodeBase64(
-      response.result.band2_4.guest.ssid,
-    );
-    response.result.band2_4.guest.password = decodeBase64(
-      response.result.band2_4.guest.password,
-    );
-    response.result.band2_4.host.ssid = decodeBase64(
-      response.result.band2_4.host.ssid,
-    );
-    response.result.band2_4.host.password = decodeBase64(
-      response.result.band2_4.host.password,
-    );
-
-    // this.logger.log( 'client.ts: ' + 'Processed WLAN network response: ',JSON.stringify(response),);
-
-    return response;
-  }
-
-  // Public method to retrieve LAN data
-  async getLAN(): Promise<any> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('lan_ip');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/network`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'LAN request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve Wan data
-  async getWAN(): Promise<WANResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('wan_ipv4');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/network`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'WAN request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-  // Public method to retrieve Internt data
-  async getInternet(): Promise<InternetResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('internet');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/network`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'Internet request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve enviromet data
-  async getModel(): Promise<any | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('model');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/device`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'Model request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve enviromet data
-  async getEnviroment(): Promise<any | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('envar');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/system`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'Enviromet request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-  // Public method to retrieve status data
-  async getStatus(): Promise<any | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting status data...');
-    const args = new EndpointArgs('all');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/status`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'Status request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve firmware data
-  async firmware(): Promise<any | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting firmware data...');
-    const args = new EndpointArgs('upgrade');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/firmware`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as any;
-
-    // Chech if error
-    if (
-      result &&
-      typeof result === 'object' &&
-      'errorcode' in result &&
-      'success' in result
-    ) {
-      const errorResponse: ErrorResponse = {
-        errorcode: result.errorcode,
-        success: result.success,
-      };
-      // this.logger.log('client.ts: ' + 'Firmware request failed:', errorResponse);
-      return errorResponse;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve performance data
-  async performance(): Promise<PerformanceResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting performance data...');
-    const args = new EndpointArgs('performance');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/network`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as PerformanceResponse;
-
-    // Check if result is an error
-    if (isErrorResponse(result)) {
-      // this.logger.log('client.ts: ' + 'Performance request failed:', result);
-      return result;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve the list of devices
-  async deviceList(): Promise<DeviceListResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting device list...');
-    const args = new EndpointArgs('device_list');
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/device`,
-      args,
-      Buffer.from(JSON.stringify({ operation: 'read' })),
-      false,
-    )) as DeviceListResponse;
-
-    // Check if result is an error
-    if (isErrorResponse(result)) {
-      // this.logger.log('client.ts: ' + 'device list request failed:', result);
-      return result;
-    }
-
-    // If no error do respond with result
-    return result;
-  }
-
-  // Public method to retrieve the list of clients
-  async clientList(): Promise<ClientListResponse | ErrorResponse> {
-    // this.logger.log('client.ts: ' + 'Requesting client list...');
-    const args = new EndpointArgs('client_list');
-    const request: RequestParams = {
-      operation: 'read',
-      params: { device_mac: 'default' },
-    };
-
-    const jsonRequest = JSON.stringify(request);
-    // this.logger.log('client.ts: ' + `Client list request JSON: ${jsonRequest}`);
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    let result: ClientListResponse;
-    try {
-      result = (await decoInstance.doEncryptedPost(
-        `;stok=${this.stok}/admin/client`,
-        args,
-        Buffer.from(jsonRequest),
-        false,
-      )) as ClientListResponse;
-    } catch (error) {
-      // this.logger.log('client.ts: ' + 'client list request failed:', error);
-      result = { error_code: 1, result: { client_list: [] } }; // Return default values in case of error
-    }
-
-    // Check if result is an error
-    if (isErrorResponse(result)) {
-      // this.logger.log('client.ts: ' + 'client list request failed:', result);
-      return result;
-    }
-
-    // this.logger.log('client.ts: ' + 'Processing client list response...');
-    try {
-      // Uppdatera client_list med dekodade namn
-      result.result.client_list.forEach((client) => {
-        try {
-          // Försök att dekoda namnet
-          const decodedName = Buffer.from(client.name, 'base64').toString(
-            'utf-8',
-          );
-          // this.logger.log('client.ts: ' + `Decoded client name: ${decodedName}`);
-
-          // Sätt det dekodade namnet till klienten
-          client.name = decodedName;
-        } catch (e) {
-          // Logga fel om dekodningen misslyckas
-          // this.logger.log('client.ts: ' + `Failed to decode client name: ${client.name}`,e,);
-        }
-      });
-      // this.logger.log('client.ts: ' + 'Processed client list response: ',JSON.stringify(result),);
-      // Returnera det uppdaterade resultatet
-      return result;
-    } catch (e) {
-      // this.logger.log('client.ts: ' + 'client list request failed:', e);
-      return { error_code: 1, result: { client_list: [] } }; // Return default values in case of error
-    }
-  }
-
   // Public method to reboot devices based on their MAC addresses
   async reboot(...macAddrs: string[]): Promise<{ [key: string]: any }> {
-    // this.logger.log('client.ts: ' +`Requesting reboot for MAC addresses: ${macAddrs.join(', ')}`,);
     const macList = macAddrs.map((mac) => ({ mac: mac.toUpperCase() }));
     const request: RequestParams = {
       operation: 'reboot',
@@ -1183,89 +613,51 @@ export default class DecoAPIWraper {
     };
 
     const jsonRequest = JSON.stringify(request);
-    // this.logger.log('client.ts: ' + `Reboot request JSON: ${jsonRequest}`);
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
+    return this.requests.run(async () => {
+      const decoInstance = new Deco(
+        this.aes!,
+        this.hash,
+        this.rsa!,
+        this.sequence,
+        this.c,
+        this.logger,
+      );
 
-    const args = new EndpointArgs('system');
-    return (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}/admin/device`,
-      args,
-      Buffer.from(jsonRequest),
-      false,
-    )) as { [key: string]: any };
+      const args = new EndpointArgs('system');
+      return (await decoInstance.doEncryptedPost(
+        `;stok=${this.stok}/admin/device`,
+        args,
+        Buffer.from(jsonRequest),
+        false,
+      )) as { [key: string]: any };
+    });
   }
 
   // Public method to send a custom request to a specific endpoint
-  async custom(
+  async custom<T = unknown>(
     path: string,
-    params: EndpointArgs,
+    params: { form: string },
     body: Buffer,
     silent: boolean = false,
-  ): Promise<any | ErrorResponse> {
-    // this.logger.log('client.ts: ' + `Sending custom request to path: ${path}`);
-    const decoInstance = new Deco(
-      this.aes!,
-      this.hash,
-      this.rsa!,
-      this.sequence,
-      this.c,
-      this.logger,
-    );
-    const result = (await decoInstance.doEncryptedPost(
-      `;stok=${this.stok}${path}`,
-      params,
-      body,
-      false,
-      undefined,
-      undefined,
-      silent,
-    )) as any;
-
-    // Check if result is an error
-    if (isErrorResponse(result)) {
-      // this.logger.log('client.ts: ' + 'client list request failed:', result);
-      return result;
-    }
-    return result;
+  ): Promise<T> {
+    return this.requests.run(async () => {
+      const decoInstance = new Deco(
+        this.aes!,
+        this.hash,
+        this.rsa!,
+        this.sequence,
+        this.c,
+        this.logger,
+      );
+      return (await decoInstance.doEncryptedPost(
+        `;stok=${this.stok}${path}`,
+        params,
+        body,
+        false,
+        undefined,
+        undefined,
+        silent,
+      )) as T;
+    });
   }
-}
-
-// Function to extract and print details from an RSA KeyObject
-function printKey(keyObject: KeyObject): string {
-  // Export the key as a DER-encoded buffer
-  const keyBuffer = keyObject.export({ type: 'pkcs1', format: 'der' });
-
-  // The modulus for RSA keys is stored in the first part of the key structure
-  // Parse the modulus by skipping the header bytes in the DER-encoded key
-  const modulusOffset = 29; // Skip the header bytes (this offset can vary slightly)
-  const modulusLength = keyBuffer.readUInt16BE(modulusOffset - 2); // Read the modulus length
-
-  // Extract the modulus
-  const modulus = keyBuffer.slice(modulusOffset, modulusOffset + modulusLength);
-
-  return (
-    'Modulus (hex): ' +
-    modulus.toString('hex') +
-    'Exponent: ' +
-    keyObject.asymmetricKeyDetails?.publicExponent
-  );
-}
-
-// Type guard för att kontrollera om ett objekt är av typen ErrorResponse
-function isErrorResponse(result: any): result is ErrorResponse {
-  return (
-    typeof result === 'object' &&
-    result !== null &&
-    'errorcode' in result &&
-    'success' in result &&
-    typeof result.errorcode === 'string' &&
-    typeof result.success === 'boolean'
-  );
 }

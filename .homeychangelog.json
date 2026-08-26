@@ -371,5 +371,9 @@
   "1.5.0": {
     "en": "Added temporary client internet pauses with automatic recovery, QoS priority visibility and Flow events, mesh-wide client selection on the master, and richer backhaul health diagnostics including parent node, 6 GHz signal, degradation alarm, and Flow trigger.",
     "fr": "Ajout des pauses Internet temporaires avec rétablissement automatique, de la visibilité des priorités QoS et de leurs événements Flow, de la sélection des clients sur tout le mesh depuis le Deco principal, et d'un diagnostic enrichi du backhaul avec nœud parent, signal 6 GHz, alarme de dégradation et déclencheur Flow."
+  },
+  "1.6.0": {
+    "en": "Added Internet speed tests with result history and Flow completion events, fast roaming and beamforming controls, plus per-client traffic statistics and speed conditions for Flows.",
+    "fr": "Ajout des tests de débit Internet avec historique des résultats et événements Flow, des contrôles du roaming rapide et du beamforming, ainsi que des statistiques de trafic par client et des conditions de débit pour les Flows."
   }
 }

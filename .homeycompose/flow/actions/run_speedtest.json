@@ -1,0 +1,7 @@
+{
+  "id": "run_speedtest",
+  "title": { "en": "Run an Internet speed test", "fr": "Lancer un test de débit Internet" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" }
+  ]
+}

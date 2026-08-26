@@ -1,0 +1,12 @@
+{
+  "type": "number",
+  "title": { "en": "Internet upload speed", "fr": "Débit Internet montant" },
+  "units": { "en": "Mbps", "fr": "Mbit/s" },
+  "decimals": 0,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "chartType": "spline",
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/cloud-up-arrow-svgrepo-com.svg"
+}

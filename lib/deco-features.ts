@@ -21,6 +21,23 @@ export interface FirmwareUpdateSnapshot {
   version: string;
 }
 
+export type RadioFeature = 'fastRoaming' | 'beamforming';
+
+export interface RadioFeatureSnapshot {
+  supported: boolean;
+  enabled: boolean;
+}
+
+export interface SpeedTestSnapshot {
+  supported: boolean;
+  status: string;
+  downMbps: number;
+  upMbps: number;
+  pingMs: number;
+  jitterMs: number;
+  lastRunAt: string;
+}
+
 interface CustomApi {
   custom(
     path: string,
@@ -38,6 +55,11 @@ interface ClientAccessRequest {
     params: { mac: string };
   };
 }
+
+const radioFeatureForms: Record<RadioFeature, string> = {
+  fastRoaming: 'ieee80211r',
+  beamforming: 'beamforming',
+};
 
 const bandLabels: Array<[string, string]> = [
   ['band2_4', '2.4 GHz'],
@@ -70,6 +92,66 @@ function getResult(response: any): any {
 function assertWriteSucceeded(response: any): void {
   if (response?.error_code === 0 || response?.success === true) return;
   throw new Error(`Deco rejected the requested change (${response?.error_code ?? response?.errorcode ?? 'invalid response'})`);
+}
+
+export function buildRadioFeatureSnapshot(response: any): RadioFeatureSnapshot {
+  if (response?.error_code !== 0 || typeof response?.result?.enable !== 'boolean') {
+    return { supported: false, enabled: false };
+  }
+  return { supported: true, enabled: response.result.enable };
+}
+
+export function buildSpeedTestSnapshot(response: any): SpeedTestSnapshot {
+  if (response?.error_code !== 0 || !response?.result) {
+    return {
+      supported: false,
+      status: 'unsupported',
+      downMbps: 0,
+      upMbps: 0,
+      pingMs: 0,
+      jitterMs: 0,
+      lastRunAt: '',
+    };
+  }
+
+  const lastRunSeconds = Number(response.result.last_speed_test_time);
+  return {
+    supported: true,
+    status: typeof response.result.status === 'string' ? response.result.status : 'unknown',
+    // Deco reports these values in Kbit/s: 2,235,395 means 2,235.395 Mbit/s.
+    downMbps: Math.round((Number(response.result.down_speed) || 0) / 1000),
+    upMbps: Math.round((Number(response.result.up_speed) || 0) / 1000),
+    pingMs: Math.round((Number(response.result.ping_time) || 0) * 10) / 10,
+    jitterMs: Math.round((Number(response.result.ping_jitter) || 0) * 10) / 10,
+    lastRunAt: Number.isFinite(lastRunSeconds) && lastRunSeconds > 0
+      ? new Date(lastRunSeconds * 1000).toISOString()
+      : '',
+  };
+}
+
+export function buildSpeedTestStartParams(result: any): Record<string, unknown> {
+  const selectedServerIds = Array.isArray(result?.select_server_id_list)
+    ? result.select_server_id_list.filter((serverId: unknown) => typeof serverId === 'string')
+    : [];
+  const availableServers = [
+    ...(Array.isArray(result?.single_server_list) ? result.single_server_list : []),
+    ...(Array.isArray(result?.multi_server_list) ? result.multi_server_list : []),
+  ];
+  const fallbackServerId = availableServers.find((server: any) => (
+    typeof server?.server_id === 'string'
+  ))?.server_id;
+  const serverIds = selectedServerIds.length > 0
+    ? selectedServerIds
+    : (fallbackServerId ? [fallbackServerId] : []);
+  if (serverIds.length === 0) {
+    throw new Error('The Deco did not return an available speed-test server.');
+  }
+
+  return {
+    type: result?.type === 'multi' ? 'multi' : 'single',
+    is_auto: result?.is_auto !== false,
+    select_server_id_list: serverIds,
+  };
 }
 
 export function buildWirelessSnapshot(wireless: any): WirelessSnapshot {
@@ -219,5 +301,52 @@ export class DecoFeatureController {
       Buffer.from('{"operation":"check"}'),
     );
     return findFirmwareUpdate(getResult(response), mac);
+  }
+
+  async readRadioFeature(feature: RadioFeature): Promise<RadioFeatureSnapshot> {
+    const response = await this.api.custom(
+      '/admin/wireless',
+      { form: radioFeatureForms[feature] },
+      Buffer.from('{"operation":"read"}'),
+    );
+    return buildRadioFeatureSnapshot(response);
+  }
+
+  async setRadioFeature(feature: RadioFeature, enabled: boolean): Promise<RadioFeatureSnapshot> {
+    const current = await this.readRadioFeature(feature);
+    if (!current.supported) {
+      throw new Error(`${feature} is not supported by this Deco firmware.`);
+    }
+    const response = await this.api.custom(
+      '/admin/wireless',
+      { form: radioFeatureForms[feature] },
+      Buffer.from(JSON.stringify({ operation: 'write', params: { enable: enabled } })),
+    );
+    assertWriteSucceeded(response);
+    return { supported: true, enabled };
+  }
+
+  async readSpeedTest(): Promise<SpeedTestSnapshot> {
+    const response = await this.api.custom(
+      '/admin/device',
+      { form: 'speedtest' },
+      Buffer.from('{"operation":"read"}'),
+    );
+    return buildSpeedTestSnapshot(response);
+  }
+
+  async startSpeedTest(): Promise<void> {
+    const serverResponse = await this.api.custom(
+      '/admin/device',
+      { form: 'speedtest' },
+      Buffer.from('{"operation":"get_server"}'),
+    );
+    const params = buildSpeedTestStartParams(getResult(serverResponse));
+    const response = await this.api.custom(
+      '/admin/device',
+      { form: 'speedtest' },
+      Buffer.from(JSON.stringify({ operation: 'write', params })),
+    );
+    assertWriteSucceeded(response);
   }
 }

@@ -1,0 +1,15 @@
+{
+  "id": "speedtest_completed",
+  "title": { "en": "Internet speed test completed", "fr": "Le test de débit Internet est terminé" },
+  "highlight": true,
+  "tokens": [
+    { "name": "download_mbps", "type": "number", "title": { "en": "Download speed (Mbps)", "fr": "Débit descendant (Mbit/s)" } },
+    { "name": "upload_mbps", "type": "number", "title": { "en": "Upload speed (Mbps)", "fr": "Débit montant (Mbit/s)" } },
+    { "name": "ping_ms", "type": "number", "title": { "en": "Ping (ms)", "fr": "Ping (ms)" } },
+    { "name": "jitter_ms", "type": "number", "title": { "en": "Jitter (ms)", "fr": "Gigue (ms)" } },
+    { "name": "completed_at", "type": "string", "title": { "en": "Completed at", "fr": "Terminé à" } }
+  ],
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "get_client_statistics",
+  "title": { "en": "Get a client's current statistics", "fr": "Obtenir les statistiques actuelles d'un client" },
+  "titleFormatted": { "en": "Get statistics for [[client]]", "fr": "Obtenir les statistiques de [[client]]" },
+  "tokens": [
+    { "name": "name", "type": "string", "title": { "en": "Client name", "fr": "Nom du client" } },
+    { "name": "mac", "type": "string", "title": { "en": "MAC address", "fr": "Adresse MAC" } },
+    { "name": "ipaddr", "type": "string", "title": { "en": "IP address", "fr": "Adresse IP" } },
+    { "name": "online", "type": "boolean", "title": { "en": "Online", "fr": "En ligne" } },
+    { "name": "deco_node", "type": "string", "title": { "en": "Deco node", "fr": "Nœud Deco" } },
+    { "name": "connection_type", "type": "string", "title": { "en": "Connection type", "fr": "Type de connexion" } },
+    { "name": "network", "type": "string", "title": { "en": "Network", "fr": "Réseau" } },
+    { "name": "down_speed", "type": "number", "title": { "en": "Download speed (KB/s)", "fr": "Débit descendant (Ko/s)" } },
+    { "name": "up_speed", "type": "number", "title": { "en": "Upload speed (KB/s)", "fr": "Débit montant (Ko/s)" } },
+    { "name": "prioritized", "type": "boolean", "title": { "en": "Prioritized", "fr": "Prioritaire" } }
+  ],
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    { "name": "client", "type": "autocomplete", "title": { "en": "Client", "fr": "Client" } }
+  ]
+}

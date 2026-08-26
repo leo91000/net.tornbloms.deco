@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -1995,6 +1995,63 @@
             "filter": "driver_id=tplink_deco"
           }
         ]
+      },
+      {
+        "id": "speedtest_completed",
+        "title": {
+          "en": "Internet speed test completed",
+          "fr": "Le test de débit Internet est terminé"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "name": "download_mbps",
+            "type": "number",
+            "title": {
+              "en": "Download speed (Mbps)",
+              "fr": "Débit descendant (Mbit/s)"
+            }
+          },
+          {
+            "name": "upload_mbps",
+            "type": "number",
+            "title": {
+              "en": "Upload speed (Mbps)",
+              "fr": "Débit montant (Mbit/s)"
+            }
+          },
+          {
+            "name": "ping_ms",
+            "type": "number",
+            "title": {
+              "en": "Ping (ms)",
+              "fr": "Ping (ms)"
+            }
+          },
+          {
+            "name": "jitter_ms",
+            "type": "number",
+            "title": {
+              "en": "Jitter (ms)",
+              "fr": "Gigue (ms)"
+            }
+          },
+          {
+            "name": "completed_at",
+            "type": "string",
+            "title": {
+              "en": "Completed at",
+              "fr": "Terminé à"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -2181,6 +2238,65 @@
           }
         ],
         "id": "client_present_in_mesh"
+      },
+      {
+        "id": "client_speed_above",
+        "title": {
+          "en": "Client speed is above a threshold",
+          "fr": "Le débit d'un client dépasse un seuil"
+        },
+        "titleFormatted": {
+          "en": "[[client]] [[direction]] speed is above [[threshold]] KB/s",
+          "fr": "Le débit [[direction]] de [[client]] dépasse [[threshold]] Ko/s"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "title": {
+              "en": "Client",
+              "fr": "Client"
+            }
+          },
+          {
+            "name": "direction",
+            "type": "dropdown",
+            "title": {
+              "en": "Direction",
+              "fr": "Sens"
+            },
+            "values": [
+              {
+                "id": "download",
+                "title": {
+                  "en": "download",
+                  "fr": "descendant"
+                }
+              },
+              {
+                "id": "upload",
+                "title": {
+                  "en": "upload",
+                  "fr": "montant"
+                }
+              }
+            ]
+          },
+          {
+            "name": "threshold",
+            "type": "number",
+            "title": {
+              "en": "Threshold (KB/s)",
+              "fr": "Seuil (Ko/s)"
+            },
+            "min": 0
+          }
+        ]
       }
     ],
     "actions": [
@@ -2194,6 +2310,114 @@
           "en": "Block [[client]]",
           "fr": "Bloquer [[client]]"
         },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "title": {
+              "en": "Client",
+              "fr": "Client"
+            }
+          }
+        ]
+      },
+      {
+        "id": "get_client_statistics",
+        "title": {
+          "en": "Get a client's current statistics",
+          "fr": "Obtenir les statistiques actuelles d'un client"
+        },
+        "titleFormatted": {
+          "en": "Get statistics for [[client]]",
+          "fr": "Obtenir les statistiques de [[client]]"
+        },
+        "tokens": [
+          {
+            "name": "name",
+            "type": "string",
+            "title": {
+              "en": "Client name",
+              "fr": "Nom du client"
+            }
+          },
+          {
+            "name": "mac",
+            "type": "string",
+            "title": {
+              "en": "MAC address",
+              "fr": "Adresse MAC"
+            }
+          },
+          {
+            "name": "ipaddr",
+            "type": "string",
+            "title": {
+              "en": "IP address",
+              "fr": "Adresse IP"
+            }
+          },
+          {
+            "name": "online",
+            "type": "boolean",
+            "title": {
+              "en": "Online",
+              "fr": "En ligne"
+            }
+          },
+          {
+            "name": "deco_node",
+            "type": "string",
+            "title": {
+              "en": "Deco node",
+              "fr": "Nœud Deco"
+            }
+          },
+          {
+            "name": "connection_type",
+            "type": "string",
+            "title": {
+              "en": "Connection type",
+              "fr": "Type de connexion"
+            }
+          },
+          {
+            "name": "network",
+            "type": "string",
+            "title": {
+              "en": "Network",
+              "fr": "Réseau"
+            }
+          },
+          {
+            "name": "down_speed",
+            "type": "number",
+            "title": {
+              "en": "Download speed (KB/s)",
+              "fr": "Débit descendant (Ko/s)"
+            }
+          },
+          {
+            "name": "up_speed",
+            "type": "number",
+            "title": {
+              "en": "Upload speed (KB/s)",
+              "fr": "Débit montant (Ko/s)"
+            }
+          },
+          {
+            "name": "prioritized",
+            "type": "boolean",
+            "title": {
+              "en": "Prioritized",
+              "fr": "Prioritaire"
+            }
+          }
+        ],
         "args": [
           {
             "name": "device",
@@ -2283,6 +2507,86 @@
             "name": "device",
             "type": "device",
             "filter": "driver_id=tplink_deco"
+          }
+        ]
+      },
+      {
+        "id": "run_speedtest",
+        "title": {
+          "en": "Run an Internet speed test",
+          "fr": "Lancer un test de débit Internet"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          }
+        ]
+      },
+      {
+        "id": "set_radio_feature",
+        "title": {
+          "en": "Set a Wi-Fi radio feature",
+          "fr": "Régler une fonction radio Wi-Fi"
+        },
+        "titleFormatted": {
+          "en": "Set [[feature]] to [[state]]",
+          "fr": "Régler [[feature]] sur [[state]]"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "feature",
+            "type": "dropdown",
+            "title": {
+              "en": "Feature",
+              "fr": "Fonction"
+            },
+            "values": [
+              {
+                "id": "fastRoaming",
+                "title": {
+                  "en": "Fast roaming",
+                  "fr": "Roaming rapide"
+                }
+              },
+              {
+                "id": "beamforming",
+                "title": {
+                  "en": "Beamforming",
+                  "fr": "Beamforming"
+                }
+              }
+            ]
+          },
+          {
+            "name": "state",
+            "type": "dropdown",
+            "title": {
+              "en": "State",
+              "fr": "État"
+            },
+            "values": [
+              {
+                "id": "enabled",
+                "title": {
+                  "en": "Enabled",
+                  "fr": "Activé"
+                }
+              },
+              {
+                "id": "disabled",
+                "title": {
+                  "en": "Disabled",
+                  "fr": "Désactivé"
+                }
+              }
+            ]
           }
         ]
       },
@@ -2530,6 +2834,14 @@
         "connected_clients_iot",
         "connected_clients_mlo",
         "prioritized_clients",
+        "fast_roaming_enabled",
+        "beamforming_enabled",
+        "speedtest_status",
+        "measure_speedtest_download_mbps",
+        "measure_speedtest_upload_mbps",
+        "measure_speedtest_ping_ms",
+        "measure_speedtest_jitter_ms",
+        "last_speedtest_at",
         "signal_strength_6g",
         "backhaul_parent",
         "alarm_backhaul_degraded"
@@ -3368,6 +3680,19 @@
       "uiComponent": "sensor",
       "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
     },
+    "beamforming_enabled": {
+      "type": "boolean",
+      "title": {
+        "en": "Beamforming",
+        "fr": "Beamforming"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "uiQuickAction": false,
+      "insights": true,
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
     "connected_clients": {
       "type": "number",
       "title": {
@@ -3475,6 +3800,19 @@
       "setable": false,
       "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
     },
+    "fast_roaming_enabled": {
+      "type": "boolean",
+      "title": {
+        "en": "Fast roaming",
+        "fr": "Roaming rapide"
+      },
+      "getable": true,
+      "setable": true,
+      "uiComponent": "toggle",
+      "uiQuickAction": false,
+      "insights": true,
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
     "guest_wifi_enabled": {
       "type": "boolean",
       "title": {
@@ -3541,6 +3879,17 @@
       "getable": true,
       "setable": false,
       "icon": "./assets/capabilities/lan_ip_address.svg"
+    },
+    "last_speedtest_at": {
+      "type": "string",
+      "title": {
+        "en": "Last speed test",
+        "fr": "Dernier test de débit"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
     },
     "latest_firmware_version": {
       "type": "string",
@@ -3870,6 +4219,76 @@
       "uiComponent": "sensor",
       "icon": "/assets/capabilities/ram-memory-icon.svg"
     },
+    "measure_speedtest_download_mbps": {
+      "type": "number",
+      "title": {
+        "en": "Internet download speed",
+        "fr": "Débit Internet descendant"
+      },
+      "units": {
+        "en": "Mbps",
+        "fr": "Mbit/s"
+      },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "chartType": "spline",
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/cloud-arrow-down-svgrepo-com.svg"
+    },
+    "measure_speedtest_jitter_ms": {
+      "type": "number",
+      "title": {
+        "en": "Internet jitter",
+        "fr": "Gigue Internet"
+      },
+      "units": {
+        "en": "ms",
+        "fr": "ms"
+      },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "measure_speedtest_ping_ms": {
+      "type": "number",
+      "title": {
+        "en": "Internet ping",
+        "fr": "Ping Internet"
+      },
+      "units": {
+        "en": "ms",
+        "fr": "ms"
+      },
+      "decimals": 1,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "measure_speedtest_upload_mbps": {
+      "type": "number",
+      "title": {
+        "en": "Internet upload speed",
+        "fr": "Débit Internet montant"
+      },
+      "units": {
+        "en": "Mbps",
+        "fr": "Mbit/s"
+      },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "chartType": "spline",
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/cloud-up-arrow-svgrepo-com.svg"
+    },
     "measure_up_kilo_bytes_per_second": {
       "type": "number",
       "title": {
@@ -4089,6 +4508,17 @@
       "title": {
         "en": "Signal 6 GHz",
         "fr": "Signal 6 GHz"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "speedtest_status": {
+      "type": "string",
+      "title": {
+        "en": "Speed test status",
+        "fr": "État du test de débit"
       },
       "getable": true,
       "setable": false,

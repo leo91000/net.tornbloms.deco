@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Device } from 'homey';
-import decoapiwrapper, { AppLogger } from '../../lib/client';
+import DecoAPIWrapper from '../../lib/client';
 import {
   normalizePollIntervalSeconds,
   SingleFlightTask,
@@ -10,38 +10,33 @@ import { redactSensitiveData } from '../../lib/redaction';
 import { assertDangerousActionAllowed } from '../../lib/action-safety';
 import {
   DecoFeatureController,
+  RadioFeature,
+  RadioFeatureSnapshot,
+  SpeedTestSnapshot,
   WirelessNetworkKind,
   WirelessSnapshot,
 } from '../../lib/deco-features';
 import {
   buildBackhaulDiagnostic,
+  buildClientStatistics,
   countPrioritizedClients,
   normalizeClientMac,
   normalizePauseDurationMinutes,
 } from '../../lib/advanced-controls';
+import {
+  MeshClientEvent,
+  MeshTrackedClient,
+  NodeClientEvent,
+  TrackedClient,
+  reconcileMeshClients,
+  reconcileNodeClients,
+} from '../../lib/client-tracker';
+import { MasterFeatureCoordinator } from '../../lib/master-feature-coordinator';
+import { DecoPollReader } from '../../lib/deco-poll-reader';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
-import {
-  DeviceListResponse,
-  PerformanceResponse,
-  WANResponse,
-  ClientListResponse,
-  InternetResponse,
-  ErrorResponse,
-  LteIntfCfgResponse,
-  LteLinkCfgResponse,
-} from '../../lib/client';
+import { DecoClient, LteIntfCfgResponse, LteLinkCfgResponse } from '../../lib/client';
 
-// How long to retain a client in the tracked list without being seen (30 days)
-const TRACKED_CLIENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-// Mesh-wide "left" events are debounced by this many consecutive missed master polls
-// (≈60s at the default 30s interval) to absorb the brief gap that can occur while a
-// client re-associates with a different node during normal roaming.
-const MESH_LEFT_GRACE_POLLS = 2;
-
-const WIRELESS_POLL_INTERVAL_MS = 5 * 60 * 1000;
-const FIRMWARE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const MASTER_FEATURE_CAPABILITIES = [
   'wan_ipv4_uptime',
   'wifi_main_ssid',
@@ -55,7 +50,17 @@ const MASTER_FEATURE_CAPABILITIES = [
   'alarm_firmware_update',
   'latest_firmware_version',
   'prioritized_clients',
+  'fast_roaming_enabled',
+  'beamforming_enabled',
+  'speedtest_status',
+  'measure_speedtest_download_mbps',
+  'measure_speedtest_upload_mbps',
+  'measure_speedtest_ping_ms',
+  'measure_speedtest_jitter_ms',
+  'last_speedtest_at',
 ];
+const PERFORMANCE_POLL_INTERVAL_MS = 5 * 60 * 1000;
+const PERSISTENCE_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000;
 
 function formatUptime(rawSeconds: unknown): string {
   const totalSeconds = Number(rawSeconds);
@@ -66,25 +71,8 @@ function formatUptime(rawSeconds: unknown): string {
   return `${days}d ${hours}h ${minutes}m`;
 }
 
-export interface TrackedClient {
-  mac: string;
-  name: string;       // decoded (human-readable)
-  ip: string;
-  type: string;
-  online: boolean;    // currently online on this Deco node
-  lastSeen: number;   // unix ms — last time seen online
-  firstSeen: number;  // unix ms — first time seen
-  access_host?: string; // MAC of the Deco node this client is connected to
-  prioritized?: boolean;
-  priorityRemainingSeconds?: number;
-}
-
 interface PausedClient {
   restoreAt: number;
-}
-
-export interface MeshTrackedClient extends TrackedClient {
-  missedPolls: number; // consecutive master polls without seeing this client anywhere in the mesh
 }
 
 /**
@@ -111,24 +99,27 @@ class TplinkDecoDevice extends Device {
   private startupDelayTimerId: ReturnType<typeof setTimeout> | null = null;
   private pauseTimerIds = new Map<string, ReturnType<typeof setTimeout>>();
   private pausedClients: Record<string, PausedClient> = {};
-  private api: decoapiwrapper | any;
+  private api!: DecoAPIWrapper;
+  private pollReader!: DecoPollReader;
   private featureController: DecoFeatureController | undefined;
-  private lastWirelessPollAt = 0;
-  private lastFirmwarePollAt = 0;
+  private masterFeatureCoordinator: MasterFeatureCoordinator | undefined;
+  private lastPerformancePollAt = 0;
+  private lastTrackedClientsPersistAt = 0;
+  private lastMeshClientsPersistAt = 0;
   private wirelessSnapshot: WirelessSnapshot | undefined;
   private configuredAsMaster: boolean | undefined;
   private apiRoleReported = false;
   private savedBackhaulDegraded: boolean | undefined;
 
   connected = false; // Connection status
-  clients: any[] = []; // Currently online clients (raw, for state comparison)
+  clients: DecoClient[] = []; // Currently online clients (raw, for state comparison)
 
   // Persistent client history — all clients seen in the last 30 days.
   // Keyed by MAC address. Public so driver.ts can use it for autocomplete.
   trackedClients: Record<string, TrackedClient> = {};
 
   // Mesh-wide client history — only populated on the master node, sourced from the
-  // driver's merged per-node client lists (see getMeshClientList). Public so driver.ts
+  // driver's merged per-node client snapshot. Public so driver.ts
   // can read it for the global mesh-presence flow cards.
   meshTrackedClients: Record<string, MeshTrackedClient> = {};
 
@@ -143,15 +134,6 @@ class TplinkDecoDevice extends Device {
   // Guards the one-time "Auth method: ... model=... fw=..." report so it only
   // fires once per device per app run, not on every poll cycle.
   private authMethodReported = false;
-
-  // Returns a logger that routes through the Homey SDK so output appears
-  // in diagnostics reports as well as the real-time developer tools.
-  private makeLogger(): AppLogger {
-    return {
-      log: (...args: any[]) => this.log(...args),
-      error: (...args: any[]) => this.error(...args),
-    };
-  }
 
   /**
    * Initializes the TP-Link Deco device.
@@ -198,8 +180,12 @@ class TplinkDecoDevice extends Device {
         // All device instances on the same master share ONE session —
         // the Deco only allows one active login at a time.
         const driver = this.driver as TplinkDecoDriver;
-        this.api = driver.getOrCreateSharedApi(settings.hostname, this.makeLogger());
+        this.api = driver.getOrCreateSharedApi(settings.hostname);
+        this.pollReader = new DecoPollReader(this.api, {
+          error: (message, error) => this.error(message, error),
+        });
         this.featureController = new DecoFeatureController(this.api);
+        this.masterFeatureCoordinator = this.createMasterFeatureCoordinator(this.featureController);
         this.restoreClientPauseTimers();
 
         // Restore the previously-detected content-type preference so the first
@@ -282,6 +268,7 @@ class TplinkDecoDevice extends Device {
               clearTimeout(this.pollTimerId);
               this.pollTimerId = null;
             }
+            this.masterFeatureCoordinator?.stop();
           } else {
             const resumedInterval = normalizePollIntervalSeconds(
               this.getSettings().timeoutSeconds,
@@ -295,6 +282,8 @@ class TplinkDecoDevice extends Device {
           this.registerWirelessCapabilityListener('guest_wifi_enabled', 'guest');
           this.registerWirelessCapabilityListener('iot_wifi_enabled', 'iot');
           this.registerWirelessCapabilityListener('mlo_wifi_enabled', 'mlo');
+          this.registerRadioCapabilityListener('fast_roaming_enabled', 'fastRoaming');
+          this.registerRadioCapabilityListener('beamforming_enabled', 'beamforming');
         }
 
         if (this.getCapabilityValue('polling_active') === false) {
@@ -335,6 +324,12 @@ class TplinkDecoDevice extends Device {
     if (!this.hasCapability(capability)) return;
     this.registerCapabilityListener(capability, async (value) => {
       await this.setWirelessNetworkEnabled(kind, Boolean(value));
+    });
+  }
+
+  private registerRadioCapabilityListener(capability: string, feature: RadioFeature): void {
+    this.registerCapabilityListener(capability, async (value) => {
+      await this.setRadioFeatureEnabled(feature, Boolean(value));
     });
   }
 
@@ -386,7 +381,6 @@ class TplinkDecoDevice extends Device {
     try {
       const snapshot = await this.featureController.setWirelessEnabled(kind, enabled);
       await this.applyWirelessSnapshot(snapshot);
-      this.lastWirelessPollAt = Date.now();
       this.log(`${kind} Wi-Fi ${enabled ? 'enabled' : 'disabled'} by user`);
     } catch (error) {
       if (previous) await this.applyWirelessSnapshot(previous);
@@ -404,6 +398,47 @@ class TplinkDecoDevice extends Device {
     await this.cancelClientPause(mac);
     this.log(`Client internet access ${allowed ? 'restored' : 'blocked'} for ${mac}`);
     await this.refreshNow();
+  }
+
+  public async setRadioFeatureEnabled(feature: RadioFeature, enabled: boolean): Promise<void> {
+    if (this.configuredAsMaster === false) {
+      throw new Error('Radio features can only be changed from the main Deco device.');
+    }
+    assertDangerousActionAllowed(this.getSettings());
+    if (!this.featureController) throw new Error('Deco feature controller is not initialized.');
+    if (!this.connected && !await this.reAuthenticate()) {
+      throw new Error('Could not authenticate with the Deco.');
+    }
+    const snapshot = await this.featureController.setRadioFeature(feature, enabled);
+    await this.applyRadioFeatureSnapshot(feature, snapshot);
+    this.log(`${feature} ${enabled ? 'enabled' : 'disabled'} by user`);
+  }
+
+  public async runInternetSpeedTest(): Promise<void> {
+    if (this.configuredAsMaster === false) {
+      throw new Error('Internet speed tests can only be started from the main Deco device.');
+    }
+    assertDangerousActionAllowed(this.getSettings());
+    if (!this.masterFeatureCoordinator) throw new Error('Deco feature coordinator is not initialized.');
+    if (!this.connected && !await this.reAuthenticate()) {
+      throw new Error('Could not authenticate with the Deco.');
+    }
+    await this.masterFeatureCoordinator.startSpeedTest();
+    this.log('Internet speed test started by user');
+  }
+
+  public getClientStatistics(mac: string): ReturnType<typeof buildClientStatistics> {
+    const normalizedMac = normalizeClientMac(mac);
+    const source = this.configuredAsMaster && Object.keys(this.meshTrackedClients).length > 0
+      ? this.meshTrackedClients
+      : this.trackedClients;
+    const client = source[normalizedMac]
+      ?? source[mac]
+      ?? Object.values(source).find((candidate) => (
+        candidate.mac?.replace(/:/g, '-').toUpperCase() === normalizedMac
+      ));
+    if (!client) throw new Error(`Client ${normalizedMac} has not been seen by this Deco.`);
+    return buildClientStatistics(client);
   }
 
   public async pauseClientInternetAccess(mac: string, durationMinutes: unknown): Promise<void> {
@@ -486,9 +521,79 @@ class TplinkDecoDevice extends Device {
     if (!this.connected && !await this.reAuthenticate()) {
       throw new Error('Could not authenticate with the Deco.');
     }
-    this.lastWirelessPollAt = 0;
-    this.lastFirmwarePollAt = 0;
+    this.masterFeatureCoordinator?.resetPollSchedule();
+    this.lastPerformancePollAt = 0;
     await this.runPollCycle();
+  }
+
+  private async applyRadioFeatureSnapshot(
+    feature: RadioFeature,
+    snapshot: RadioFeatureSnapshot,
+  ): Promise<void> {
+    const capability = feature === 'fastRoaming' ? 'fast_roaming_enabled' : 'beamforming_enabled';
+    if (!snapshot.supported) {
+      if (this.hasCapability(capability)) await this.removeCapability(capability);
+      return;
+    }
+    if (!this.hasCapability(capability)) await this.addCapability(capability);
+    await this.updateCapability(capability, snapshot.enabled);
+  }
+
+  private createMasterFeatureCoordinator(
+    controller: DecoFeatureController,
+  ): MasterFeatureCoordinator {
+    return new MasterFeatureCoordinator(
+      controller,
+      {
+        wireless: (snapshot) => this.applyWirelessSnapshot(snapshot),
+        radio: (feature, snapshot) => this.applyRadioFeatureSnapshot(feature, snapshot),
+        firmware: async (snapshot) => {
+          await this.updateCapability('alarm_firmware_update', snapshot.available);
+          await this.updateCapability('latest_firmware_version', snapshot.version || 'Up to date');
+        },
+        speedTest: {
+          apply: (snapshot) => this.applySpeedTestSnapshot(snapshot),
+          completed: async (snapshot) => {
+            await this.homey.flow.getDeviceTriggerCard('speedtest_completed').trigger(this, {
+              download_mbps: snapshot.downMbps,
+              upload_mbps: snapshot.upMbps,
+              ping_ms: snapshot.pingMs,
+              jitter_ms: snapshot.jitterMs,
+              completed_at: snapshot.lastRunAt,
+            });
+          },
+          failed: (error) => this.error('Failed to poll active speed test', error),
+        },
+        failed: (feature, error) => this.error(`Failed to retrieve ${feature}`, error),
+      },
+      (task) => this.pollGate.run(task),
+    );
+  }
+
+  private async applySpeedTestSnapshot(snapshot: SpeedTestSnapshot): Promise<void> {
+    const capabilities = [
+      'speedtest_status',
+      'measure_speedtest_download_mbps',
+      'measure_speedtest_upload_mbps',
+      'measure_speedtest_ping_ms',
+      'measure_speedtest_jitter_ms',
+      'last_speedtest_at',
+    ];
+    if (!snapshot.supported) {
+      for (const capability of capabilities) {
+        if (this.hasCapability(capability)) await this.removeCapability(capability);
+      }
+      return;
+    }
+    for (const capability of capabilities) {
+      if (!this.hasCapability(capability)) await this.addCapability(capability);
+    }
+    await this.updateCapability('speedtest_status', snapshot.status);
+    await this.updateCapability('measure_speedtest_download_mbps', snapshot.downMbps);
+    await this.updateCapability('measure_speedtest_upload_mbps', snapshot.upMbps);
+    await this.updateCapability('measure_speedtest_ping_ms', snapshot.pingMs);
+    await this.updateCapability('measure_speedtest_jitter_ms', snapshot.jitterMs);
+    await this.updateCapability('last_speedtest_at', snapshot.lastRunAt || '–');
   }
 
   private async applyWirelessSnapshot(snapshot: WirelessSnapshot): Promise<void> {
@@ -568,10 +673,14 @@ class TplinkDecoDevice extends Device {
     if (changedKeys.includes('hostname') || changedKeys.includes('password')) {
       try {
         const driver = this.driver as TplinkDecoDriver;
-        this.api = driver.getOrCreateSharedApi(newSettings.hostname, this.makeLogger());
+        this.api = driver.getOrCreateSharedApi(newSettings.hostname);
+        this.pollReader = new DecoPollReader(this.api, {
+          error: (message, error) => this.error(message, error),
+        });
         this.featureController = new DecoFeatureController(this.api);
-        this.lastWirelessPollAt = 0;
-        this.lastFirmwarePollAt = 0;
+        this.masterFeatureCoordinator?.stop();
+        this.masterFeatureCoordinator = this.createMasterFeatureCoordinator(this.featureController);
+        this.lastPerformancePollAt = 0;
         // Clear the stored content-type preference for new credentials — authenticate()
         // tries every contentType/bodyFormat/passwordMode combo regardless of where
         // forceJsonContentType currently sits, so there's no "common case" to bias
@@ -580,7 +689,6 @@ class TplinkDecoDevice extends Device {
         this.connected = await driver.sharedAuthenticate(
           newSettings.hostname,
           newSettings.password,
-          this.makeLogger(),
           true,
         );
         if (this.connected) {
@@ -629,6 +737,7 @@ class TplinkDecoDevice extends Device {
       this.log('Cleared timer for device metrics update');
       this.pollTimerId = null;
     }
+    this.masterFeatureCoordinator?.stop();
     for (const timer of this.pauseTimerIds.values()) clearTimeout(timer);
     this.pauseTimerIds.clear();
     if (Object.keys(this.pausedClients).length > 0 && !this.connected) {
@@ -687,7 +796,6 @@ class TplinkDecoDevice extends Device {
       this.connected = await driver.sharedAuthenticate(
         settings.hostname,
         settings.password,
-        this.makeLogger(),
         force,
       );
       if (this.connected) {
@@ -716,31 +824,30 @@ class TplinkDecoDevice extends Device {
       const settings = this.getSettings();
       const devicedata = this.getData();
 
-      // Retrieve device list from the API
-      const deviceList = await tryApiCall<DeviceListResponse>(
-        () =>
-          this.api.custom(
-            '/admin/device',
-            { form: 'device_list' },
-            this.readBody,
-          ),
-        (error) => this.error('Failed to retrieve Device Data', error),
-      );
-      this.debug(`${settings.hostname} onInit():deviceList: `, deviceList);
-
-      // If the API returns an error or device_list is missing (empty stok returns { error_code:0, result:{} }),
-      // the session has expired or was never established — re-auth and wait for next poll
-      if (!deviceList || deviceList.error_code !== 0 || !deviceList.result?.device_list) {
+      const performanceDue = Date.now() - this.lastPerformancePollAt
+        >= PERFORMANCE_POLL_INTERVAL_MS;
+      const poll = await this.pollReader.read(devicedata.id, performanceDue);
+      if (poll.status === 'authentication-required') {
         const reauthenticated = await this.reAuthenticate(true);
         if (!reauthenticated) await this.markPollFailed();
         return;
       }
+      if (poll.status === 'device-missing') {
+        const reason = poll.nodes.length === 0
+          ? 'Deco returned an empty device_list'
+          : `Paired Deco ${devicedata.id} was not present in device_list`;
+        this.error(reason);
+        await this.markPollFailed();
+        return;
+      }
+
+      if (poll.isMaster && performanceDue) this.lastPerformancePollAt = Date.now();
+      const deviceList = { result: { device_list: poll.nodes } };
+      this.debug(`${settings.hostname} poll snapshot: `, poll);
 
       if (deviceList.result.device_list.length > 0) {
         // Filter the device list to find the current device
-        const device = deviceList.result.device_list.find(
-          (d) => d.mac === devicedata.id,
-        );
+        const device = poll.node;
 
         this.debug(`${settings.hostname} onInit():Filtered device: `, device);
 
@@ -775,7 +882,7 @@ class TplinkDecoDevice extends Device {
           }
 
           // Update device settings with retrieved information
-          await this.setSettings({
+          await this.updateSettingsIfChanged({
             hardware_ver: device.hardware_ver,
             software_ver: device.software_ver,
             role: device.role,
@@ -786,7 +893,7 @@ class TplinkDecoDevice extends Device {
             'alarm_group_state',
             device.group_status.toLowerCase() !== 'connected',
           );
-          await this.updateCapability('device_role', settings.role);
+          await this.updateCapability('device_role', device.role);
           await this.updateCapability('lan_ipv4_ipaddr', device.device_ip || settings.ip || settings.hostname);
 
           // Signal strength and backhaul are only meaningful on satellite nodes.
@@ -839,70 +946,25 @@ class TplinkDecoDevice extends Device {
           // Fetch performance metrics — only available on master node
           let resultCpuUsage: number | null = null;
           let resultMemUsage: number | null = null;
-          if (isMaster) {
-            const performance = await tryApiCall<PerformanceResponse>(
-              () =>
-                this.api.custom(
-                  '/admin/network',
-                  { form: 'performance' },
-                  this.readBody,
-                ),
-              (error) => this.error('Failed to retrieve Performance Metrics', error),
-            );
-            if (performance?.error_code === 0 && performance.result) {
-              resultCpuUsage = Math.round(Number(performance.result.cpu_usage) * 100);
-              resultMemUsage = Math.round(Number(performance.result.mem_usage) * 100);
+          if (poll.performance?.error_code === 0 && poll.performance.result) {
+              resultCpuUsage = Math.round(Number(poll.performance.result.cpu_usage) * 100);
+              resultMemUsage = Math.round(Number(poll.performance.result.mem_usage) * 100);
               await this.updateCapability('measure_cpu_usage', resultCpuUsage);
               await this.updateCapability('measure_mem_usage', resultMemUsage);
-            }
           }
 
-          if (
-            isMaster
-            && this.featureController
-            && Date.now() - this.lastWirelessPollAt >= WIRELESS_POLL_INTERVAL_MS
-          ) {
-            this.lastWirelessPollAt = Date.now();
-            try {
-              const wireless = await this.featureController.readWireless();
-              await this.applyWirelessSnapshot(wireless);
-            } catch (error) {
-              this.error('Failed to retrieve wireless feature state', error);
-            }
-          }
-
-          if (
-            isMaster
-            && this.featureController
-            && Date.now() - this.lastFirmwarePollAt >= FIRMWARE_POLL_INTERVAL_MS
-          ) {
-            this.lastFirmwarePollAt = Date.now();
-            try {
-              const firmware = await this.featureController.checkFirmwareUpdate(devicedata.id);
-              await this.updateCapability('alarm_firmware_update', firmware.available);
-              await this.updateCapability('latest_firmware_version', firmware.version || 'Up to date');
-            } catch (error) {
-              this.error('Failed to check firmware updates', error);
-            }
+          if (isMaster && this.masterFeatureCoordinator) {
+            await this.masterFeatureCoordinator.poll(devicedata.id);
           }
 
           // Fetch WAN IP address
-          if (device.role.toLowerCase() === 'master') {
-            const wanResponse = await tryApiCall<WANResponse>(
-              () =>
-                this.api.custom(
-                  '/admin/network',
-                  { form: 'wan_ipv4' },
-                  this.readBody,
-                ),
-              (error) => this.error('Failed to retrieve WAN IPv4 Data', error),
-            );
-
+          if (isMaster) {
+            const wanResponse = poll.wan;
             if (wanResponse?.error_code === 0) {
               const wanIpAddress = wanResponse.result?.wan?.ip_info?.ip ?? '';
               await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
-              const uptime = (wanResponse.result?.wan as any)?.uptime
-                ?? (wanResponse.result?.wan?.ip_info as any)?.uptime;
+              const uptime = wanResponse.result?.wan?.uptime
+                ?? wanResponse.result?.wan?.ip_info?.uptime;
               if (uptime === undefined || uptime === null) {
                 if (this.hasCapability('wan_ipv4_uptime')) {
                   await this.removeCapability('wan_ipv4_uptime');
@@ -917,15 +979,7 @@ class TplinkDecoDevice extends Device {
           }
           // Fetch Internet status — only available on master node
           if (isMaster) {
-            const internetResponse = await tryApiCall<InternetResponse>(
-              () =>
-                this.api.custom(
-                  '/admin/network',
-                  { form: 'internet' },
-                  this.readBody,
-                ),
-              (error) => this.error('Failed to retrieve Internet Status', error),
-            );
+            const internetResponse = poll.internet;
 
             // Only update WAN alarm when we got a real response (not the safeApiCall fallback).
             // If the call failed/timed-out, error_code is 1 (our default) and we leave
@@ -935,7 +989,7 @@ class TplinkDecoDevice extends Device {
               // 5G — the wired WAN port is unused so internet.ipv4.inet_status is empty /
               // disconnected even when online.  device_list.inet_status is the reliable
               // source for actual internet connectivity on these models.
-              const ipv4InetStatus = (device as any).imei
+              const ipv4InetStatus = device.imei
                 ? device.inet_status
                 : (internetResponse?.result?.ipv4?.inet_status ?? '');
               await this.handleWanStateChange(
@@ -958,49 +1012,16 @@ class TplinkDecoDevice extends Device {
             }
           }
 
-          // Fetch client list — use this device's MAC so each node only reports its own clients,
-          // preventing duplicate flow triggers when multiple Deco units are paired.
-          const request = {
-            operation: 'read',
-            params: {
-              device_mac: devicedata.id,
-            },
-          };
-          const jsonRequest = JSON.stringify(request);
-          const clientListResponse = await tryApiCall<ClientListResponse>(
-            () =>
-              this.api.custom(
-                '/admin/client',
-                { form: 'client_list' },
-                Buffer.from(jsonRequest),
-              ),
-            (error) => this.error('Failed to retrieve Client List', error),
-          );
-          // let clientListResponse = (await this.api.clientList().catch((e) => {
-          //   this.error('Failed to retrieve client list', e);
-          //   this.homey.app.error('Failed to retrieve client list', e);
-          //   return {
-          //     error_code: 1,
-          //     result: {
-          //       client_list: [],
-          //     },
-          //   }; // Return default values in case of error
-          // })) as ClientListResponse;
-
-          // Some Deco firmware returns client_list as {} instead of [] when
-          // there are no connected clients. Use Array.isArray to handle all
-          // non-array shapes (null, undefined, {}, 0, …).
-          if (!clientListResponse || clientListResponse.error_code !== 0) {
+          if (!poll.clientsAvailable) {
             this.log('Client list unavailable; preserving the previous client and presence state');
             await this.markPollSuccessful();
             return;
           }
-          const rawClientList = clientListResponse.result?.client_list;
-          const clientList = Array.isArray(rawClientList) ? rawClientList : [];
+          const clientList = poll.clients;
 
           // Feed this node's own client list into the driver's shared cache so the
-          // master can build a mesh-wide view without a separate API call (see
-          // getMeshClientList below — replaces the old device_mac: 'default' request,
+          // master can build a mesh-wide view without a separate API call. This
+          // replaces the old device_mac: 'default' request,
           // which returned error_code=1 across ~14 models in our field telemetry).
           if (devicedata.id) {
             (this.driver as TplinkDecoDriver).setNodeClientList(settings.hostname, devicedata.id, clientList);
@@ -1009,7 +1030,7 @@ class TplinkDecoDevice extends Device {
           const clientNames = clientList
             .map((client) => (this.driver as TplinkDecoDriver).decodeNickname(client.name))
             .join(', ');
-          await this.setSettings({ clients: clientNames });
+          await this.updateSettingsIfChanged({ clients: clientNames });
           // Update capability with the number of connected clients
           await this.updateCapability('connected_clients', clientList.length);
           const interfaceCounts = { guest: 0, iot: 0, mlo: 0 };
@@ -1026,9 +1047,10 @@ class TplinkDecoDevice extends Device {
           // client_node_changed token shows a human-readable name.
           const decoNodeNames = new Map<string, string>();
           for (const d of deviceList.result.device_list) {
-            if (d.mac) {
-              const nick = (this.driver as TplinkDecoDriver).resolveNickname(d);
-              decoNodeNames.set(d.mac.toUpperCase(), nick ? `${d.device_model} - ${nick}` : (d.device_model || d.mac));
+            const nick = (this.driver as TplinkDecoDriver).resolveNickname(d);
+            const displayName = nick ? `${d.device_model} - ${nick}` : (d.device_model || d.mac);
+            for (const identifier of [d.mac, d.device_id]) {
+              if (identifier) decoNodeNames.set(identifier.toUpperCase(), displayName);
             }
           }
 
@@ -1039,7 +1061,7 @@ class TplinkDecoDevice extends Device {
           // device_mac: 'default' request, which returned error_code=1 across a
           // dozen+ models in our field telemetry (other Deco integrations document
           // 'default' as supported, so this may be firmware/model-specific rather
-          // than universally invalid — see TplinkDecoDriver.nodeClientLists for
+          // than universally invalid — see TplinkDecoDriver.meshClientCache for
           // details). Build the mesh-wide view instead from the per-node client
           // lists every device already fetches for itself above (device_mac: <own
           // MAC>, confirmed working everywhere) — no extra API call needed either way.
@@ -1092,7 +1114,7 @@ class TplinkDecoDevice extends Device {
           }
 
           // LTE data usage — auto-detected: capabilities are added/removed based on API response
-          await this.updateLteMetrics((device as any).imei as string | undefined);
+          await this.updateLteMetrics(device.imei);
           await this.markPollSuccessful();
         } else {
           this.error(`Paired Deco ${devicedata.id} was not present in device_list`);
@@ -1217,251 +1239,124 @@ class TplinkDecoDevice extends Device {
     }
   }
 
-  /**
-   * Handles client state changes by comparing the current client list with the previous one.
-   * Triggers flow cards when clients go online or offline.
-   * Also maintains the persistent 30-day trackedClients history.
-   * @param clientList - The current list of clients (online on this node right now).
-   * @param decoNodeNames - Map of Deco node MAC (uppercase) → friendly display name.
-   */
-  private async handleClientStateChanges(clientList: any[], decoNodeNames: Map<string, string> = new Map()) {
+  private async handleClientStateChanges(
+    clientList: DecoClient[],
+    decoNodeNames: Map<string, string> = new Map(),
+  ): Promise<void> {
     try {
-      const clientStateFlow = this.homey.flow.getDeviceTriggerCard('client_state_changed');
-      const anyClientStateFlow = this.homey.flow.getDeviceTriggerCard('any_client_state_changed');
-      const clientFirstSeenFlow = this.homey.flow.getDeviceTriggerCard('client_first_seen');
-      const clientNodeChangedFlow = this.homey.flow.getDeviceTriggerCard('client_node_changed');
-      const clientPriorityChangedFlow = this.homey.flow.getDeviceTriggerCard('client_priority_changed');
+      const result = reconcileNodeClients({
+        tracked: this.trackedClients,
+        previousClients: this.clients,
+        clients: clientList,
+        nodeNames: decoNodeNames,
+        decodeName: (name) => (this.driver as TplinkDecoDriver).decodeNickname(name),
+      });
+      this.trackedClients = result.tracked;
+      this.clients = result.currentClients;
       const now = Date.now();
-
-      const resolveNodeName = (accessHost: string | undefined): string => {
-        if (!accessHost) return '';
-        return decoNodeNames.get(accessHost.toUpperCase()) ?? accessHost;
-      };
-
-      // Maps for quick lookup
-      const lastClientsMap = new Map(
-        this.clients?.map((client) => [client.mac, client]),
-      );
-      const currentClientsMap = new Map(
-        clientList.map((client) => [client.mac, client]),
-      );
-
-      // Clients that have come online
-      for (const [mac, client] of currentClientsMap) {
-        const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
-        const isFirstSeen = !this.trackedClients[mac];
-        const previousAccessHost = this.trackedClients[mac]?.access_host;
-        const previousPriority = this.trackedClients[mac]?.prioritized;
-        const currentAccessHost: string = client.access_host ?? '';
-        const prioritized = client.enable_priority === true;
-
-        const tokens = {
-          name: decodedName,
-          ipaddr: client.ip,
-          mac: client.mac,
-          type: client.client_type ?? '',
-          connection_type: client.connection_type ?? '',
-          interface: client.interface ?? '',
-          down_speed: client.down_speed ?? 0,
-          up_speed: client.up_speed ?? 0,
-          prioritized,
-          priority_remaining_seconds: client.remain_time ?? 0,
-        };
-
-        // Update persistent history
-        this.trackedClients[mac] = {
-          mac: client.mac,
-          name: decodedName,
-          ip: client.ip,
-          type: client.client_type ?? '',
-          online: true,
-          lastSeen: now,
-          firstSeen: this.trackedClients[mac]?.firstSeen ?? now,
-          access_host: currentAccessHost,
-          prioritized,
-          priorityRemainingSeconds: client.remain_time ?? 0,
-        };
-
-        if (!lastClientsMap.has(mac)) {
-          // Client came online — fire specific and generic cards
-          await clientStateFlow.trigger(this, tokens, {
-            status: 'online',
-            client: tokens,
-          });
-          await anyClientStateFlow.trigger(this, { ...tokens, status: 'online' }, { status: 'online' });
-
-          // Fire first-seen card if this client has never appeared before
-          if (isFirstSeen) {
-            await clientFirstSeenFlow.trigger(this, {
-              name: decodedName,
-              mac: client.mac,
-              ipaddr: client.ip,
-              connection_type: client.connection_type ?? '',
-            });
-          }
-        }
-
-        // Fire node-changed card if the client moved to a different Deco node
-        if (
-          !isFirstSeen &&
-          currentAccessHost &&
-          previousAccessHost &&
-          currentAccessHost.toUpperCase() !== previousAccessHost.toUpperCase()
-        ) {
-          await clientNodeChangedFlow.trigger(
-            this,
-            {
-              name: decodedName,
-              mac: client.mac,
-              deco_node: resolveNodeName(currentAccessHost),
-              previous_node: resolveNodeName(previousAccessHost),
-            },
-            { mac: client.mac },
-          );
-        }
-
-        if (!isFirstSeen && previousPriority !== undefined && previousPriority !== prioritized) {
-          await clientPriorityChangedFlow.trigger(
-            this,
-            {
-              name: decodedName,
-              mac: client.mac,
-              prioritized,
-              priority_remaining_seconds: client.remain_time ?? 0,
-            },
-            { mac: client.mac, prioritized },
-          );
-        }
+      if (
+        result.events.length > 0
+        || now - this.lastTrackedClientsPersistAt >= PERSISTENCE_CHECKPOINT_INTERVAL_MS
+      ) {
+        await this.setStoreValue('trackedClients', this.trackedClients);
+        this.lastTrackedClientsPersistAt = now;
       }
-
-      // Clients that have gone offline
-      for (const [mac, client] of lastClientsMap) {
-        if (!currentClientsMap.has(mac)) {
-          const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
-          const tokens = {
-            name: decodedName,
-            ipaddr: client.ip,
-            mac: client.mac,
-            type: client.client_type ?? '',
-            connection_type: client.connection_type ?? '',
-            interface: client.interface ?? '',
-            down_speed: 0,
-            up_speed: 0,
-          };
-
-          // Mark as offline in persistent history (keep lastSeen from when they were last online)
-          if (this.trackedClients[mac]) {
-            this.trackedClients[mac].online = false;
-          }
-
-          await clientStateFlow.trigger(this, tokens, {
-            status: 'offline',
-            client: tokens,
-          });
-          await anyClientStateFlow.trigger(this, { ...tokens, status: 'offline' }, { status: 'offline' });
-        }
-      }
-
-      // Prune clients not seen for more than 30 days
-      for (const [mac, tracked] of Object.entries(this.trackedClients)) {
-        if (!tracked.online && now - tracked.lastSeen > TRACKED_CLIENT_TTL_MS) {
-          delete this.trackedClients[mac];
-        }
-      }
-
-      // Persist updated history
-      await this.setStoreValue('trackedClients', this.trackedClients);
-
-      // Update the current online list for the next comparison
-      this.clients = clientList;
-    } catch (err) {
-      this.error('Failed to handle client state changes', err);
+      await this.emitNodeClientEvents(result.events);
+    } catch (error) {
+      this.error('Failed to handle client state changes', error);
     }
   }
 
-  /**
-   * Handles mesh-wide presence by comparing the current mesh-wide client list (merged
-   * from each node's own client list, master only) against the persistent
-   * meshTrackedClients history. Fires the global client_joined_mesh / client_left_mesh
-   * triggers.
-   *
-   * "Left" is debounced by MESH_LEFT_GRACE_POLLS consecutive misses so a client that
-   * briefly drops out while re-associating with a different node during normal roaming
-   * does not produce a false leave/join pair.
-   * @param meshClientList - Every client currently connected anywhere in the mesh.
-   * @param decoNodeNames - Map of Deco node MAC (uppercase) → friendly display name.
-   */
-  private async handleMeshPresence(meshClientList: any[], decoNodeNames: Map<string, string> = new Map()) {
-    try {
-      const joinedFlow = this.homey.flow.getTriggerCard('client_joined_mesh');
-      const leftFlow = this.homey.flow.getTriggerCard('client_left_mesh');
-      const now = Date.now();
-
-      const currentClientsMap = new Map(
-        meshClientList.map((client) => [client.mac, client]),
+  private async emitNodeClientEvents(events: NodeClientEvent[]): Promise<void> {
+    for (const event of events) {
+      if (event.type === 'state') {
+        await this.homey.flow.getDeviceTriggerCard('client_state_changed').trigger(
+          this,
+          event.tokens,
+          { status: event.status, client: event.tokens },
+        );
+        await this.homey.flow.getDeviceTriggerCard('any_client_state_changed').trigger(
+          this,
+          { ...event.tokens, status: event.status },
+          { status: event.status },
+        );
+        continue;
+      }
+      if (event.type === 'first-seen') {
+        await this.homey.flow.getDeviceTriggerCard('client_first_seen').trigger(this, event.tokens);
+        continue;
+      }
+      if (event.type === 'node-changed') {
+        await this.homey.flow.getDeviceTriggerCard('client_node_changed').trigger(
+          this,
+          {
+            name: event.name,
+            mac: event.mac,
+            deco_node: event.node,
+            previous_node: event.previousNode,
+          },
+          { mac: event.mac },
+        );
+        continue;
+      }
+      await this.homey.flow.getDeviceTriggerCard('client_priority_changed').trigger(
+        this,
+        {
+          name: event.name,
+          mac: event.mac,
+          prioritized: event.prioritized,
+          priority_remaining_seconds: event.remainingSeconds,
+        },
+        { mac: event.mac, prioritized: event.prioritized },
       );
+    }
+  }
 
-      // Clients present now — joined if they weren't considered online before
-      for (const [mac, client] of currentClientsMap) {
-        const decodedName = (this.driver as TplinkDecoDriver).decodeNickname(client.name);
-        const wasOnline = this.meshTrackedClients[mac]?.online === true;
-        const currentAccessHost: string = client.access_host ?? '';
-
-        const tokens = {
-          name: decodedName,
-          ipaddr: client.ip,
-          mac: client.mac,
-          connection_type: client.connection_type ?? '',
-          deco_node: decoNodeNames.get(currentAccessHost.toUpperCase()) ?? currentAccessHost,
-        };
-
-        this.meshTrackedClients[mac] = {
-          mac: client.mac,
-          name: decodedName,
-          ip: client.ip,
-          type: client.client_type ?? '',
-          online: true,
-          lastSeen: now,
-          firstSeen: this.meshTrackedClients[mac]?.firstSeen ?? now,
-          access_host: currentAccessHost,
-          prioritized: client.enable_priority === true,
-          priorityRemainingSeconds: client.remain_time ?? 0,
-          missedPolls: 0,
-        };
-
-        if (!wasOnline) {
-          await joinedFlow.trigger(tokens, { mac: client.mac });
-        }
+  private async handleMeshPresence(
+    meshClientList: DecoClient[],
+    decoNodeNames: Map<string, string> = new Map(),
+  ): Promise<void> {
+    try {
+      const result = reconcileMeshClients({
+        tracked: this.meshTrackedClients,
+        clients: meshClientList,
+        nodeNames: decoNodeNames,
+        decodeName: (name) => (this.driver as TplinkDecoDriver).decodeNickname(name),
+      });
+      this.meshTrackedClients = result.tracked;
+      const now = Date.now();
+      if (
+        result.events.length > 0
+        || now - this.lastMeshClientsPersistAt >= PERSISTENCE_CHECKPOINT_INTERVAL_MS
+      ) {
+        await this.setStoreValue('meshTrackedClients', this.meshTrackedClients);
+        this.lastMeshClientsPersistAt = now;
       }
+      await this.emitMeshClientEvents(result.events);
+    } catch (error) {
+      this.error('Failed to handle mesh presence', error);
+    }
+  }
 
-      // Clients tracked as online but absent from this snapshot — debounce before declaring left
-      for (const [mac, tracked] of Object.entries(this.meshTrackedClients)) {
-        if (tracked.online && !currentClientsMap.has(mac)) {
-          tracked.missedPolls += 1;
-          if (tracked.missedPolls >= MESH_LEFT_GRACE_POLLS) {
-            tracked.online = false;
-            await leftFlow.trigger(
-              {
-                name: tracked.name,
-                ipaddr: tracked.ip,
-                mac: tracked.mac,
-              },
-              { mac: tracked.mac },
-            );
-          }
-        }
+  private async emitMeshClientEvents(events: MeshClientEvent[]): Promise<void> {
+    for (const event of events) {
+      if (event.type === 'joined') {
+        await this.homey.flow.getTriggerCard('client_joined_mesh').trigger(
+          {
+            name: event.name,
+            ipaddr: event.ipaddr,
+            mac: event.mac,
+            connection_type: event.connectionType,
+            deco_node: event.node,
+          },
+          { mac: event.mac },
+        );
+        continue;
       }
-
-      // Prune clients not seen for more than 30 days
-      for (const [mac, tracked] of Object.entries(this.meshTrackedClients)) {
-        if (!tracked.online && now - tracked.lastSeen > TRACKED_CLIENT_TTL_MS) {
-          delete this.meshTrackedClients[mac];
-        }
-      }
-
-      await this.setStoreValue('meshTrackedClients', this.meshTrackedClients);
-    } catch (err) {
-      this.error('Failed to handle mesh presence', err);
+      await this.homey.flow.getTriggerCard('client_left_mesh').trigger(
+        { name: event.name, ipaddr: event.ipaddr, mac: event.mac },
+        { mac: event.mac },
+      );
     }
   }
 
@@ -1517,7 +1412,7 @@ class TplinkDecoDevice extends Device {
         // expected outcome here (a model only supports one of lte/5g/nr, if
         // any) — not worth logging as an error on every poll cycle.
         const probe = await tryApiCall<LteIntfCfgResponse>(
-          () => this.api.custom('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody, true),
+          () => this.api.custom<LteIntfCfgResponse>('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody, true),
           (error) => this.error(`Failed to retrieve ${prefix}_intf_cfg probe`, error),
         );
         if (probe) receivedProbeResponse = true;
@@ -1546,7 +1441,7 @@ class TplinkDecoDevice extends Device {
       // Fetch the link config for the discovered family
       const linkForm = `${this.lteFormCache}_link_cfg`;
       linkCfg = await tryApiCall<LteLinkCfgResponse>(
-        () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
+        () => this.api.custom<LteLinkCfgResponse>('/admin/network', { form: linkForm }, this.readBody),
         (error) => this.error(`Failed to retrieve ${linkForm}`, error),
       );
     } else {
@@ -1556,11 +1451,11 @@ class TplinkDecoDevice extends Device {
       const linkForm = `${prefix}_link_cfg`;
 
       intfCfg = await tryApiCall<LteIntfCfgResponse>(
-        () => this.api.custom('/admin/network', { form: intfForm }, this.readBody),
+        () => this.api.custom<LteIntfCfgResponse>('/admin/network', { form: intfForm }, this.readBody),
         (error) => this.error(`Failed to retrieve ${intfForm}`, error),
       );
       linkCfg = await tryApiCall<LteLinkCfgResponse>(
-        () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
+        () => this.api.custom<LteLinkCfgResponse>('/admin/network', { form: linkForm }, this.readBody),
         (error) => this.error(`Failed to retrieve ${linkForm}`, error),
       );
 
@@ -1628,6 +1523,15 @@ class TplinkDecoDevice extends Device {
     } catch (err) {
       this.error(`Failed to update capability ${capability}`, err);
     }
+  }
+
+  private async updateSettingsIfChanged(updates: Record<string, unknown>): Promise<void> {
+    const current = this.getSettings();
+    const changed = Object.fromEntries(
+      Object.entries(updates).filter(([key, value]) => current[key] !== value),
+    );
+    if (Object.keys(changed).length === 0) return;
+    await this.setSettings(changed);
   }
 
   /**

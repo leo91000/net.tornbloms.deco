@@ -3,6 +3,9 @@ import {
   buildWirelessSnapshot,
   buildWirelessToggleRequest,
   buildClientAccessRequest,
+  buildRadioFeatureSnapshot,
+  buildSpeedTestSnapshot,
+  buildSpeedTestStartParams,
   findFirmwareUpdate,
 } from '../lib/deco-features';
 
@@ -69,5 +72,53 @@ assert.deepEqual(findFirmwareUpdate({ fw_list: [] }, 'AA:BB:CC:DD:EE:FF'), {
   available: false,
   version: '',
 });
+
+assert.deepEqual(buildRadioFeatureSnapshot({ error_code: 0, result: { enable: true } }), {
+  supported: true,
+  enabled: true,
+});
+assert.deepEqual(buildRadioFeatureSnapshot({ error_code: 1 }), {
+  supported: false,
+  enabled: false,
+});
+
+assert.deepEqual(buildSpeedTestSnapshot({
+  error_code: 0,
+  result: {
+    down_speed: 2235395,
+    up_speed: 2353834,
+    ping_time: 14.928,
+    ping_jitter: 0.502,
+    status: 'idle',
+    last_speed_test_time: 1786277451,
+  },
+}), {
+  supported: true,
+  status: 'idle',
+  downMbps: 2235,
+  upMbps: 2354,
+  pingMs: 14.9,
+  jitterMs: 0.5,
+  lastRunAt: '2026-08-09T12:10:51.000Z',
+});
+
+assert.deepEqual(buildSpeedTestStartParams({
+  type: 'single',
+  is_auto: true,
+  single_server_list: [{ server_id: '32565' }],
+  select_server_id_list: ['32565'],
+}), {
+  type: 'single',
+  is_auto: true,
+  select_server_id_list: ['32565'],
+});
+assert.deepEqual(buildSpeedTestStartParams({
+  single_server_list: [{ server_id: '51781' }],
+}), {
+  type: 'single',
+  is_auto: true,
+  select_server_id_list: ['51781'],
+});
+assert.throws(() => buildSpeedTestStartParams({}), /available speed-test server/);
 
 console.log('PASS: feature controls are minimal, validated, and never expose Wi-Fi passwords.');

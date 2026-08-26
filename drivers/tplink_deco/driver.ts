@@ -4,10 +4,16 @@ import dns from 'dns/promises';
 import net from 'net';
 import os from 'os';
 import { Driver } from 'homey';
-import decoapiwrapper, { AppLogger, DeviceListResponse, LoginAttempt } from '../../lib/client';
+import DecoAPIWrapper, {
+  AppLogger,
+  DecoClient,
+  DeviceListResponse,
+  LoginAttempt,
+} from '../../lib/client';
 import { MeshClientCache, MeshClientSnapshot } from '../../lib/mesh-client-cache';
 import { describeNetworkReachability } from '../../lib/network-diagnostics';
-import { DeviceFlowRegistration } from '../../lib/flow-registration';
+import { DecoFlowDevice, DeviceFlowRegistration } from '../../lib/flow-registration';
+import { MeshTrackedClient, TrackedClient } from '../../lib/client-tracker';
 import { SharedAuthenticationCoordinator } from '../../lib/shared-authentication';
 
 // Backoff schedule for the router's "session limit" 403 (RETRY:). The router
@@ -30,14 +36,14 @@ const PAIRING_RETRY_DEADLINE_MS = 20000;
 
 class TplinkDecoDriver extends Driver {
   debugEnabled: boolean = this.homey.settings.get('debugenabled') || false;
-  private api: decoapiwrapper | any;
+  private api: DecoAPIWrapper | undefined;
 
   // Buffer for read operations
   readBody = Buffer.from('{"operation": "read"}');
 
   // One shared DecoAPIWrapper per master hostname so all device instances
   // use a single session (the Deco only allows one active session at a time).
-  private sharedApis = new Map<string, decoapiwrapper>();
+  private sharedApis = new Map<string, DecoAPIWrapper>();
   // Serializes authentication and lets later device instances reuse the
   // already-authenticated shared API session.
   private sharedAuthentication = new SharedAuthenticationCoordinator();
@@ -54,16 +60,16 @@ class TplinkDecoDriver extends Driver {
   // or there's a request-shape difference we're not replicating. Either way,
   // merging confirmed-working per-node data sidesteps the question entirely and
   // costs zero extra API calls.
-  private meshClientCache = new MeshClientCache<any>();
+  private meshClientCache = new MeshClientCache<DecoClient>();
   private deviceFlowRegistration = new DeviceFlowRegistration();
 
   /**
    * Returns (or lazily creates) the shared API instance for a given hostname.
-   * Devices should always call this instead of `new decoapiwrapper(...)`.
+   * Devices should always call this instead of `new DecoAPIWrapper(...)`.
    */
-  public getOrCreateSharedApi(hostname: string, logger: AppLogger): decoapiwrapper {
+  public getOrCreateSharedApi(hostname: string): DecoAPIWrapper {
     if (!this.sharedApis.has(hostname)) {
-      this.sharedApis.set(hostname, new decoapiwrapper(hostname, logger));
+      this.sharedApis.set(hostname, new DecoAPIWrapper(hostname, this.makeLogger()));
     }
     return this.sharedApis.get(hostname)!;
   }
@@ -72,7 +78,7 @@ class TplinkDecoDriver extends Driver {
    * Records the most recent client list a single node reported for itself
    * (device_mac: <own MAC>). Called by every device on each poll cycle.
    */
-  public setNodeClientList(hostname: string, nodeMac: string, clients: any[]): void {
+  public setNodeClientList(hostname: string, nodeMac: string, clients: DecoClient[]): void {
     this.meshClientCache.setNodeClients(hostname, nodeMac, clients);
   }
 
@@ -85,7 +91,7 @@ class TplinkDecoDriver extends Driver {
   public getMeshClientSnapshot(
     hostname: string,
     maxAgeMs: number,
-  ): MeshClientSnapshot<any> {
+  ): MeshClientSnapshot<DecoClient> {
     return this.meshClientCache.getSnapshot(hostname, maxAgeMs);
   }
 
@@ -97,10 +103,9 @@ class TplinkDecoDriver extends Driver {
   public async sharedAuthenticate(
     hostname: string,
     password: string,
-    logger: AppLogger,
     force = false,
   ): Promise<boolean> {
-    const api = this.getOrCreateSharedApi(hostname, logger);
+    const api = this.getOrCreateSharedApi(hostname);
     return this.sharedAuthentication.authenticate(
       hostname,
       () => Boolean(api.stok),
@@ -203,6 +208,9 @@ class TplinkDecoDriver extends Driver {
   private makeLogger(): AppLogger {
     return {
       log: (...args: any[]) => this.log(...args),
+      debug: (...args: any[]) => {
+        if (this.debugEnabled) this.log(...args);
+      },
       error: (...args: any[]) => this.error(...args),
     };
   }
@@ -216,111 +224,23 @@ class TplinkDecoDriver extends Driver {
 
     this.deviceFlowRegistration.register(
       this.homey.flow,
-      (device, query) => this.buildClientAutocomplete(device, query),
-    );
-
-    // Register condition: client is online
-    // Registered once here so multiple device instances don't overwrite each other.
-    // Uses the persistent trackedClients store so the condition works even for clients
-    // that are currently offline (returns false) but have been seen in the last 30 days.
-    const clientIsOnline = this.homey.flow.getConditionCard('client_is_online');
-    clientIsOnline.registerRunListener(async (args) => {
-      const device = args.device as any;
-      const tracked = device?.trackedClients ?? {};
-      return tracked[args.client.mac]?.online === true;
-    });
-    clientIsOnline.registerArgumentAutocompleteListener(
-      'client',
-      async (query, args) => {
-        return this.buildClientAutocomplete(args.device, query);
+      {
+        buildClientAutocomplete: (device, query) => this.buildClientAutocomplete(device, query),
+        buildMeshClientAutocomplete: (query) => this.buildMeshClientAutocomplete(query),
+        getMasterDevice: () => this.getMasterDevice(),
+        getTrackedClients: (device) => this.getTrackedClientsForDevice(device),
       },
     );
 
-    const clientIsPrioritized = this.homey.flow.getConditionCard('client_is_prioritized');
-    clientIsPrioritized.registerRunListener(async (args) => {
-      const device = args.device as any;
-      const tracked = this.getTrackedClientsForDevice(device);
-      return tracked[args.client.mac]?.prioritized === true;
-    });
-    clientIsPrioritized.registerArgumentAutocompleteListener(
-      'client',
-      async (query, args) => this.buildClientAutocomplete(args.device, query),
-    );
-
-    for (const [cardId, allowed] of [
-      ['block_client', false],
-      ['unblock_client', true],
-    ] as const) {
-      const card = this.homey.flow.getActionCard(cardId);
-      card.registerRunListener(async (args) => {
-        await args.device.setClientInternetAccess(args.client.mac, allowed);
-        return true;
-      });
-      card.registerArgumentAutocompleteListener('client', async (query, args) => (
-        this.buildClientAutocomplete(args.device, query)
-      ));
-    }
-
-    const wirelessAction = this.homey.flow.getActionCard('set_wireless_network');
-    wirelessAction.registerRunListener(async (args) => {
-      await args.device.setWirelessNetworkEnabled(args.network, args.state === 'enabled');
-      return true;
-    });
-
-    const refreshAction = this.homey.flow.getActionCard('refresh_deco');
-    refreshAction.registerRunListener(async (args) => {
-      await args.device.refreshNow();
-      return true;
-    });
-
-    const pauseClientAction = this.homey.flow.getActionCard('pause_client');
-    pauseClientAction.registerRunListener(async (args) => {
-      await args.device.pauseClientInternetAccess(args.client.mac, args.duration);
-      return true;
-    });
-    pauseClientAction.registerArgumentAutocompleteListener('client', async (query, args) => (
-      this.buildClientAutocomplete(args.device, query)
-    ));
-
-    // Mesh-wide presence — global cards (no device argument), since "the mesh" isn't a
-    // property of any single Deco node. Data is sourced from the master device's
-    // meshTrackedClients, populated by its device_mac: 'default' poll (see device.ts).
-    const clientJoinedMeshFlow = this.homey.flow.getTriggerCard('client_joined_mesh');
-    clientJoinedMeshFlow.registerRunListener(async (args, state) => {
-      return args.client.mac === state.mac;
-    });
-    clientJoinedMeshFlow.registerArgumentAutocompleteListener(
-      'client',
-      async (query) => this.buildMeshClientAutocomplete(query),
-    );
-
-    const clientLeftMeshFlow = this.homey.flow.getTriggerCard('client_left_mesh');
-    clientLeftMeshFlow.registerRunListener(async (args, state) => {
-      return args.client.mac === state.mac;
-    });
-    clientLeftMeshFlow.registerArgumentAutocompleteListener(
-      'client',
-      async (query) => this.buildMeshClientAutocomplete(query),
-    );
-
-    const clientPresentInMesh = this.homey.flow.getConditionCard('client_present_in_mesh');
-    clientPresentInMesh.registerRunListener(async (args) => {
-      const master = this.getMasterDevice();
-      return master?.meshTrackedClients?.[args.client.mac]?.online === true;
-    });
-    clientPresentInMesh.registerArgumentAutocompleteListener(
-      'client',
-      async (query) => this.buildMeshClientAutocomplete(query),
-    );
   }
 
   /**
    * Finds the paired device representing the mesh's master node, which is the only
    * device that maintains meshTrackedClients. Returns undefined if no master is paired.
    */
-  private getMasterDevice(): any | undefined {
-    return this.getDevices().find(
-      (d: any) => (d.getSettings?.().role ?? '').toLowerCase() === 'master',
+  private getMasterDevice(): DecoFlowDevice | undefined {
+    return (this.getDevices() as unknown as DecoFlowDevice[]).find(
+      (device) => String(device.getSettings().role ?? '').toLowerCase() === 'master',
     );
   }
 
@@ -340,23 +260,28 @@ class TplinkDecoDriver extends Driver {
    * Shows all clients seen in the last 30 days (online and offline).
    * Online clients are shown first; offline clients show their last-seen date.
    */
-  public buildClientAutocomplete(device: any, query: string) {
+  public buildClientAutocomplete(device: DecoFlowDevice, query: string) {
     return this.buildClientAutocompleteFrom(this.getTrackedClientsForDevice(device), query);
   }
 
-  private getTrackedClientsForDevice(device: any): Record<string, any> {
-    const isMaster = (device?.getSettings?.().role ?? '').toLowerCase() === 'master';
-    if (isMaster && Object.keys(device?.meshTrackedClients ?? {}).length > 0) {
+  private getTrackedClientsForDevice(
+    device: DecoFlowDevice,
+  ): Record<string, TrackedClient | MeshTrackedClient> {
+    const isMaster = String(device.getSettings().role ?? '').toLowerCase() === 'master';
+    if (isMaster && Object.keys(device.meshTrackedClients).length > 0) {
       return device.meshTrackedClients;
     }
-    return device?.trackedClients ?? {};
+    return device.trackedClients;
   }
 
   /**
    * Shared filtering/sorting logic behind buildClientAutocomplete and
    * buildMeshClientAutocomplete — only the source tracked-client map differs.
    */
-  private buildClientAutocompleteFrom(tracked: Record<string, any>, query: string) {
+  private buildClientAutocompleteFrom(
+    tracked: Record<string, TrackedClient | MeshTrackedClient>,
+    query: string,
+  ) {
     const search = query.toLowerCase();
 
     return Object.values(tracked)
@@ -409,12 +334,12 @@ class TplinkDecoDriver extends Driver {
         await this.logNetworkDiagnostics(hostname);
         // Use the same shared instance + auth queue as already-paired devices for this
         // hostname (see getOrCreateSharedApi/sharedAuthenticate above). A fresh, isolated
-        // decoapiwrapper here would compete with sibling mesh nodes' ongoing polling for
+        // DecoAPIWrapper here would compete with sibling mesh nodes' ongoing polling for
         // the router's single admin session slot — and since that polling keeps renewing
         // its own session indefinitely, a competing login would never succeed no matter
         // how long the backoff is. Sharing the instance means there's only ever one login
         // in flight for this hostname, app-wide.
-        this.api = this.getOrCreateSharedApi(hostname, this.makeLogger());
+        this.api = this.getOrCreateSharedApi(hostname);
 
         // The router only allows one active admin session. Re-pairing right after
         // deleting the old devices can hit the previous session before it has timed
@@ -427,7 +352,7 @@ class TplinkDecoDriver extends Driver {
         const pairingRetryStart = Date.now();
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await this.sharedAuthenticate(hostname, password, this.makeLogger(), true);
+            await this.sharedAuthenticate(hostname, password, true);
             this.log('Successfully connected to TP-Link Deco');
             // Navigate explicitly rather than relying on a declarative
             // navigation.next on this step (see v1.4.51) — but kept OUTSIDE
@@ -516,10 +441,11 @@ class TplinkDecoDriver extends Driver {
         this.error('No API instance available');
         return [];
       }
+      const api = this.api;
       try {
-        const deviceList = await this.safeApiCall(
+        const deviceList = await this.safeApiCall<DeviceListResponse>(
           () =>
-            this.api.custom(
+            api.custom<DeviceListResponse>(
               '/admin/device',
               { form: 'device_list' },
               this.readBody,
@@ -547,6 +473,7 @@ class TplinkDecoDriver extends Driver {
                   oem_id: '',
                   oversized_firmware: false,
                   product_level: 0,
+                  previous: '',
                   role: '',
                   set_gateway_support: true,
                   signal_level: {
@@ -561,7 +488,6 @@ class TplinkDecoDriver extends Driver {
           },
           'Device Data',
         );
-        //const deviceList = (await this.api.deviceList()) as DeviceListResponse;
         if (
           deviceList.error_code === 0 &&
           deviceList.result.device_list.length > 0
@@ -654,7 +580,7 @@ class TplinkDecoDriver extends Driver {
         const repairRetryStart = Date.now();
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            await this.sharedAuthenticate(hostname, password, this.makeLogger(), true);
+            await this.sharedAuthenticate(hostname, password, true);
             this.log('Successfully connected to TP-Link Deco');
             return { success: true };
           } catch (error: any) {

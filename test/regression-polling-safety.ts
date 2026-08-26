@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   MIN_POLL_INTERVAL_SECONDS,
+  SerialTaskQueue,
   SingleFlightTask,
   normalizePollIntervalSeconds,
   tryApiCall,
@@ -42,7 +43,29 @@ async function main() {
   assert.deepEqual(await first, { started: true, value: 'first' });
   assert.deepEqual(await gate.run(async () => 'next'), { started: true, value: 'next' });
 
-  console.log('PASS: polling clamps unsafe intervals, preserves failures, and prevents overlap.');
+  const queue = new SerialTaskQueue();
+  const order: string[] = [];
+  let releaseQueuedFirst!: () => void;
+  const queuedFirstBlocked = new Promise<void>((resolve) => {
+    releaseQueuedFirst = resolve;
+  });
+  const queuedFirst = queue.run(async () => {
+    order.push('first-start');
+    await queuedFirstBlocked;
+    order.push('first-end');
+  });
+  const queuedSecond = queue.run(async () => {
+    order.push('second');
+  });
+  await Promise.resolve();
+  assert.deepEqual(order, ['first-start']);
+  releaseQueuedFirst();
+  await Promise.all([queuedFirst, queuedSecond]);
+  assert.deepEqual(order, ['first-start', 'first-end', 'second']);
+  await assert.rejects(queue.run(async () => { throw new Error('expected'); }), /expected/);
+  assert.equal(await queue.run(async () => 'recovered'), 'recovered');
+
+  console.log('PASS: polling clamps intervals, preserves failures, skips overlap, and serializes shared requests.');
 }
 
 main().catch((error) => {

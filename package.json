@@ -1,10 +1,10 @@
 {
   "name": "net.tornbloms.deco",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "main": "app.ts",
   "scripts": {
     "build": "tsc",
-    "test": "tsc -p test/tsconfig.json && node test/dist/test/regression-login-combo-state.js && node test/dist/test/regression-aes-padding.js && node test/dist/test/regression-polling-safety.js && node test/dist/test/regression-log-redaction.js && node test/dist/test/regression-network-diagnostics.js && node test/dist/test/regression-mesh-client-cache.js && node test/dist/test/regression-action-safety.js && node test/dist/test/regression-flow-registration.js && node test/dist/test/regression-feature-controls.js && node test/dist/test/regression-advanced-controls.js && node test/dist/test/regression-shared-authentication.js"
+    "test": "tsc -p test/tsconfig.json && node test/dist/test/regression-login-combo-state.js && node test/dist/test/regression-aes-padding.js && node test/dist/test/regression-polling-safety.js && node test/dist/test/regression-deco-poll-reader.js && node test/dist/test/regression-log-redaction.js && node test/dist/test/regression-network-diagnostics.js && node test/dist/test/regression-mesh-client-cache.js && node test/dist/test/regression-client-tracker.js && node test/dist/test/regression-speed-test-coordinator.js && node test/dist/test/regression-master-feature-coordinator.js && node test/dist/test/regression-action-safety.js && node test/dist/test/regression-flow-registration.js && node test/dist/test/regression-feature-controls.js && node test/dist/test/regression-advanced-controls.js && node test/dist/test/regression-shared-authentication.js"
   },
   "devDependencies": {
     "@tsconfig/node16": "^16.1.9",

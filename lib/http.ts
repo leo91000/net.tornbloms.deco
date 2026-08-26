@@ -12,10 +12,11 @@ interface PostConfig {
 
 export interface AppLogger {
   log: (...args: any[]) => void;
+  debug?: (...args: any[]) => void;
   error: (...args: any[]) => void;
 }
 
-const consoleLogger: AppLogger = { log: console.log, error: console.error };
+const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
 
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie
@@ -73,7 +74,7 @@ export class HttpClient {
     const safePath = redactRequestPath(config.url);
 
     const cookieStr = await this.jar.getCookieString(this.baseURL);
-    this.logger.log(
+    this.logger.debug?.(
       `http.ts: POST ${safePath}?form=${config.params.form}`,
       `body=${config.data.length}B`,
       cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
@@ -83,7 +84,7 @@ export class HttpClient {
     // browser HAR capture — no need to ask the reporter for a fresh HAR just to
     // check headers again, the way we had to for the Content-Type/Origin/Referer
     // investigation this week.
-    this.logger.log('http.ts: request headers:', JSON.stringify(config.headers));
+    this.logger.debug?.('http.ts: request headers:', JSON.stringify(config.headers));
 
     // Up to 2 attempts: first over http, then https if the router redirects.
     // redirect:'manual' prevents the runtime from re-reading the POST body on redirect.
@@ -137,7 +138,7 @@ export class HttpClient {
       // Handle HTTP→HTTPS (or other) redirects manually.
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location') ?? '';
-        this.logger.log(
+        this.logger.debug?.(
           `http.ts: redirect ${response.status} → ${redactRequestPath(location)} (upgrading baseURL)`,
         );
         if (location.startsWith('https://')) {
@@ -158,7 +159,7 @@ export class HttpClient {
           ? rawHeaders.getSetCookie()
           : [];
       if (setCookies.length > 0) {
-        this.logger.log(`http.ts: received ${setCookies.length} Set-Cookie header(s)`);
+        this.logger.debug?.(`http.ts: received ${setCookies.length} Set-Cookie header(s)`);
         for (const cookie of setCookies) {
           await this.jar.setCookie(cookie, this.baseURL).catch(() => {});
         }
@@ -179,7 +180,7 @@ export class HttpClient {
         throw err;
       }
 
-      this.logger.log(`http.ts: HTTP ${response.status} for "${safePath}?form=${config.params.form}" body=${rawText.length}B`);
+      this.logger.debug?.(`http.ts: HTTP ${response.status} for "${safePath}?form=${config.params.form}" body=${rawText.length}B`);
 
       try {
         return { data: JSON.parse(rawText) };
@@ -207,7 +208,7 @@ export class HttpClient {
         });
         return true;
       } catch (error: any) {
-        this.logger.log(
+        this.logger.debug?.(
           `http.ts: pingHost: ${scheme}://${host} not reachable: ${error?.code ?? error?.message}`,
         );
       } finally {

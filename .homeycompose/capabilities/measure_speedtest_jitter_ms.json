@@ -1,0 +1,11 @@
+{
+  "type": "number",
+  "title": { "en": "Internet jitter", "fr": "Gigue Internet" },
+  "units": { "en": "ms", "fr": "ms" },
+  "decimals": 1,
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}
