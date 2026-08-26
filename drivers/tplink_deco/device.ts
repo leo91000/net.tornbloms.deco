@@ -21,7 +21,6 @@ import {
   buildClientStatistics,
   countPrioritizedClients,
   normalizeClientMac,
-  normalizePauseDurationMinutes,
 } from '../../lib/advanced-controls';
 import {
   MeshClientEvent,
@@ -33,6 +32,11 @@ import {
 } from '../../lib/client-tracker';
 import { MasterFeatureCoordinator } from '../../lib/master-feature-coordinator';
 import { DecoPollReader } from '../../lib/deco-poll-reader';
+import {
+  ClientPauseCoordinator,
+  PausedClients,
+} from '../../lib/client-pause-coordinator';
+import { CADENCE_SETTING_KEYS, resolvePollCadence } from '../../lib/poll-cadence';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
 import { DecoClient, LteIntfCfgResponse, LteLinkCfgResponse } from '../../lib/client';
@@ -59,8 +63,24 @@ const MASTER_FEATURE_CAPABILITIES = [
   'measure_speedtest_jitter_ms',
   'last_speedtest_at',
 ];
-const PERFORMANCE_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const PERSISTENCE_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000;
+
+interface DecoDeviceSettings extends Record<string, string | number | boolean | null | undefined> {
+  hostname?: string;
+  password?: string;
+  timeoutSeconds?: number;
+  role?: string;
+  ip?: string;
+  debugenabled?: boolean | string;
+}
+
+interface IssueReporter {
+  reportIssue?(message: string, extra?: Record<string, unknown>): void;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function formatUptime(rawSeconds: unknown): string {
   const totalSeconds = Number(rawSeconds);
@@ -69,10 +89,6 @@ function formatUptime(rawSeconds: unknown): string {
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   return `${days}d ${hours}h ${minutes}m`;
-}
-
-interface PausedClient {
-  restoreAt: number;
 }
 
 /**
@@ -97,10 +113,9 @@ class TplinkDecoDevice extends Device {
   // One-shot timer IDs — cancelled in onDeleted to avoid post-deletion callbacks
   private rebootTimerId: ReturnType<typeof setTimeout> | null = null;
   private startupDelayTimerId: ReturnType<typeof setTimeout> | null = null;
-  private pauseTimerIds = new Map<string, ReturnType<typeof setTimeout>>();
-  private pausedClients: Record<string, PausedClient> = {};
   private api!: DecoAPIWrapper;
   private pollReader!: DecoPollReader;
+  private clientPauseCoordinator!: ClientPauseCoordinator;
   private featureController: DecoFeatureController | undefined;
   private masterFeatureCoordinator: MasterFeatureCoordinator | undefined;
   private lastPerformancePollAt = 0;
@@ -154,7 +169,7 @@ class TplinkDecoDevice extends Device {
       this.trackedClients = (this.getStoreValue('trackedClients') as Record<string, TrackedClient>) ?? {};
       // Mesh-wide history is only ever written by the master node, but harmless to load on all
       this.meshTrackedClients = (this.getStoreValue('meshTrackedClients') as Record<string, MeshTrackedClient>) ?? {};
-      this.pausedClients = (this.getStoreValue('pausedClients') as Record<string, PausedClient>) ?? {};
+      const pausedClients = (this.getStoreValue('pausedClients') as PausedClients) ?? {};
 
       // Retrieve device settings
       const settings = this.getSettings();
@@ -186,7 +201,8 @@ class TplinkDecoDevice extends Device {
         });
         this.featureController = new DecoFeatureController(this.api);
         this.masterFeatureCoordinator = this.createMasterFeatureCoordinator(this.featureController);
-        this.restoreClientPauseTimers();
+        this.clientPauseCoordinator = this.createClientPauseCoordinator();
+        await this.clientPauseCoordinator.restore(pausedClients);
 
         // Restore the previously-detected content-type preference so the first
         // auth attempt on restart already uses the known-good encoding rather
@@ -233,8 +249,8 @@ class TplinkDecoDevice extends Device {
                 try {
                   await this.setAvailable();
                   await this.setCapabilityValue('reboot', false).catch(this.error);
-                } catch (e: any) {
-                  this.log('Reboot timer: device already gone, skipping setAvailable', e?.message);
+                } catch (error) {
+                  this.log('Reboot timer: device already gone, skipping setAvailable', errorMessage(error));
                 }
               }, 60000); // 60 seconds
             } else {
@@ -305,8 +321,8 @@ class TplinkDecoDevice extends Device {
             }
             await this.runPollCycle();
             this.setUpdateInterval(interval);
-          } catch (e: any) {
-            this.log('Startup delay timer: device already gone, skipping', e?.message);
+          } catch (error) {
+            this.log('Startup delay timer: device already gone, skipping', errorMessage(error));
           }
         }, startupDelay);
       } else {
@@ -395,7 +411,7 @@ class TplinkDecoDevice extends Device {
       throw new Error('Could not authenticate with the Deco.');
     }
     await this.featureController.setClientAccess(mac, allowed);
-    await this.cancelClientPause(mac);
+    await this.clientPauseCoordinator.cancel(mac);
     this.log(`Client internet access ${allowed ? 'restored' : 'blocked'} for ${mac}`);
     await this.refreshNow();
   }
@@ -443,78 +459,9 @@ class TplinkDecoDevice extends Device {
 
   public async pauseClientInternetAccess(mac: string, durationMinutes: unknown): Promise<void> {
     assertDangerousActionAllowed(this.getSettings());
-    if (!this.featureController) throw new Error('Deco feature controller is not initialized.');
-    if (!this.connected && !await this.reAuthenticate()) {
-      throw new Error('Could not authenticate with the Deco.');
-    }
-
-    const normalizedMac = normalizeClientMac(mac);
-    const duration = normalizePauseDurationMinutes(durationMinutes);
-    await this.featureController.setClientAccess(normalizedMac, false);
-    await this.cancelClientPause(normalizedMac);
-    const restoreAt = Date.now() + duration * 60 * 1000;
-    this.pausedClients[normalizedMac] = { restoreAt };
-    this.scheduleClientPauseTimer(normalizedMac, restoreAt);
-    try {
-      await this.setStoreValue('pausedClients', this.pausedClients);
-    } catch (error) {
-      await this.cancelClientPause(normalizedMac);
-      await this.featureController.setClientAccess(normalizedMac, true)
-        .catch((restoreError) => this.error('Failed to roll back client pause', restoreError));
-      throw error;
-    }
-    this.log(`Client internet paused for ${duration} minute(s): ${normalizedMac}`);
+    await this.clientPauseCoordinator.pause(mac, durationMinutes);
+    this.log(`Client internet paused: ${normalizeClientMac(mac)}`);
     await this.refreshNow();
-  }
-
-  private restoreClientPauseTimers(): void {
-    for (const [mac, pause] of Object.entries(this.pausedClients)) {
-      if (!Number.isFinite(pause?.restoreAt)) {
-        delete this.pausedClients[mac];
-        continue;
-      }
-      this.scheduleClientPauseTimer(mac, pause.restoreAt);
-    }
-    void this.setStoreValue('pausedClients', this.pausedClients);
-  }
-
-  private scheduleClientPauseTimer(mac: string, restoreAt: number, retryDelayMs?: number): void {
-    const existingTimer = this.pauseTimerIds.get(mac);
-    if (existingTimer) clearTimeout(existingTimer);
-    const delay = retryDelayMs ?? Math.max(0, restoreAt - Date.now());
-    const timer = setTimeout(() => {
-      this.pauseTimerIds.delete(mac);
-      void this.restorePausedClient(mac);
-    }, delay);
-    this.pauseTimerIds.set(mac, timer);
-  }
-
-  private async restorePausedClient(mac: string): Promise<void> {
-    try {
-      if (!this.featureController) throw new Error('Deco feature controller is not initialized.');
-      if (!this.connected && !await this.reAuthenticate()) {
-        throw new Error('Could not authenticate with the Deco.');
-      }
-      await this.featureController.setClientAccess(mac, true);
-      delete this.pausedClients[mac];
-      await this.setStoreValue('pausedClients', this.pausedClients);
-      this.log(`Client internet automatically restored: ${mac}`);
-      await this.refreshNow();
-    } catch (error) {
-      if (!Object.hasOwn(this.pausedClients, mac)) return;
-      this.error(`Failed to restore paused client ${mac}; retrying in 60 seconds`, error);
-      this.scheduleClientPauseTimer(mac, this.pausedClients[mac]?.restoreAt ?? Date.now(), 60000);
-    }
-  }
-
-  private async cancelClientPause(mac: string): Promise<void> {
-    const normalizedMac = normalizeClientMac(mac);
-    const timer = this.pauseTimerIds.get(normalizedMac);
-    if (timer) clearTimeout(timer);
-    this.pauseTimerIds.delete(normalizedMac);
-    if (!Object.hasOwn(this.pausedClients, normalizedMac)) return;
-    delete this.pausedClients[normalizedMac];
-    await this.setStoreValue('pausedClients', this.pausedClients);
   }
 
   public async refreshNow(): Promise<void> {
@@ -542,6 +489,7 @@ class TplinkDecoDevice extends Device {
   private createMasterFeatureCoordinator(
     controller: DecoFeatureController,
   ): MasterFeatureCoordinator {
+    const cadence = resolvePollCadence(this.getSettings());
     return new MasterFeatureCoordinator(
       controller,
       {
@@ -567,6 +515,43 @@ class TplinkDecoDevice extends Device {
         failed: (feature, error) => this.error(`Failed to retrieve ${feature}`, error),
       },
       (task) => this.pollGate.run(task),
+      {
+        networkFeaturePollIntervalMs: cadence.networkFeaturesMs,
+        speedTestStatusPollIntervalMs: cadence.speedTestStatusMs,
+        firmwarePollIntervalMs: cadence.firmwareMs,
+      },
+    );
+  }
+
+  private createClientPauseCoordinator(): ClientPauseCoordinator {
+    return new ClientPauseCoordinator(
+      {
+        ensureConnected: async () => this.connected || this.reAuthenticate(),
+        setClientAccess: async (mac, allowed) => {
+          if (!this.featureController) {
+            throw new Error('Deco feature controller is not initialized.');
+          }
+          await this.featureController.setClientAccess(mac, allowed);
+        },
+        persist: (pausedClients) => this.setStoreValue('pausedClients', pausedClients),
+        clearPersistence: () => this.unsetStoreValue('pausedClients'),
+        refresh: () => this.refreshNow(),
+      },
+      {
+        restored: (mac) => this.log(`Client internet automatically restored: ${mac}`),
+        retrying: (mac, error) => this.error(
+          `Failed to restore paused client ${mac}; retrying in 60 seconds`,
+          error,
+        ),
+        rollbackFailed: (mac, error) => this.error(
+          `Failed to roll back client pause for ${mac}`,
+          error,
+        ),
+        removalRestoreFailed: (mac, error) => this.error(
+          `Failed to restore paused client during removal: ${mac}`,
+          error,
+        ),
+      },
     );
   }
 
@@ -658,8 +643,8 @@ class TplinkDecoDevice extends Device {
     newSettings,
     changedKeys,
   }: {
-    oldSettings: { [key: string]: any };
-    newSettings: { [key: string]: any };
+    oldSettings: DecoDeviceSettings;
+    newSettings: DecoDeviceSettings;
     changedKeys: string[];
   }): Promise<void> {
     this.log('Device settings updated:', changedKeys);
@@ -672,8 +657,12 @@ class TplinkDecoDevice extends Device {
     // Reinitialize API if hostname or password has changed
     if (changedKeys.includes('hostname') || changedKeys.includes('password')) {
       try {
+        const { hostname, password } = newSettings;
+        if (typeof hostname !== 'string' || typeof password !== 'string') {
+          throw new Error('Hostname and password are required.');
+        }
         const driver = this.driver as TplinkDecoDriver;
-        this.api = driver.getOrCreateSharedApi(newSettings.hostname);
+        this.api = driver.getOrCreateSharedApi(hostname);
         this.pollReader = new DecoPollReader(this.api, {
           error: (message, error) => this.error(message, error),
         });
@@ -687,8 +676,8 @@ class TplinkDecoDevice extends Device {
         // toward here; just drop the stale preference and let it re-detect.
         await this.unsetStoreValue('forceJsonContentType');
         this.connected = await driver.sharedAuthenticate(
-          newSettings.hostname,
-          newSettings.password,
+          hostname,
+          password,
           true,
         );
         if (this.connected) {
@@ -715,6 +704,15 @@ class TplinkDecoDevice extends Device {
         `Update interval changed to ${newSettings.timeoutSeconds} seconds`,
       );
     }
+
+    if (CADENCE_SETTING_KEYS.some((key) => changedKeys.includes(key))) {
+      this.masterFeatureCoordinator?.stop();
+      if (this.featureController) {
+        this.masterFeatureCoordinator = this.createMasterFeatureCoordinator(this.featureController);
+      }
+      this.lastPerformancePollAt = 0;
+      this.log('Advanced polling cadences updated');
+    }
   }
 
   /**
@@ -738,17 +736,7 @@ class TplinkDecoDevice extends Device {
       this.pollTimerId = null;
     }
     this.masterFeatureCoordinator?.stop();
-    for (const timer of this.pauseTimerIds.values()) clearTimeout(timer);
-    this.pauseTimerIds.clear();
-    if (Object.keys(this.pausedClients).length > 0 && !this.connected) {
-      await this.reAuthenticate();
-    }
-    for (const mac of Object.keys(this.pausedClients)) {
-      await this.featureController?.setClientAccess(mac, true)
-        .catch((error) => this.error(`Failed to restore paused client during removal: ${mac}`, error));
-    }
-    this.pausedClients = {};
-    await this.unsetStoreValue('pausedClients')
+    await this.clientPauseCoordinator?.shutdownAndRestore()
       .catch((error) => this.error('Failed to clear paused-client state', error));
   }
 
@@ -825,7 +813,7 @@ class TplinkDecoDevice extends Device {
       const devicedata = this.getData();
 
       const performanceDue = Date.now() - this.lastPerformancePollAt
-        >= PERFORMANCE_POLL_INTERVAL_MS;
+        >= resolvePollCadence(settings).performanceMs;
       const poll = await this.pollReader.read(devicedata.id, performanceDue);
       if (poll.status === 'authentication-required') {
         const reauthenticated = await this.reAuthenticate(true);
@@ -869,7 +857,7 @@ class TplinkDecoDevice extends Device {
             // shipping this). The variant data goes in `extra` and is visible
             // per-event in Better Stack without multiplying the issue list.
             const authPreferences = this.api.getAuthPreferences();
-            (this.homey.app as any).reportIssue?.(
+            (this.homey.app as unknown as IssueReporter).reportIssue?.(
               'Auth method reported',
               {
                 contentType: authPreferences.contentType,
@@ -1387,8 +1375,12 @@ class TplinkDecoDevice extends Device {
       }
     };
 
-    const hasData = (r: { error_code: number; result: any } | null) =>
-      r?.error_code === 0 && r.result != null && Object.keys(r.result).length > 0;
+    const hasData = (response: { error_code: number; result: unknown } | null) => (
+      response?.error_code === 0
+      && typeof response.result === 'object'
+      && response.result !== null
+      && Object.keys(response.result).length > 0
+    );
 
     // Fast path: already confirmed this device has no cellular API
     if (this.lteFormCache === null) {
@@ -1513,7 +1505,7 @@ class TplinkDecoDevice extends Device {
    * @param capability - The name of the capability to update.
    * @param value - The value to set for the capability.
    */
-  private async updateCapability(capability: string, value: any) {
+  private async updateCapability(capability: string, value: unknown) {
     try {
       if (!this.hasCapability(capability)) return;
       const currentValue = this.getCapabilityValue(capability);
@@ -1539,7 +1531,7 @@ class TplinkDecoDevice extends Device {
    * @param message - The debug message to log.
    * @param data - Optional data to log with the message.
    */
-  private debug(message: string, data?: any) {
+  private debug(message: string, data?: unknown) {
     if (this.debugEnabled) {
       if (data !== undefined) {
         this.log(`DEBUG: ${message}`, JSON.stringify(data, null, 2));

@@ -12,3 +12,7 @@ Disruptive actions require the explicit `allowDangerousActions` device setting.
 TP-Link does not publish a stable local Deco API, so capabilities that only
 exist in the mobile-app protocol are detected conservatively and are not
 presented as working controls through the web API.
+
+Advanced polling settings let users tune CPU/memory, Wi-Fi/radio, firmware,
+and speed-test-status reads independently. Reading speed-test status never
+starts a bandwidth test; tests only start from an explicit Homey action.

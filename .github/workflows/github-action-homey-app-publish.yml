@@ -18,8 +18,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
 
       # env.json is gitignored (it holds the Sentry/BetterStack ingest
       # credentials) so it never reaches this checkout — without it, every

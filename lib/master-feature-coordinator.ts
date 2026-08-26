@@ -12,8 +12,6 @@ import {
   SpeedTestGateway,
 } from './speed-test-coordinator';
 
-const WIRELESS_POLL_INTERVAL_MS = 5 * 60 * 1000;
-const FIRMWARE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const UNSUPPORTED_CONFIRMATION_POLLS = 2;
 
 interface MasterFeatureGateway extends SpeedTestGateway {
@@ -36,11 +34,16 @@ type RunExclusive = (
 
 interface MasterFeatureOptions {
   now?: () => number;
+  networkFeaturePollIntervalMs?: number;
+  speedTestStatusPollIntervalMs?: number;
+  firmwarePollIntervalMs?: number;
 }
 
 export class MasterFeatureCoordinator {
   private readonly speedTest: SpeedTestCoordinator;
   private readonly now: () => number;
+  private readonly networkFeaturePollIntervalMs: number;
+  private readonly firmwarePollIntervalMs: number;
   private lastWirelessPollAt = 0;
   private lastFirmwarePollAt = 0;
   private lastRadioPollAt = 0;
@@ -53,20 +56,23 @@ export class MasterFeatureCoordinator {
     options: MasterFeatureOptions = {},
   ) {
     this.now = options.now ?? (() => Date.now());
+    this.networkFeaturePollIntervalMs = options.networkFeaturePollIntervalMs ?? 5 * 60_000;
+    this.firmwarePollIntervalMs = options.firmwarePollIntervalMs ?? 6 * 60 * 60_000;
     this.speedTest = new SpeedTestCoordinator(
       gateway,
       effects.speedTest,
       runExclusive,
+      { regularPollIntervalMs: options.speedTestStatusPollIntervalMs },
     );
   }
 
   async poll(deviceMac: string): Promise<void> {
     const now = this.now();
-    if (now - this.lastWirelessPollAt >= WIRELESS_POLL_INTERVAL_MS) {
+    if (now - this.lastWirelessPollAt >= this.networkFeaturePollIntervalMs) {
       this.lastWirelessPollAt = now;
       await this.pollWireless();
     }
-    if (now - this.lastRadioPollAt >= WIRELESS_POLL_INTERVAL_MS) {
+    if (now - this.lastRadioPollAt >= this.networkFeaturePollIntervalMs) {
       this.lastRadioPollAt = now;
       await this.pollRadioFeatures();
     }
@@ -75,7 +81,7 @@ export class MasterFeatureCoordinator {
     } catch (error) {
       this.effects.failed('speed test', error);
     }
-    if (now - this.lastFirmwarePollAt >= FIRMWARE_POLL_INTERVAL_MS) {
+    if (now - this.lastFirmwarePollAt >= this.firmwarePollIntervalMs) {
       this.lastFirmwarePollAt = now;
       await this.pollFirmware(deviceMac);
     }

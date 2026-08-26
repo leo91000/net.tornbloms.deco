@@ -30,6 +30,42 @@ const signalLabels: Record<string, string> = {
   '4': 'Strong',
 };
 
+interface PrioritySource {
+  enable_priority?: boolean;
+}
+
+interface ClientStatisticsSource extends PrioritySource {
+  name?: string;
+  mac?: string;
+  ip?: string;
+  online?: boolean;
+  decoNode?: string;
+  access_host?: string;
+  connectionType?: string;
+  connection_type?: string;
+  interface?: string;
+  downSpeed?: number;
+  down_speed?: number;
+  upSpeed?: number;
+  up_speed?: number;
+  prioritized?: boolean;
+}
+
+interface BackhaulSource {
+  connection_type?: unknown;
+  group_status?: string;
+  signal_level?: {
+    band2_4?: string;
+    band5?: string;
+    band6?: string;
+  };
+}
+
+function formatSignal(value: string | undefined): string {
+  if (value === undefined) return '–';
+  return signalLabels[value] ?? value;
+}
+
 export function normalizeClientMac(mac: string): string {
   const normalizedMac = mac.trim().toUpperCase().replace(/:/g, '-');
   if (!/^[0-9A-F]{2}(?:-[0-9A-F]{2}){5}$/.test(normalizedMac)) {
@@ -49,14 +85,14 @@ export function normalizePauseDurationMinutes(value: unknown): number {
   return duration;
 }
 
-export function countPrioritizedClients(clients: any[]): number {
+export function countPrioritizedClients(clients: PrioritySource[]): number {
   return clients.reduce(
     (count, client) => count + (client?.enable_priority === true ? 1 : 0),
     0,
   );
 }
 
-export function buildClientStatistics(client: any): ClientStatistics {
+export function buildClientStatistics(client: ClientStatisticsSource): ClientStatistics {
   const online = client?.online === true;
   return {
     name: client?.name ?? client?.mac ?? '',
@@ -72,7 +108,7 @@ export function buildClientStatistics(client: any): ClientStatistics {
   };
 }
 
-export function buildBackhaulDiagnostic(device: any): BackhaulDiagnostic {
+export function buildBackhaulDiagnostic(device: BackhaulSource): BackhaulDiagnostic {
   const rawConnections = Array.isArray(device?.connection_type)
     ? device.connection_type.filter((value: unknown) => typeof value === 'string')
     : [];
@@ -88,9 +124,9 @@ export function buildBackhaulDiagnostic(device: any): BackhaulDiagnostic {
       return type;
     }).join(' + ');
 
-  const signal2g = signalLabels[device?.signal_level?.band2_4] ?? device?.signal_level?.band2_4 ?? '–';
-  const signal5g = signalLabels[device?.signal_level?.band5] ?? device?.signal_level?.band5 ?? '–';
-  const signal6g = signalLabels[device?.signal_level?.band6] ?? device?.signal_level?.band6 ?? '–';
+  const signal2g = formatSignal(device.signal_level?.band2_4);
+  const signal5g = formatSignal(device.signal_level?.band5);
+  const signal6g = formatSignal(device.signal_level?.band6);
   const disconnected = typeof device?.group_status === 'string'
     && device.group_status.toLowerCase() !== 'connected';
 

@@ -12,7 +12,11 @@ import { redactRequestPath } from './redaction';
 // Buffer for the default body used in read operations
 const readBody = Buffer.from(JSON.stringify({ operation: 'read' }));
 
-const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
+const consoleLogger: AppLogger = {
+  log: (...args) => console.log(...args),
+  debug: (...args) => console.debug(...args),
+  error: (...args) => console.error(...args),
+};
 
 // Interface for the structure of the password key response
 interface PasswordKeyResponse {

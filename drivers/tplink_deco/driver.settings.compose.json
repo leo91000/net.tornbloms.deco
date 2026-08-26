@@ -93,6 +93,75 @@
   {
     "type": "group",
     "label": {
+      "en": "Advanced polling",
+      "fr": "Relevés avancés"
+    },
+    "children": [
+      {
+        "id": "performancePollMinutes",
+        "type": "number",
+        "label": {
+          "en": "CPU and memory every",
+          "fr": "CPU et mémoire toutes les"
+        },
+        "value": 5,
+        "min": 1,
+        "max": 1440,
+        "step": 1,
+        "required": true,
+        "units": { "en": "minutes", "fr": "minutes" }
+      },
+      {
+        "id": "networkFeaturePollMinutes",
+        "type": "number",
+        "label": {
+          "en": "Wi-Fi and radio state every",
+          "fr": "Wi-Fi et radios toutes les"
+        },
+        "value": 5,
+        "min": 1,
+        "max": 1440,
+        "step": 1,
+        "required": true,
+        "units": { "en": "minutes", "fr": "minutes" }
+      },
+      {
+        "id": "speedTestStatusPollMinutes",
+        "type": "number",
+        "label": {
+          "en": "Read speed-test status every",
+          "fr": "Lire l’état du test de débit toutes les"
+        },
+        "value": 15,
+        "min": 1,
+        "max": 1440,
+        "step": 1,
+        "required": true,
+        "units": { "en": "minutes", "fr": "minutes" },
+        "hint": {
+          "en": "This only reads the latest status; it never starts a speed test.",
+          "fr": "Cette lecture ne lance jamais de test de débit."
+        }
+      },
+      {
+        "id": "firmwarePollHours",
+        "type": "number",
+        "label": {
+          "en": "Firmware check every",
+          "fr": "Vérifier le firmware toutes les"
+        },
+        "value": 6,
+        "min": 1,
+        "max": 168,
+        "step": 1,
+        "required": true,
+        "units": { "en": "hours", "fr": "heures" }
+      }
+    ]
+  },
+  {
+    "type": "group",
+    "label": {
       "en": "Timers",
       "nl": "Timers",
       "da": "Timere",

@@ -220,7 +220,11 @@ class EndpointArgs {
   }
 }
 
-const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
+const consoleLogger: AppLogger = {
+  log: (...args) => console.log(...args),
+  debug: (...args) => console.debug(...args),
+  error: (...args) => console.error(...args),
+};
 
 // Main Client class to interact with the API
 export default class DecoAPIWrapper {

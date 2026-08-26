@@ -2,6 +2,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   main:
     name: Validate Homey App
@@ -17,8 +21,14 @@ jobs:
         with:
           node-version: '22' # matches the Node version Homey apps run on (v12.9.0+)
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
 
       - name: Validate Homey App
         uses: athombv/github-action-homey-app-validate@master

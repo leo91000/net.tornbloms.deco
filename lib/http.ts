@@ -11,12 +11,16 @@ interface PostConfig {
 }
 
 export interface AppLogger {
-  log: (...args: any[]) => void;
-  debug?: (...args: any[]) => void;
-  error: (...args: any[]) => void;
+  log: (...args: unknown[]) => void;
+  debug?: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
 }
 
-const consoleLogger: AppLogger = { log: console.log, debug: console.debug, error: console.error };
+const consoleLogger: AppLogger = {
+  log: (...args) => console.log(...args),
+  debug: (...args) => console.debug(...args),
+  error: (...args) => console.error(...args),
+};
 
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie

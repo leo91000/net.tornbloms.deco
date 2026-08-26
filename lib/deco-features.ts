@@ -39,13 +39,15 @@ export interface SpeedTestSnapshot {
 }
 
 interface CustomApi {
-  custom(
+  custom<T = unknown>(
     path: string,
     params: { form: string },
     body: Buffer,
     isLogin?: boolean,
-  ): Promise<any>;
+  ): Promise<T>;
 }
+
+type JsonObject = Record<string, unknown>;
 
 interface ClientAccessRequest {
   path: '/admin/client';
@@ -82,27 +84,39 @@ function decodeBase64(value: unknown): string {
   }
 }
 
-function getResult(response: any): any {
-  if (!response || response.error_code !== 0 || !response.result) {
-    throw new Error(`Deco feature request failed (${response?.error_code ?? 'invalid response'})`);
+function asObject(value: unknown): JsonObject | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  return value as JsonObject;
+}
+
+function getResult(response: unknown): JsonObject {
+  const envelope = asObject(response);
+  const result = asObject(envelope?.result);
+  if (envelope?.error_code !== 0 || !result) {
+    throw new Error(`Deco feature request failed (${envelope?.error_code ?? 'invalid response'})`);
   }
-  return response.result;
+  return result;
 }
 
-function assertWriteSucceeded(response: any): void {
-  if (response?.error_code === 0 || response?.success === true) return;
-  throw new Error(`Deco rejected the requested change (${response?.error_code ?? response?.errorcode ?? 'invalid response'})`);
+function assertWriteSucceeded(response: unknown): void {
+  const envelope = asObject(response);
+  if (envelope?.error_code === 0 || envelope?.success === true) return;
+  throw new Error(`Deco rejected the requested change (${envelope?.error_code ?? envelope?.errorcode ?? 'invalid response'})`);
 }
 
-export function buildRadioFeatureSnapshot(response: any): RadioFeatureSnapshot {
-  if (response?.error_code !== 0 || typeof response?.result?.enable !== 'boolean') {
+export function buildRadioFeatureSnapshot(response: unknown): RadioFeatureSnapshot {
+  const envelope = asObject(response);
+  const result = asObject(envelope?.result);
+  if (envelope?.error_code !== 0 || typeof result?.enable !== 'boolean') {
     return { supported: false, enabled: false };
   }
-  return { supported: true, enabled: response.result.enable };
+  return { supported: true, enabled: result.enable };
 }
 
-export function buildSpeedTestSnapshot(response: any): SpeedTestSnapshot {
-  if (response?.error_code !== 0 || !response?.result) {
+export function buildSpeedTestSnapshot(response: unknown): SpeedTestSnapshot {
+  const envelope = asObject(response);
+  const result = asObject(envelope?.result);
+  if (envelope?.error_code !== 0 || !result) {
     return {
       supported: false,
       status: 'unsupported',
@@ -114,22 +128,23 @@ export function buildSpeedTestSnapshot(response: any): SpeedTestSnapshot {
     };
   }
 
-  const lastRunSeconds = Number(response.result.last_speed_test_time);
+  const lastRunSeconds = Number(result.last_speed_test_time);
   return {
     supported: true,
-    status: typeof response.result.status === 'string' ? response.result.status : 'unknown',
+    status: typeof result.status === 'string' ? result.status : 'unknown',
     // Deco reports these values in Kbit/s: 2,235,395 means 2,235.395 Mbit/s.
-    downMbps: Math.round((Number(response.result.down_speed) || 0) / 1000),
-    upMbps: Math.round((Number(response.result.up_speed) || 0) / 1000),
-    pingMs: Math.round((Number(response.result.ping_time) || 0) * 10) / 10,
-    jitterMs: Math.round((Number(response.result.ping_jitter) || 0) * 10) / 10,
+    downMbps: Math.round((Number(result.down_speed) || 0) / 1000),
+    upMbps: Math.round((Number(result.up_speed) || 0) / 1000),
+    pingMs: Math.round((Number(result.ping_time) || 0) * 10) / 10,
+    jitterMs: Math.round((Number(result.ping_jitter) || 0) * 10) / 10,
     lastRunAt: Number.isFinite(lastRunSeconds) && lastRunSeconds > 0
       ? new Date(lastRunSeconds * 1000).toISOString()
       : '',
   };
 }
 
-export function buildSpeedTestStartParams(result: any): Record<string, unknown> {
+export function buildSpeedTestStartParams(value: unknown): Record<string, unknown> {
+  const result = asObject(value);
   const selectedServerIds = Array.isArray(result?.select_server_id_list)
     ? result.select_server_id_list.filter((serverId: unknown) => typeof serverId === 'string')
     : [];
@@ -137,9 +152,10 @@ export function buildSpeedTestStartParams(result: any): Record<string, unknown> 
     ...(Array.isArray(result?.single_server_list) ? result.single_server_list : []),
     ...(Array.isArray(result?.multi_server_list) ? result.multi_server_list : []),
   ];
-  const fallbackServerId = availableServers.find((server: any) => (
-    typeof server?.server_id === 'string'
-  ))?.server_id;
+  const fallbackServer = availableServers
+    .map((server) => asObject(server))
+    .find((server) => typeof server?.server_id === 'string');
+  const fallbackServerId = fallbackServer?.server_id as string | undefined;
   const serverIds = selectedServerIds.length > 0
     ? selectedServerIds
     : (fallbackServerId ? [fallbackServerId] : []);
@@ -154,7 +170,8 @@ export function buildSpeedTestStartParams(result: any): Record<string, unknown> 
   };
 }
 
-export function buildWirelessSnapshot(wireless: any): WirelessSnapshot {
+export function buildWirelessSnapshot(value: unknown): WirelessSnapshot {
+  const wireless = asObject(value);
   const supportedBands: string[] = [];
   let mainSsid = '';
   let guestSsid = '';
@@ -162,28 +179,32 @@ export function buildWirelessSnapshot(wireless: any): WirelessSnapshot {
   let guestSupported = false;
 
   for (const [key, label] of bandLabels) {
-    const band = wireless?.[key];
+    const band = asObject(wireless?.[key]);
     if (!band) continue;
     supportedBands.push(label);
-    if (!mainSsid) mainSsid = decodeBase64(band.host?.ssid);
-    if (band.guest) {
+    const host = asObject(band.host);
+    const guest = asObject(band.guest);
+    if (!mainSsid) mainSsid = decodeBase64(host?.ssid);
+    if (guest) {
       guestSupported = true;
-      if (!guestSsid) guestSsid = decodeBase64(band.guest.ssid);
-      guestEnabled ||= band.guest.enable === true;
+      if (!guestSsid) guestSsid = decodeBase64(guest.ssid);
+      guestEnabled ||= guest.enable === true;
     }
   }
 
-  const iotSupported = wireless?.iot?.host !== undefined;
-  const mloSupported = wireless?.mlo?.host !== undefined;
+  const iotHost = asObject(asObject(wireless?.iot)?.host);
+  const mloHost = asObject(asObject(wireless?.mlo)?.host);
+  const iotSupported = iotHost !== undefined;
+  const mloSupported = mloHost !== undefined;
 
   return {
     mainSsid,
     guestSsid,
     guestEnabled,
-    iotSsid: decodeBase64(wireless?.iot?.host?.ssid),
-    iotEnabled: wireless?.iot?.host?.enable === true,
-    mloSsid: decodeBase64(wireless?.mlo?.host?.ssid),
-    mloEnabled: wireless?.mlo?.host?.enable === true,
+    iotSsid: decodeBase64(iotHost?.ssid),
+    iotEnabled: iotHost?.enable === true,
+    mloSsid: decodeBase64(mloHost?.ssid),
+    mloEnabled: mloHost?.enable === true,
     supportedBands,
     guestSupported,
     iotSupported,
@@ -192,14 +213,15 @@ export function buildWirelessSnapshot(wireless: any): WirelessSnapshot {
 }
 
 export function buildWirelessToggleRequest(
-  wireless: any,
+  value: unknown,
   kind: WirelessNetworkKind,
   enabled: boolean,
 ): { operation: 'write'; params: Record<string, unknown> } {
+  const wireless = asObject(value);
   if (kind === 'guest') {
     const params: Record<string, unknown> = {};
     for (const [key] of bandLabels) {
-      if (!wireless?.[key]?.guest) continue;
+      if (!asObject(asObject(wireless?.[key])?.guest)) continue;
       params[key] = { guest: { enable: enabled } };
     }
     if (Object.keys(params).length === 0) {
@@ -208,15 +230,38 @@ export function buildWirelessToggleRequest(
     return { operation: 'write', params };
   }
 
-  if (kind === 'iot' && wireless?.iot?.host) {
+  if (kind === 'iot' && asObject(asObject(wireless?.iot)?.host)) {
     return { operation: 'write', params: { iot: { host: { enable: enabled } } } };
   }
 
-  if (kind === 'mlo' && wireless?.mlo?.host) {
+  if (kind === 'mlo' && asObject(asObject(wireless?.mlo)?.host)) {
     return { operation: 'write', params: { mlo: { host: { enable: enabled } } } };
   }
 
   throw new Error(`Unsupported wireless network: ${kind}`);
+}
+
+function applyWirelessEnabled(
+  wireless: JsonObject,
+  kind: WirelessNetworkKind,
+  enabled: boolean,
+): JsonObject {
+  const updated: JsonObject = { ...wireless };
+  if (kind === 'guest') {
+    for (const [key] of bandLabels) {
+      const band = asObject(wireless[key]);
+      const guest = asObject(band?.guest);
+      if (!band || !guest) continue;
+      updated[key] = { ...band, guest: { ...guest, enable: enabled } };
+    }
+    return updated;
+  }
+
+  const network = asObject(wireless[kind]);
+  const host = asObject(network?.host);
+  if (!network || !host) return updated;
+  updated[kind] = { ...network, host: { ...host, enable: enabled } };
+  return updated;
 }
 
 export function buildClientAccessRequest(mac: string, allowed: boolean): ClientAccessRequest {
@@ -229,13 +274,16 @@ export function buildClientAccessRequest(mac: string, allowed: boolean): ClientA
   };
 }
 
-export function findFirmwareUpdate(result: any, mac: string): FirmwareUpdateSnapshot {
+export function findFirmwareUpdate(value: unknown, mac: string): FirmwareUpdateSnapshot {
+  const result = asObject(value);
   const normalizedMac = mac.replace(/:/g, '-').toUpperCase();
   const updates = Array.isArray(result?.fw_list) ? result.fw_list : [];
-  const update = updates.find((entry: any) => (
-    typeof entry?.mac === 'string'
-    && entry.mac.replace(/:/g, '-').toUpperCase() === normalizedMac
-  ));
+  const update = updates
+    .map((entry) => asObject(entry))
+    .find((entry) => (
+      typeof entry?.mac === 'string'
+      && entry.mac.replace(/:/g, '-').toUpperCase() === normalizedMac
+    ));
   if (!update) return { available: false, version: '' };
   return {
     available: update.need_to_upgrade === true,
@@ -269,19 +317,7 @@ export class DecoFeatureController {
       Buffer.from(JSON.stringify(request)),
     );
     assertWriteSucceeded(writeResponse);
-    return buildWirelessSnapshot({
-      ...wireless,
-      ...(kind === 'iot' ? { iot: { ...wireless.iot, host: { ...wireless.iot.host, enable: enabled } } } : {}),
-      ...(kind === 'mlo' ? { mlo: { ...wireless.mlo, host: { ...wireless.mlo.host, enable: enabled } } } : {}),
-      ...(kind === 'guest'
-        ? Object.fromEntries(bandLabels
-          .filter(([key]) => wireless[key]?.guest)
-          .map(([key]) => [key, {
-            ...wireless[key],
-            guest: { ...wireless[key].guest, enable: enabled },
-          }]))
-        : {}),
-    });
+    return buildWirelessSnapshot(applyWirelessEnabled(wireless, kind, enabled));
   }
 
   async setClientAccess(mac: string, allowed: boolean): Promise<void> {

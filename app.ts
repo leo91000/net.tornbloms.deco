@@ -24,7 +24,7 @@ class TplinkDecoApp extends HomeyLog {
    * Sends a non-fatal issue through the configured Better Stack logger. Stable
    * messages are deduplicated per app run to avoid flooding remote diagnostics.
    */
-  reportIssue(message: string, extra?: Record<string, any>): void {
+  reportIssue(message: string, extra?: Record<string, unknown>): void {
     if (this.reportedIssues.has(message)) return;
     this.reportedIssues.add(message);
     this.warn(message, extra ? redactSensitiveData(extra) : undefined);
