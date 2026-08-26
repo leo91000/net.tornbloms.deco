@@ -6,12 +6,6 @@ export interface AESKey {
   iv: Buffer;
 }
 
-// Custom error messages for PKCS7 padding errors
-const ErrInvalidBlockSize = new Error('invalid blocksize');
-const ErrInvalidPKCS7Data = new Error(
-  'invalid PKCS7 data (empty or not padded)',
-);
-
 // Function to generate a random AES-128 key and initialization vector (IV).
 // Key and IV must be exactly 16 ASCII digit characters (matching the TP-Link
 // Deco firmware expectation). We use the range [10^15, 10^16-1] so the decimal
@@ -36,11 +30,12 @@ export function AES128Encrypt(plaintext: string, key: AESKey): string {
     // console.log(`AES128Encrypt: Using AES Key: ${key.key.toString('hex')}`);
     // console.log(`AES128Encrypt: Using AES IV: ${key.iv.toString('hex')}`);
 
-    // Apply PKCS7 padding to the plaintext
-    const bPlaintext = pkcs7Padding(Buffer.from(plaintext), 16);
+    // Node's cipher applies PKCS#7 padding automatically. Pre-padding here
+    // would add a second padding block and leave trailing bytes after the
+    // router decrypts the JSON payload.
     const cipher = crypto.createCipheriv('aes-128-cbc', key.key, key.iv);
     const encrypted = Buffer.concat([
-      cipher.update(bPlaintext),
+      cipher.update(plaintext, 'utf8'),
       cipher.final(),
     ]);
 
@@ -81,14 +76,4 @@ export function AES128Decrypt(encrypted: string, key: AESKey): string {
     // console.log(`AES128Decrypt: Error during decryption: ${e}`);
     return '';
   }
-}
-
-// Function to apply PKCS7 padding to a buffer
-function pkcs7Padding(buffer: Buffer, blockSize: number): Buffer {
-  if (blockSize <= 0) throw ErrInvalidBlockSize;
-  if (buffer.length === 0) throw ErrInvalidPKCS7Data;
-
-  const paddingSize = blockSize - (buffer.length % blockSize);
-  const padding = Buffer.alloc(paddingSize, paddingSize);
-  return Buffer.concat([buffer, padding]);
 }

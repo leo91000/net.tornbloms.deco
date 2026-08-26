@@ -5,6 +5,8 @@ import net from 'net';
 import os from 'os';
 import { Driver } from 'homey';
 import decoapiwrapper, { AppLogger, DeviceListResponse, LoginAttempt } from '../../lib/client';
+import { MeshClientCache, MeshClientSnapshot } from '../../lib/mesh-client-cache';
+import { describeNetworkReachability } from '../../lib/network-diagnostics';
 
 // Backoff schedule for the router's "session limit" 403 (RETRY:). The router
 // only releases a stale admin session after its own internal timeout, which
@@ -50,7 +52,7 @@ class TplinkDecoDriver extends Driver {
   // or there's a request-shape difference we're not replicating. Either way,
   // merging confirmed-working per-node data sidesteps the question entirely and
   // costs zero extra API calls.
-  private nodeClientLists = new Map<string, Map<string, any[]>>();
+  private meshClientCache = new MeshClientCache<any>();
 
   /**
    * Returns (or lazily creates) the shared API instance for a given hostname.
@@ -68,10 +70,7 @@ class TplinkDecoDriver extends Driver {
    * (device_mac: <own MAC>). Called by every device on each poll cycle.
    */
   public setNodeClientList(hostname: string, nodeMac: string, clients: any[]): void {
-    if (!this.nodeClientLists.has(hostname)) {
-      this.nodeClientLists.set(hostname, new Map());
-    }
-    this.nodeClientLists.get(hostname)!.set(nodeMac.toUpperCase(), clients);
+    this.meshClientCache.setNodeClients(hostname, nodeMac, clients);
   }
 
   /**
@@ -80,14 +79,11 @@ class TplinkDecoDriver extends Driver {
    * join/leave-anywhere-in-the-mesh detection, built from data every node
    * already fetches for itself rather than a dedicated "mesh-wide" API call.
    */
-  public getMeshClientList(hostname: string): any[] {
-    const byNode = this.nodeClientLists.get(hostname);
-    if (!byNode) return [];
-    const merged: any[] = [];
-    for (const clients of byNode.values()) {
-      if (Array.isArray(clients)) merged.push(...clients);
-    }
-    return merged;
+  public getMeshClientSnapshot(
+    hostname: string,
+    maxAgeMs: number,
+  ): MeshClientSnapshot<any> {
+    return this.meshClientCache.getSnapshot(hostname, maxAgeMs);
   }
 
   /**
@@ -163,13 +159,6 @@ class TplinkDecoDriver extends Driver {
       return (ipToInt(iface.address) & m) === (ipToInt(resolvedIP!) & m);
     });
 
-    if (matched) {
-      this.log(`[diag] Subnet: OK — Homey (${matched.address}/${matched.netmask}) and router (${resolvedIP}) are on the same network`);
-    } else {
-      const homeyList = localIfaces.map((i) => `${i.address}/${i.netmask}`).join(', ');
-      this.log(`[diag] Subnet: MISMATCH — Homey [${homeyList}] cannot reach router ${resolvedIP}. Check VLANs / guest network isolation.`);
-    }
-
     // TCP port 80 reachability
     const tcpOk = await this.checkTcpPort(resolvedIP, 80);
     this.log(`[diag] TCP port 80 → ${resolvedIP}: ${tcpOk ? 'reachable' : 'UNREACHABLE'}`);
@@ -177,6 +166,19 @@ class TplinkDecoDriver extends Driver {
     // Also try port 443 in case the Deco uses HTTPS
     const tcpOk443 = await this.checkTcpPort(resolvedIP, 443);
     this.log(`[diag] TCP port 443 → ${resolvedIP}: ${tcpOk443 ? 'reachable' : 'UNREACHABLE'}`);
+
+    const routeDescription = describeNetworkReachability({
+      sameSubnet: Boolean(matched),
+      httpReachable: tcpOk,
+      httpsReachable: tcpOk443,
+    });
+    if (matched) {
+      this.log(`[diag] Network path: ${routeDescription} — Homey ${matched.address}/${matched.netmask}, router ${resolvedIP}`);
+      return;
+    }
+
+    const homeyList = localIfaces.map((i) => `${i.address}/${i.netmask}`).join(', ');
+    this.log(`[diag] Network path: ${routeDescription} — Homey [${homeyList}], router ${resolvedIP}`);
   }
 
   private checkTcpPort(host: string, port: number, timeoutMs = 3000): Promise<boolean> {
@@ -377,9 +379,7 @@ class TplinkDecoDriver extends Driver {
             // must never be miscategorised as one. Mis-categorising it here
             // previously fell into the "unknown protocol" branch below, which
             // tried session.showView('login_failed') on the same broken
-            // session — an unhandled rejection that crashed the app silently
-            // (homey-log's own crash-report path has an unrelated bug that
-            // swallows the resulting error, so nothing showed up anywhere).
+            // session — an unhandled rejection that crashed the app silently.
             // Login already succeeded at this point, so a navigation hiccup
             // is logged and ignored rather than failing the whole pairing.
             try {
@@ -438,7 +438,7 @@ class TplinkDecoDriver extends Driver {
     });
 
     // Fired when the user fills in model/firmware on the login_failed view and copies
-    // the debug report — forwards the same details to Sentry so unsupported firmware
+    // the debug report — forwards the same details to remote diagnostics so unsupported firmware
     // is visible even when the user doesn't get around to opening a GitHub issue.
     session.setHandler('report_diagnostic', async (data: { model: string; firmware: string }) => {
       (this.homey.app as any).reportIssue?.(

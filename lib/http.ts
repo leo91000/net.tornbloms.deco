@@ -1,4 +1,6 @@
 import { CookieJar } from 'tough-cookie';
+import { Agent, fetch } from 'undici';
+import { redactRequestPath } from './redaction';
 
 interface PostConfig {
   method: 'POST';
@@ -18,12 +20,15 @@ const consoleLogger: AppLogger = { log: console.log, error: console.error };
 /**
  * Minimal HTTP client using the Node.js native fetch API with tough-cookie
  * for session cookie management. Handles HTTP→HTTPS redirects automatically
- * (newer Deco firmware enforces HTTPS). TLS verification is disabled globally
- * via NODE_TLS_REJECT_UNAUTHORIZED=0 set in app.ts.
+ * (newer Deco firmware enforces HTTPS). The self-signed-certificate exception
+ * is scoped to this client's dispatcher instead of the entire Homey process.
  */
 export class HttpClient {
   private readonly jar: CookieJar;
   private readonly logger: AppLogger;
+  private readonly dispatcher = new Agent({
+    connect: { rejectUnauthorized: false },
+  });
   // Not readonly — may be upgraded from http:// to https:// on first redirect
   baseURL: string;
   private readonly timeout: number;
@@ -65,10 +70,11 @@ export class HttpClient {
 
   async request(config: PostConfig): Promise<{ data: any }> {
     const paramStr = `?form=${encodeURIComponent(config.params.form)}`;
+    const safePath = redactRequestPath(config.url);
 
     const cookieStr = await this.jar.getCookieString(this.baseURL);
     this.logger.log(
-      `http.ts: POST ${config.url}?form=${config.params.form}`,
+      `http.ts: POST ${safePath}?form=${config.params.form}`,
       `body=${config.data.length}B`,
       cookieStr ? `cookies=yes(${cookieStr.split(';').length})` : 'cookies=none',
     );
@@ -100,7 +106,7 @@ export class HttpClient {
         hardTimer = setTimeout(() => reject(Object.assign(new Error('ETIMEDOUT'), { name: 'AbortError' })), this.timeout + 2000);
       });
 
-      let response: Response;
+      let response: Awaited<ReturnType<typeof fetch>>;
       try {
         response = await Promise.race([
           fetch(urlStr, {
@@ -113,14 +119,15 @@ export class HttpClient {
             body: Buffer.from(config.data),
             signal: controller.signal,
             redirect: 'manual',
-          } as RequestInit),
+            dispatcher: this.dispatcher,
+          }),
           hardTimeout,
         ]);
       } catch (e: any) {
         clearTimeout(timer);
         clearTimeout(hardTimer!);
         const label = e?.name === 'AbortError' ? 'ETIMEDOUT' : (e?.code ?? e?.message);
-        this.logger.error(`http.ts: network error for "${config.url}?form=${config.params.form}": ${label}`);
+        this.logger.error(`http.ts: network error for "${safePath}?form=${config.params.form}": ${label}`);
         throw e;
       }
 
@@ -130,7 +137,9 @@ export class HttpClient {
       // Handle HTTP→HTTPS (or other) redirects manually.
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location') ?? '';
-        this.logger.log(`http.ts: redirect ${response.status} → ${location} (upgrading baseURL)`);
+        this.logger.log(
+          `http.ts: redirect ${response.status} → ${redactRequestPath(location)} (upgrading baseURL)`,
+        );
         if (location.startsWith('https://')) {
           // Upgrade baseURL so all subsequent requests in this session use HTTPS.
           this.baseURL = this.baseURL.replace(/^http:\/\//, 'https://');
@@ -159,8 +168,8 @@ export class HttpClient {
 
       if (!response.ok) {
         this.logger.error(
-          `http.ts: HTTP ${response.status} for "${config.url}?form=${config.params.form}"`,
-          `body=${rawText.slice(0, 200)}`,
+          `http.ts: HTTP ${response.status} for "${safePath}?form=${config.params.form}"`,
+          `body=${rawText.length}B`,
         );
         const err: any = new Error(`HTTP ${response.status}`);
         err.httpStatus = response.status;
@@ -170,14 +179,14 @@ export class HttpClient {
         throw err;
       }
 
-      this.logger.log(`http.ts: HTTP ${response.status} for "${config.url}?form=${config.params.form}" body=${rawText.length}B`);
+      this.logger.log(`http.ts: HTTP ${response.status} for "${safePath}?form=${config.params.form}" body=${rawText.length}B`);
 
       try {
         return { data: JSON.parse(rawText) };
       } catch (parseErr) {
         this.logger.error(
-          `http.ts: JSON parse failed for "${config.url}?form=${config.params.form}" HTTP ${response.status}`,
-          `raw=${rawText.slice(0, 300)}`,
+          `http.ts: JSON parse failed for "${safePath}?form=${config.params.form}" HTTP ${response.status}`,
+          `body=${rawText.length}B`,
         );
         throw parseErr;
       }
@@ -185,5 +194,26 @@ export class HttpClient {
 
     // Should never reach here (loop always returns or throws).
     throw new Error('http.ts: request loop exhausted without response');
+  }
+
+  async pingHost(host: string): Promise<boolean> {
+    for (const scheme of ['http', 'https'] as const) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch(`${scheme}://${host}/cgi-bin/luci/`, {
+          signal: controller.signal,
+          dispatcher: this.dispatcher,
+        });
+        return true;
+      } catch (error: any) {
+        this.logger.log(
+          `http.ts: pingHost: ${scheme}://${host} not reachable: ${error?.code ?? error?.message}`,
+        );
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    return false;
   }
 }

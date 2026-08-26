@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import { Device } from 'homey';
 import decoapiwrapper, { AppLogger } from '../../lib/client';
+import {
+  normalizePollIntervalSeconds,
+  SingleFlightTask,
+  tryApiCall,
+} from '../../lib/polling';
+import { redactSensitiveData } from '../../lib/redaction';
+import { assertDangerousActionAllowed } from '../../lib/action-safety';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
 import {
@@ -51,9 +58,11 @@ class TplinkDecoDevice extends Device {
   private savedWanipv4State = false;
   private savedWanipv6State = false;
 
-  // Interval ID for periodic updates
-  private timeoutSecondsIntervalId: ReturnType<typeof setInterval> | null =
-    null;
+  // Recursive one-shot timer for periodic updates. Using setTimeout after each
+  // completed poll prevents slow router responses from creating overlapping polls.
+  private pollTimerId: ReturnType<typeof setTimeout> | null = null;
+  private pollGate = new SingleFlightTask();
+  private consecutivePollFailures = 0;
   // One-shot timer IDs — cancelled in onDeleted to avoid post-deletion callbacks
   private rebootTimerId: ReturnType<typeof setTimeout> | null = null;
   private startupDelayTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -114,7 +123,7 @@ class TplinkDecoDevice extends Device {
 
       // Retrieve device settings
       const settings = this.getSettings();
-      this.debug(`Settings:`, settings);
+      this.debug('Settings:', redactSensitiveData(settings));
 
       if (this.hasCapability('alarm_wan_ipv6_state')) {
         await this.removeCapability('alarm_wan_ipv6_state');
@@ -157,8 +166,9 @@ class TplinkDecoDevice extends Device {
         // and otherwise left HttpClient's class default in place. That was
         // harmless while the default was also `false`, but stopped being safe
         // once the default flipped to `true` (see http.ts).
-        const savedForceJson = (this.getStoreValue('forceJsonContentType') as boolean) ?? this.api.c.forceJsonContentType;
-        this.api.c.forceJsonContentType = savedForceJson;
+        const savedForceJson = (this.getStoreValue('forceJsonContentType') as boolean)
+          ?? (this.api.getAuthPreferences().contentType === 'json');
+        this.api.setContentTypePreference(savedForceJson);
         this.log(`Restored content-type preference: ${savedForceJson ? 'application/json' : 'application/x-www-form-urlencoded'} (from store)`);
 
         // Authentication is deliberately NOT awaited here — it happens inside the
@@ -173,6 +183,12 @@ class TplinkDecoDevice extends Device {
         // Register capability listeners for reboot, CPU usage, and memory usage
         this.registerCapabilityListener('reboot', async (value) => {
           if (Boolean(value)) {
+            try {
+              assertDangerousActionAllowed(this.getSettings());
+            } catch (error) {
+              await this.setCapabilityValue('reboot', false).catch(this.error);
+              throw error;
+            }
             this.log(`Reboot triggered: ${Boolean(value)}`);
             this.log(`mac: ${devicedata.id}`);
             const rebooted = await this.api
@@ -218,17 +234,15 @@ class TplinkDecoDevice extends Device {
               clearTimeout(this.startupDelayTimerId);
               this.startupDelayTimerId = null;
             }
-            if (this.timeoutSecondsIntervalId) {
-              clearInterval(this.timeoutSecondsIntervalId);
-              this.timeoutSecondsIntervalId = null;
+            if (this.pollTimerId) {
+              clearTimeout(this.pollTimerId);
+              this.pollTimerId = null;
             }
           } else {
-            const resumedInterval = (this.getSettings().timeoutSeconds || 30) * 1000;
-            try {
-              await this.updateDeviceMetrics();
-            } catch (e: any) {
-              this.error('Resume poll failed', e);
-            }
+            const resumedInterval = normalizePollIntervalSeconds(
+              this.getSettings().timeoutSeconds,
+            ) * 1000;
+            await this.runPollCycle();
             this.setUpdateInterval(resumedInterval);
           }
         });
@@ -269,7 +283,7 @@ class TplinkDecoDevice extends Device {
         // Stagger first poll across devices to avoid simultaneous auth attempts.
         // The Deco allows only one session at a time — concurrent logins cause
         // HTTP 403 on all-but-one device. A random 0–15 s delay spreads them out.
-        const interval = (settings.timeoutSeconds || 30) * 1000;
+        const interval = normalizePollIntervalSeconds(settings.timeoutSeconds) * 1000;
         const startupDelay = Math.floor(Math.random() * Math.min(interval, 15000));
         this.log(`First poll in ${startupDelay / 1000}s (stagger offset)`);
         this.startupDelayTimerId = setTimeout(async () => {
@@ -278,7 +292,7 @@ class TplinkDecoDevice extends Device {
             if (!this.connected) {
               await this.reAuthenticate();
             }
-            await this.updateDeviceMetrics();
+            await this.runPollCycle();
             this.setUpdateInterval(interval);
           } catch (e: any) {
             this.log('Startup delay timer: device already gone, skipping', e?.message);
@@ -327,18 +341,24 @@ class TplinkDecoDevice extends Device {
         await this.unsetStoreValue('forceJsonContentType');
         this.connected = await driver.sharedAuthenticate(newSettings.hostname, newSettings.password, this.makeLogger());
         if (this.connected) {
-          await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
+          await this.setStoreValue(
+            'forceJsonContentType',
+            this.api.getAuthPreferences().contentType === 'json',
+          );
         }
         this.log('API reinitialized with updated settings');
       } catch (error) {
         this.error('Failed to reinitialize API', error);
+        await this.setUnavailable('The updated TP-Link Deco credentials were rejected')
+          .catch((availabilityError) => this.error('Failed to mark device unavailable', availabilityError));
+        throw error;
       }
     }
 
     // Update the interval if timeoutSeconds has changed (skip while paused —
     // the interval stays cleared until the user resumes via polling_active)
     if (changedKeys.includes('timeoutSeconds') && this.getCapabilityValue('polling_active') !== false) {
-      const interval = (newSettings.timeoutSeconds || 15) * 1000; // Default to 15 seconds if not set
+      const interval = normalizePollIntervalSeconds(newSettings.timeoutSeconds) * 1000;
       this.setUpdateInterval(interval);
       this.log(
         `Update interval changed to ${newSettings.timeoutSeconds} seconds`,
@@ -361,10 +381,10 @@ class TplinkDecoDevice extends Device {
       clearTimeout(this.startupDelayTimerId);
       this.startupDelayTimerId = null;
     }
-    if (this.timeoutSecondsIntervalId) {
-      clearInterval(this.timeoutSecondsIntervalId);
-      this.log('Cleared interval for device metrics update');
-      this.timeoutSecondsIntervalId = null;
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
+      this.log('Cleared timer for device metrics update');
+      this.pollTimerId = null;
     }
   }
 
@@ -373,19 +393,29 @@ class TplinkDecoDevice extends Device {
    * @param interval - The interval in milliseconds.
    */
   private setUpdateInterval(interval: number) {
-    // Clear any existing interval
-    if (this.timeoutSecondsIntervalId) {
-      clearInterval(this.timeoutSecondsIntervalId);
-      this.timeoutSecondsIntervalId = null;
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
+      this.pollTimerId = null;
     }
 
-    // Set up a new interval with a small jitter (0–5 s) to prevent
-    // devices that started at the same offset from drifting back in sync.
-    this.timeoutSecondsIntervalId = setInterval(
-      this.updateDeviceMetrics.bind(this),
-      interval + Math.random() * 5000,
-    );
-    this.log(`Set update interval to ${interval / 1000} seconds`);
+    const safeInterval = normalizePollIntervalSeconds(interval / 1000) * 1000;
+    const delay = safeInterval + Math.random() * 5000;
+    this.pollTimerId = setTimeout(async () => {
+      this.pollTimerId = null;
+      if (this.getCapabilityValue('polling_active') === false) return;
+      await this.runPollCycle();
+      if (this.getCapabilityValue('polling_active') !== false) {
+        this.setUpdateInterval(safeInterval);
+      }
+    }, delay);
+    this.log(`Set update interval to ${safeInterval / 1000} seconds`);
+  }
+
+  private async runPollCycle(): Promise<void> {
+    const result = await this.pollGate.run(() => this.updateDeviceMetrics());
+    if (!result.started) {
+      this.log('Skipping overlapping device metrics poll');
+    }
   }
 
   /**
@@ -406,7 +436,10 @@ class TplinkDecoDevice extends Device {
       );
       if (this.connected) {
         // Persist the content-type preference that worked so restarts skip re-detection.
-        await this.setStoreValue('forceJsonContentType', this.api.c.forceJsonContentType);
+        await this.setStoreValue(
+          'forceJsonContentType',
+          this.api.getAuthPreferences().contentType === 'json',
+        );
         this.log('Re-authentication successful');
       } else {
         this.error('Re-authentication failed');
@@ -428,56 +461,22 @@ class TplinkDecoDevice extends Device {
       const devicedata = this.getData();
 
       // Retrieve device list from the API
-      const deviceList = await this.safeApiCall(
+      const deviceList = await tryApiCall<DeviceListResponse>(
         () =>
           this.api.custom(
             '/admin/device',
             { form: 'device_list' },
             this.readBody,
           ),
-        {
-          error_code: 1,
-          result: {
-            device_list: [
-              {
-                bssid_2g: '',
-                bssid_5g: '',
-                bssid_sta_2g: '',
-                bssid_sta_5g: '',
-                device_ip: '',
-                device_model: '',
-                device_type: '',
-                group_status: '',
-                hardware_ver: '',
-                hw_id: '',
-                inet_error_msg: '',
-                inet_status: '',
-                mac: '',
-                nand_flash: true,
-                nickname: '',
-                oem_id: '',
-                oversized_firmware: false,
-                product_level: 0,
-                role: '',
-                set_gateway_support: true,
-                signal_level: {
-                  band2_4: '',
-                  band5: '',
-                },
-                software_ver: '',
-                support_plc: false,
-              },
-            ],
-          },
-        },
-        'Device Data',
+        (error) => this.error('Failed to retrieve Device Data', error),
       );
       this.debug(`${settings.hostname} onInit():deviceList: `, deviceList);
 
       // If the API returns an error or device_list is missing (empty stok returns { error_code:0, result:{} }),
       // the session has expired or was never established — re-auth and wait for next poll
-      if (deviceList.error_code !== 0 || !deviceList.result?.device_list) {
-        await this.reAuthenticate();
+      if (!deviceList || deviceList.error_code !== 0 || !deviceList.result?.device_list) {
+        const reauthenticated = await this.reAuthenticate();
+        if (!reauthenticated) await this.markPollFailed();
         return;
       }
 
@@ -493,24 +492,25 @@ class TplinkDecoDevice extends Device {
           // Report the settled auth method (Content-Type / body format / password
           // mode, all cached on this.api.c after the first successful login) paired
           // with this device's exact model/firmware. Building this up across users
-          // in Sentry over time is the cheap alternative to asking for a fresh HAR
+          // in remote diagnostics over time is the cheap alternative to asking for a fresh HAR
           // every time a new login quirk shows up — if a specific model/firmware
           // combo consistently needs unusual handling, this is how we'd notice
           // without already suspecting it. One report per device per app run.
           if (!this.authMethodReported) {
             this.authMethodReported = true;
-            // Fixed message so every report dedupes into ONE Sentry issue —
-            // reportIssue()/homey-log dedupes by exact message string, and a
+            // Fixed message so every report dedupes into one remote issue —
+            // reportIssue() dedupes by exact message string, and a
             // per-model/firmware message here would instead spawn a brand new,
             // permanent issue for every device variant across all users (it did:
             // dozens of "Auth method: ..." issues appeared within minutes of
             // shipping this). The variant data goes in `extra` and is visible
-            // per-event in Sentry without multiplying the issue list.
+            // per-event in Better Stack without multiplying the issue list.
+            const authPreferences = this.api.getAuthPreferences();
             (this.homey.app as any).reportIssue?.(
               'Auth method reported',
               {
-                contentType: this.api.c.forceJsonContentType ? 'json' : 'urlencoded',
-                bodyFormat: this.api.c.forceJsonBody ? 'json' : 'form',
+                contentType: authPreferences.contentType,
+                bodyFormat: authPreferences.bodyFormat,
                 model: device.device_model,
                 hardware_ver: device.hardware_ver,
                 software_ver: device.software_ver,
@@ -577,100 +577,53 @@ class TplinkDecoDevice extends Device {
           }
 
           // Fetch performance metrics — only available on master node
-          let resultCpuUsage = 0;
-          let resultMemUsage = 0;
+          let resultCpuUsage: number | null = null;
+          let resultMemUsage: number | null = null;
           if (isMaster) {
-            const performance = await this.safeApiCall(
+            const performance = await tryApiCall<PerformanceResponse>(
               () =>
                 this.api.custom(
                   '/admin/network',
                   { form: 'performance' },
                   this.readBody,
                 ),
-              {
-                error_code: 1,
-                result: { cpu_usage: 0, mem_usage: 0 },
-              },
-              'Performance Metrics',
+              (error) => this.error('Failed to retrieve Performance Metrics', error),
             );
-            resultCpuUsage = Math.round(Number(performance?.result?.cpu_usage ?? 0) * 100);
-            resultMemUsage = Math.round(Number(performance?.result?.mem_usage ?? 0) * 100);
-            await this.updateCapability('measure_cpu_usage', resultCpuUsage);
-            await this.updateCapability('measure_mem_usage', resultMemUsage);
+            if (performance?.error_code === 0 && performance.result) {
+              resultCpuUsage = Math.round(Number(performance.result.cpu_usage) * 100);
+              resultMemUsage = Math.round(Number(performance.result.mem_usage) * 100);
+              await this.updateCapability('measure_cpu_usage', resultCpuUsage);
+              await this.updateCapability('measure_mem_usage', resultMemUsage);
+            }
           }
 
           // Fetch WAN IP address
           if (device.role.toLowerCase() === 'master') {
-            const wanResponse = await this.safeApiCall(
+            const wanResponse = await tryApiCall<WANResponse>(
               () =>
                 this.api.custom(
                   '/admin/network',
                   { form: 'wan_ipv4' },
                   this.readBody,
                 ),
-              {
-                error_code: 1,
-                result: {
-                  lan: {
-                    ip_info: {
-                      ip: '',
-                      mac: '',
-                      mask: '',
-                    },
-                  },
-                  wan: {
-                    dial_type: '',
-                    enable_auto_dns: '',
-                    info: {},
-                    ip_info: {
-                      dns1: '',
-                      dns2: '',
-                      gateway: '',
-                      ip: '',
-                      mac: '',
-                      mask: '',
-                    },
-                  },
-                },
-              },
-              'WAN IPv4 Data',
+              (error) => this.error('Failed to retrieve WAN IPv4 Data', error),
             );
 
-            // Extract WAN IP address
-            const wanIpAddress = wanResponse?.result?.wan?.ip_info?.ip ?? '';
-            // Update capability with WAN IP address
-            await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
+            if (wanResponse?.error_code === 0) {
+              const wanIpAddress = wanResponse.result?.wan?.ip_info?.ip ?? '';
+              await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
+            }
           }
           // Fetch Internet status — only available on master node
           if (isMaster) {
-            const internetResponse = await this.safeApiCall(
+            const internetResponse = await tryApiCall<InternetResponse>(
               () =>
                 this.api.custom(
                   '/admin/network',
                   { form: 'internet' },
                   this.readBody,
                 ),
-              {
-                error_code: 1,
-                result: {
-                  ipv4: {
-                    auto_detect_type: '',
-                    connect_type: '',
-                    dial_status: '',
-                    error_code: 1,
-                    inet_status: '',
-                  },
-                  ipv6: {
-                    auto_detect_type: '',
-                    connect_type: '',
-                    dial_status: '',
-                    error_code: 1,
-                    inet_status: '',
-                  },
-                  link_status: '',
-                },
-              },
-              'Internet Status',
+              (error) => this.error('Failed to retrieve Internet Status', error),
             );
 
             // Only update WAN alarm when we got a real response (not the safeApiCall fallback).
@@ -713,39 +666,14 @@ class TplinkDecoDevice extends Device {
             },
           };
           const jsonRequest = JSON.stringify(request);
-          const clientListResponse = await this.safeApiCall(
+          const clientListResponse = await tryApiCall<ClientListResponse>(
             () =>
               this.api.custom(
                 '/admin/client',
                 { form: 'client_list' },
                 Buffer.from(jsonRequest),
               ),
-            {
-              error_code: 0,
-              result: {
-                client_list: [
-                  {
-                    access_host: '',
-                    client_mesh: true,
-                    client_type: '',
-                    connection_type: '',
-                    down_speed: 0,
-                    enable_priority: false,
-                    interface: '',
-                    ip: '',
-                    mac: '',
-                    name: '',
-                    online: true,
-                    owner_id: '',
-                    remain_time: 0,
-                    space_id: '',
-                    up_speed: 0,
-                    wire_type: '',
-                  },
-                ],
-              },
-            },
-            'Client List',
+            (error) => this.error('Failed to retrieve Client List', error),
           );
           // let clientListResponse = (await this.api.clientList().catch((e) => {
           //   this.error('Failed to retrieve client list', e);
@@ -761,7 +689,12 @@ class TplinkDecoDevice extends Device {
           // Some Deco firmware returns client_list as {} instead of [] when
           // there are no connected clients. Use Array.isArray to handle all
           // non-array shapes (null, undefined, {}, 0, …).
-          const rawClientList = clientListResponse?.result?.client_list;
+          if (!clientListResponse || clientListResponse.error_code !== 0) {
+            this.log('Client list unavailable; preserving the previous client and presence state');
+            await this.markPollSuccessful();
+            return;
+          }
+          const rawClientList = clientListResponse.result?.client_list;
           const clientList = Array.isArray(rawClientList) ? rawClientList : [];
 
           // Feed this node's own client list into the driver's shared cache so the
@@ -801,9 +734,17 @@ class TplinkDecoDevice extends Device {
           // lists every device already fetches for itself above (device_mac: <own
           // MAC>, confirmed working everywhere) — no extra API call needed either way.
           if (isMaster) {
-            const meshClientList = (this.driver as TplinkDecoDriver).getMeshClientList(settings.hostname);
-            this.log(`Mesh-wide client snapshot: clients=${meshClientList.length} (merged from ${deviceList.result.device_list.length} node(s))`);
-            await this.handleMeshPresence(meshClientList, decoNodeNames);
+            const maxMeshAgeMs = Math.max(
+              normalizePollIntervalSeconds(settings.timeoutSeconds) * 3000,
+              120000,
+            );
+            const meshSnapshot = (this.driver as TplinkDecoDriver)
+              .getMeshClientSnapshot(settings.hostname, maxMeshAgeMs);
+            this.log(
+              `Mesh-wide client snapshot: clients=${meshSnapshot.clients.length} `
+              + `(polled nodes=${meshSnapshot.nodeCount}, discovered nodes=${deviceList.result.device_list.length})`,
+            );
+            await this.handleMeshPresence(meshSnapshot.clients, decoNodeNames);
           }
 
           // Calculate total download and upload speeds
@@ -828,19 +769,48 @@ class TplinkDecoDevice extends Device {
           );
 
           // Trigger flow cards if CPU or memory usage has changed
-          await this.triggerUsageFlowCards(
-            resultCpuUsage,
-            resultMemUsage,
-            settings.hostname,
-          );
+          if (resultCpuUsage !== null && resultMemUsage !== null) {
+            await this.triggerUsageFlowCards(
+              resultCpuUsage,
+              resultMemUsage,
+              settings.hostname,
+            );
+          }
 
           // LTE data usage — auto-detected: capabilities are added/removed based on API response
           await this.updateLteMetrics((device as any).imei as string | undefined);
+          await this.markPollSuccessful();
+        } else {
+          this.error(`Paired Deco ${devicedata.id} was not present in device_list`);
+          await this.markPollFailed();
         }
+      } else {
+        this.error('Deco returned an empty device_list');
+        await this.markPollFailed();
       }
     } catch (error) {
       this.error('Failed to update device metrics', error);
+      await this.markPollFailed();
     }
+  }
+
+  private async markPollSuccessful(): Promise<void> {
+    this.connected = true;
+    if (this.consecutivePollFailures > 0) {
+      this.log(`Device metrics recovered after ${this.consecutivePollFailures} failed poll(s)`);
+      await this.setAvailable().catch((error) => this.error('Failed to mark device available', error));
+    }
+    this.consecutivePollFailures = 0;
+  }
+
+  private async markPollFailed(): Promise<void> {
+    this.consecutivePollFailures += 1;
+    if (this.consecutivePollFailures < 3) return;
+
+    this.connected = false;
+    await this.setUnavailable(
+      `Unable to refresh TP-Link Deco after ${this.consecutivePollFailures} attempts`,
+    ).catch((error) => this.error('Failed to mark device unavailable', error));
   }
 
   /**
@@ -1186,9 +1156,8 @@ class TplinkDecoDevice extends Device {
       }
     };
 
-    const defaultResp = { error_code: 1, result: {} };
-    const hasData = (r: { error_code: number; result: any }) =>
-      r.error_code === 0 && r.result != null && Object.keys(r.result).length > 0;
+    const hasData = (r: { error_code: number; result: any } | null) =>
+      r?.error_code === 0 && r.result != null && Object.keys(r.result).length > 0;
 
     // Fast path: already confirmed this device has no cellular API
     if (this.lteFormCache === null) {
@@ -1196,8 +1165,8 @@ class TplinkDecoDevice extends Device {
       return;
     }
 
-    let intfCfg: LteIntfCfgResponse;
-    let linkCfg: LteLinkCfgResponse;
+    let intfCfg: LteIntfCfgResponse | null;
+    let linkCfg: LteLinkCfgResponse | null;
 
     if (this.lteFormCache === undefined) {
       // --- First call: probe which endpoint family works ---
@@ -1205,17 +1174,18 @@ class TplinkDecoDevice extends Device {
       // On cellular models (IMEI present), also probe '5g' and 'nr' (5G NR).
       const probePrefixes = imei ? ['lte', '5g', 'nr'] : ['lte'];
       let detectedIntfCfg: LteIntfCfgResponse | undefined;
+      let receivedProbeResponse = false;
 
       for (const prefix of probePrefixes) {
         // silent=true: 2 of 3 prefixes failing with "no such callback" is the
         // expected outcome here (a model only supports one of lte/5g/nr, if
         // any) — not worth logging as an error on every poll cycle.
-        const probe = await this.safeApiCall<LteIntfCfgResponse>(
+        const probe = await tryApiCall<LteIntfCfgResponse>(
           () => this.api.custom('/admin/network', { form: `${prefix}_intf_cfg` }, this.readBody, true),
-          defaultResp,
-          `${prefix}_intf_cfg probe`,
+          (error) => this.error(`Failed to retrieve ${prefix}_intf_cfg probe`, error),
         );
-        if (hasData(probe)) {
+        if (probe) receivedProbeResponse = true;
+        if (probe && hasData(probe)) {
           this.lteFormCache = prefix;
           this.log(`updateLteMetrics: ${prefix}_intf_cfg works — caching cellular endpoint as "${prefix}"`);
           detectedIntfCfg = probe;
@@ -1224,6 +1194,7 @@ class TplinkDecoDevice extends Device {
       }
 
       if (!detectedIntfCfg) {
+        if (!receivedProbeResponse) return;
         this.lteFormCache = null;
         if (imei) {
           this.log(
@@ -1238,10 +1209,9 @@ class TplinkDecoDevice extends Device {
 
       // Fetch the link config for the discovered family
       const linkForm = `${this.lteFormCache}_link_cfg`;
-      linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
+      linkCfg = await tryApiCall<LteLinkCfgResponse>(
         () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
-        defaultResp,
-        linkForm,
+        (error) => this.error(`Failed to retrieve ${linkForm}`, error),
       );
     } else {
       // --- Subsequent calls: use cached form directly ---
@@ -1249,15 +1219,13 @@ class TplinkDecoDevice extends Device {
       const intfForm = `${prefix}_intf_cfg`;
       const linkForm = `${prefix}_link_cfg`;
 
-      intfCfg = await this.safeApiCall<LteIntfCfgResponse>(
+      intfCfg = await tryApiCall<LteIntfCfgResponse>(
         () => this.api.custom('/admin/network', { form: intfForm }, this.readBody),
-        defaultResp,
-        intfForm,
+        (error) => this.error(`Failed to retrieve ${intfForm}`, error),
       );
-      linkCfg = await this.safeApiCall<LteLinkCfgResponse>(
+      linkCfg = await tryApiCall<LteLinkCfgResponse>(
         () => this.api.custom('/admin/network', { form: linkForm }, this.readBody),
-        defaultResp,
-        linkForm,
+        (error) => this.error(`Failed to retrieve ${linkForm}`, error),
       );
 
       if (!hasData(intfCfg)) {
@@ -1267,6 +1235,8 @@ class TplinkDecoDevice extends Device {
         return;
       }
     }
+
+    if (!intfCfg || !linkCfg) return;
 
     // Add capabilities on first detection
     for (const cap of LTE_CAPS) {
@@ -1305,26 +1275,6 @@ class TplinkDecoDevice extends Device {
     const networkRaw = (linkCfg as LteLinkCfgResponse).result?.networkType ?? '';
     const networkLabel = networkRaw.toUpperCase() || '–';
     await this.updateCapability('lte_network_type', networkLabel);
-  }
-
-  /**
-   * Safely calls an API method and returns a default value if it fails.
-   * @param apiMethod - The API method to call.
-   * @param defaultValue - The default value to return in case of failure.
-   * @param methodName - The name of the API method for logging purposes.
-   * @returns The result of the API method or the default value.
-   */
-  private async safeApiCall<T>(
-    apiMethod: () => Promise<T>,
-    defaultValue: T,
-    methodName: string = 'API method',
-  ): Promise<T> {
-    try {
-      return await apiMethod();
-    } catch (e) {
-      this.error(`Failed to retrieve ${methodName}`, e);
-      return defaultValue;
-    }
   }
 
   /**

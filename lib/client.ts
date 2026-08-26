@@ -25,6 +25,11 @@ export interface LoginAttempt {
   errorCode: number | null;
   msg: string | null;
 }
+
+export interface AuthPreferences {
+  contentType: 'json' | 'urlencoded';
+  bodyFormat: 'json' | 'form';
+}
 // Interface to define the structure of the response for client list
 export interface ClientListResponse {
   error_code: number;
@@ -311,29 +316,24 @@ export default class DecoAPIWraper {
     this.c = new HttpClient(baseUrl, 10000, logger);
   }
 
+  public getAuthPreferences(): AuthPreferences {
+    return {
+      contentType: this.c.forceJsonContentType ? 'json' : 'urlencoded',
+      bodyFormat: this.c.forceJsonBody ? 'json' : 'form',
+    };
+  }
+
+  public setContentTypePreference(forceJson: boolean): void {
+    this.c.forceJsonContentType = forceJson;
+  }
+
   // Method to ping the host — probes the actual API base path so routers that
   // don't serve on the root still respond. Accepts any HTTP status as "alive";
   // only network-level failures (ECONNREFUSED, ETIMEDOUT, …) return false.
   // Also tries HTTPS (with cert verification disabled) if HTTP fails, since
   // newer Deco firmware (BE-series, firmware 1.2.0+) enforces HTTPS-only.
   private async pingHost(host: string): Promise<boolean> {
-    for (const scheme of ['http', 'https'] as const) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
-        try {
-          await fetch(`${scheme}://${host}/cgi-bin/luci/`, {
-            signal: controller.signal,
-          } as RequestInit);
-        } finally {
-          clearTimeout(timer);
-        }
-        return true;
-      } catch (error: any) {
-        this.logger.log(`client.ts: pingHost: ${scheme}://${host} not reachable: ${error?.code ?? error?.message}`);
-      }
-    }
-    return false;
+    return this.c.pingHost(host);
   }
 
   // Private method to ensure the Deco instance is initialized or updated

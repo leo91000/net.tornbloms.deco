@@ -7,6 +7,7 @@ import {
 } from '././utils/aes';
 import { HttpClient, AppLogger } from './http';
 import { KeyObject } from 'crypto';
+import { redactRequestPath } from './redaction';
 
 // Buffer for the default body used in read operations
 const readBody = Buffer.from(JSON.stringify({ operation: 'read' }));
@@ -163,9 +164,10 @@ export default class Deco {
     if (!key) {
       throw new Error('RSA key is missing or undefined.');
     }
+    const safePath = redactRequestPath(path);
 
     this.logger.log(
-      `deco.ts: doEncryptedPost: path=${path} form=${params.form} isLogin=${isLogin}`,
+      `deco.ts: doEncryptedPost: path=${safePath} form=${params.form} isLogin=${isLogin}`,
       `aesKeyLen=${String(this.aes.key).length} aesIvLen=${String(this.aes.iv).length}`,
       `seq=${sequence}`,
     );
@@ -228,14 +230,14 @@ export default class Deco {
       this.logger.log(`deco.ts: doEncryptedPost: decrypted response length=${decoded.length}B`);
 
       if (decoded.length === 0) {
-        this.logger.log(`deco.ts: doEncryptedPost: empty decrypt for path=${path} form=${params.form} (endpoint not supported by this node)`);
+        this.logger.log(`deco.ts: doEncryptedPost: empty decrypt for path=${safePath} form=${params.form} (endpoint not supported by this node)`);
         return { error_code: 0, result: {} };
       }
 
       const parsed = JSON.parse(decoded);
       if (parsed?.error_code !== undefined && parsed.error_code !== 0) {
         const logFn = silent ? this.logger.log : this.logger.error;
-        logFn(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${path} full=`, JSON.stringify(parsed));
+        logFn(`deco.ts: doEncryptedPost: response error_code=${parsed.error_code} path=${safePath} full=`, JSON.stringify(parsed));
       }
       return parsed;
     } catch (e: any) {
