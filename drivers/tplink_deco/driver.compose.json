@@ -138,7 +138,11 @@
     "latest_firmware_version",
     "connected_clients_guest",
     "connected_clients_iot",
-    "connected_clients_mlo"
+    "connected_clients_mlo",
+    "prioritized_clients",
+    "signal_strength_6g",
+    "backhaul_parent",
+    "alarm_backhaul_degraded"
   ],
   "platforms": [
     "local"

@@ -32,5 +32,7 @@ assert.equal(getCard('client_state_changed').runListeners, 1);
 assert.equal(getCard('any_client_state_changed').runListeners, 1);
 assert.equal(getCard('client_node_changed').runListeners, 1);
 assert.equal(getCard('client_node_changed').autocompleteListeners, 1);
+assert.equal(getCard('client_priority_changed').runListeners, 1);
+assert.equal(getCard('client_priority_changed').autocompleteListeners, 1);
 
 console.log('PASS: global device Flow listeners are registered only once.');

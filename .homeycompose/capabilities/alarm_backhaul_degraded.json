@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": { "en": "Backhaul degraded", "fr": "Backhaul dégradé" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "uiQuickAction": false,
+  "insights": true,
+  "insightsTitleTrue": { "en": "Backhaul degraded", "fr": "Backhaul dégradé" },
+  "insightsTitleFalse": { "en": "Backhaul healthy", "fr": "Backhaul sain" },
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

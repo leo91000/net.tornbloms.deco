@@ -236,6 +236,17 @@ class TplinkDecoDriver extends Driver {
       },
     );
 
+    const clientIsPrioritized = this.homey.flow.getConditionCard('client_is_prioritized');
+    clientIsPrioritized.registerRunListener(async (args) => {
+      const device = args.device as any;
+      const tracked = this.getTrackedClientsForDevice(device);
+      return tracked[args.client.mac]?.prioritized === true;
+    });
+    clientIsPrioritized.registerArgumentAutocompleteListener(
+      'client',
+      async (query, args) => this.buildClientAutocomplete(args.device, query),
+    );
+
     for (const [cardId, allowed] of [
       ['block_client', false],
       ['unblock_client', true],
@@ -261,6 +272,15 @@ class TplinkDecoDriver extends Driver {
       await args.device.refreshNow();
       return true;
     });
+
+    const pauseClientAction = this.homey.flow.getActionCard('pause_client');
+    pauseClientAction.registerRunListener(async (args) => {
+      await args.device.pauseClientInternetAccess(args.client.mac, args.duration);
+      return true;
+    });
+    pauseClientAction.registerArgumentAutocompleteListener('client', async (query, args) => (
+      this.buildClientAutocomplete(args.device, query)
+    ));
 
     // Mesh-wide presence — global cards (no device argument), since "the mesh" isn't a
     // property of any single Deco node. Data is sourced from the master device's
@@ -321,7 +341,15 @@ class TplinkDecoDriver extends Driver {
    * Online clients are shown first; offline clients show their last-seen date.
    */
   public buildClientAutocomplete(device: any, query: string) {
-    return this.buildClientAutocompleteFrom(device?.trackedClients ?? {}, query);
+    return this.buildClientAutocompleteFrom(this.getTrackedClientsForDevice(device), query);
+  }
+
+  private getTrackedClientsForDevice(device: any): Record<string, any> {
+    const isMaster = (device?.getSettings?.().role ?? '').toLowerCase() === 'master';
+    if (isMaster && Object.keys(device?.meshTrackedClients ?? {}).length > 0) {
+      return device.meshTrackedClients;
+    }
+    return device?.trackedClients ?? {};
   }
 
   /**

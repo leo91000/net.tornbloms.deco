@@ -1,0 +1,8 @@
+{
+  "type": "string",
+  "title": { "en": "Backhaul parent", "fr": "Parent du backhaul" },
+  "getable": true,
+  "setable": false,
+  "uiComponent": "sensor",
+  "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+}

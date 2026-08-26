@@ -1,3 +1,5 @@
+import { normalizeClientMac } from './advanced-controls';
+
 export type WirelessNetworkKind = 'guest' | 'iot' | 'mlo';
 
 export interface WirelessSnapshot {
@@ -136,10 +138,7 @@ export function buildWirelessToggleRequest(
 }
 
 export function buildClientAccessRequest(mac: string, allowed: boolean): ClientAccessRequest {
-  const normalizedMac = mac.trim().toUpperCase().replace(/:/g, '-');
-  if (!/^[0-9A-F]{2}(?:-[0-9A-F]{2}){5}$/.test(normalizedMac)) {
-    throw new Error('Invalid client MAC address.');
-  }
+  const normalizedMac = normalizeClientMac(mac);
 
   return {
     path: '/admin/client',

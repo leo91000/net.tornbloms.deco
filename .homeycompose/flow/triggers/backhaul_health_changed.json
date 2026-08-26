@@ -1,0 +1,16 @@
+{
+  "id": "backhaul_health_changed",
+  "title": { "en": "Backhaul health changed", "fr": "L'état du backhaul a changé" },
+  "highlight": true,
+  "tokens": [
+    { "name": "degraded", "type": "boolean", "title": { "en": "Degraded", "fr": "Dégradé" } },
+    { "name": "reason", "type": "string", "title": { "en": "Reason", "fr": "Raison" } },
+    { "name": "connection", "type": "string", "title": { "en": "Connection", "fr": "Connexion" } },
+    { "name": "signal_2g", "type": "string", "title": { "en": "2.4 GHz signal", "fr": "Signal 2,4 GHz" } },
+    { "name": "signal_5g", "type": "string", "title": { "en": "5 GHz signal", "fr": "Signal 5 GHz" } },
+    { "name": "signal_6g", "type": "string", "title": { "en": "6 GHz signal", "fr": "Signal 6 GHz" } }
+  ],
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" }
+  ]
+}

@@ -186,6 +186,7 @@ export interface DeviceListResponse {
       signal_level: {
         band2_4: string;
         band5: string;
+        band6?: string;
       };
       device_model: string;
       oversized_firmware: boolean;

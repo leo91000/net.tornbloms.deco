@@ -1,0 +1,9 @@
+{
+  "id": "client_is_prioritized",
+  "title": { "en": "Client is prioritized", "fr": "Le client est prioritaire" },
+  "titleFormatted": { "en": "[[client]] is prioritized", "fr": "[[client]] est prioritaire" },
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    { "name": "client", "type": "autocomplete", "title": { "en": "Client", "fr": "Client" } }
+  ]
+}

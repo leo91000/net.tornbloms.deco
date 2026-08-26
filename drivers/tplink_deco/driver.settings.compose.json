@@ -181,8 +181,8 @@
         },
         "value": false,
         "hint": {
-          "en": "Required before Homey or an AI assistant can reboot a Deco, change Wi-Fi networks, or block a client.",
-          "fr": "Requis avant que Homey ou un assistant IA puisse redémarrer un Deco, modifier les réseaux Wi-Fi ou bloquer un client."
+          "en": "Required before Homey or an AI assistant can reboot a Deco, change Wi-Fi networks, or block or pause a client.",
+          "fr": "Requis avant que Homey ou un assistant IA puisse redémarrer un Deco, modifier les réseaux Wi-Fi, bloquer un client ou suspendre temporairement son accès."
         }
       }
     ]

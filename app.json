@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "net.tornbloms.deco",
-  "version": "1.4.71",
+  "version": "1.5.0",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "platforms": [
@@ -538,6 +538,71 @@
           }
         ],
         "id": "any_client_state_changed"
+      },
+      {
+        "id": "backhaul_health_changed",
+        "title": {
+          "en": "Backhaul health changed",
+          "fr": "L'état du backhaul a changé"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "name": "degraded",
+            "type": "boolean",
+            "title": {
+              "en": "Degraded",
+              "fr": "Dégradé"
+            }
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "title": {
+              "en": "Reason",
+              "fr": "Raison"
+            }
+          },
+          {
+            "name": "connection",
+            "type": "string",
+            "title": {
+              "en": "Connection",
+              "fr": "Connexion"
+            }
+          },
+          {
+            "name": "signal_2g",
+            "type": "string",
+            "title": {
+              "en": "2.4 GHz signal",
+              "fr": "Signal 2,4 GHz"
+            }
+          },
+          {
+            "name": "signal_5g",
+            "type": "string",
+            "title": {
+              "en": "5 GHz signal",
+              "fr": "Signal 5 GHz"
+            }
+          },
+          {
+            "name": "signal_6g",
+            "type": "string",
+            "title": {
+              "en": "6 GHz signal",
+              "fr": "Signal 6 GHz"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          }
+        ]
       },
       {
         "title": {
@@ -1363,6 +1428,91 @@
         "id": "client_node_changed"
       },
       {
+        "id": "client_priority_changed",
+        "title": {
+          "en": "A client's priority changed",
+          "fr": "La priorité d'un client a changé"
+        },
+        "titleFormatted": {
+          "en": "[[client]] became [[priority_state]]",
+          "fr": "[[client]] est devenu [[priority_state]]"
+        },
+        "highlight": true,
+        "tokens": [
+          {
+            "name": "name",
+            "type": "string",
+            "title": {
+              "en": "Client name",
+              "fr": "Nom du client"
+            }
+          },
+          {
+            "name": "mac",
+            "type": "string",
+            "title": {
+              "en": "MAC address",
+              "fr": "Adresse MAC"
+            }
+          },
+          {
+            "name": "prioritized",
+            "type": "boolean",
+            "title": {
+              "en": "Prioritized",
+              "fr": "Prioritaire"
+            }
+          },
+          {
+            "name": "priority_remaining_seconds",
+            "type": "number",
+            "title": {
+              "en": "Priority time remaining",
+              "fr": "Temps de priorité restant"
+            }
+          }
+        ],
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "title": {
+              "en": "Client",
+              "fr": "Client"
+            }
+          },
+          {
+            "name": "priority_state",
+            "type": "dropdown",
+            "title": {
+              "en": "Priority state",
+              "fr": "État de priorité"
+            },
+            "values": [
+              {
+                "id": "prioritized",
+                "title": {
+                  "en": "prioritized",
+                  "fr": "prioritaire"
+                }
+              },
+              {
+                "id": "normal",
+                "title": {
+                  "en": "normal",
+                  "fr": "normal"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
         "title": {
           "en": "A client became...",
           "nl": "Een klant werd...",
@@ -1923,6 +2073,32 @@
         "id": "client_is_online"
       },
       {
+        "id": "client_is_prioritized",
+        "title": {
+          "en": "Client is prioritized",
+          "fr": "Le client est prioritaire"
+        },
+        "titleFormatted": {
+          "en": "[[client]] is prioritized",
+          "fr": "[[client]] est prioritaire"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "title": {
+              "en": "Client",
+              "fr": "Client"
+            }
+          }
+        ]
+      },
+      {
         "title": {
           "en": "client is present in the Deco Mesh",
           "nl": "klant is aanwezig in de Deco Mesh",
@@ -2031,6 +2207,42 @@
               "en": "Client",
               "fr": "Client"
             }
+          }
+        ]
+      },
+      {
+        "id": "pause_client",
+        "title": {
+          "en": "Temporarily pause a client's internet access",
+          "fr": "Suspendre temporairement l'accès Internet d'un client"
+        },
+        "titleFormatted": {
+          "en": "Pause [[client]] for [[duration]] minutes",
+          "fr": "Suspendre [[client]] pendant [[duration]] minutes"
+        },
+        "args": [
+          {
+            "name": "device",
+            "type": "device",
+            "filter": "driver_id=tplink_deco"
+          },
+          {
+            "name": "client",
+            "type": "autocomplete",
+            "title": {
+              "en": "Client",
+              "fr": "Client"
+            }
+          },
+          {
+            "name": "duration",
+            "type": "number",
+            "title": {
+              "en": "Duration in minutes",
+              "fr": "Durée en minutes"
+            },
+            "min": 1,
+            "max": 10080
           }
         ]
       },
@@ -2316,7 +2528,11 @@
         "latest_firmware_version",
         "connected_clients_guest",
         "connected_clients_iot",
-        "connected_clients_mlo"
+        "connected_clients_mlo",
+        "prioritized_clients",
+        "signal_strength_6g",
+        "backhaul_parent",
+        "alarm_backhaul_degraded"
       ],
       "platforms": [
         "local"
@@ -2507,8 +2723,8 @@
               },
               "value": false,
               "hint": {
-                "en": "Required before Homey or an AI assistant can reboot a Deco, change Wi-Fi networks, or block a client.",
-                "fr": "Requis avant que Homey ou un assistant IA puisse redémarrer un Deco, modifier les réseaux Wi-Fi ou bloquer un client."
+                "en": "Required before Homey or an AI assistant can reboot a Deco, change Wi-Fi networks, or block or pause a client.",
+                "fr": "Requis avant que Homey ou un assistant IA puisse redémarrer un Deco, modifier les réseaux Wi-Fi, bloquer un client ou suspendre temporairement son accès."
               }
             }
           ]
@@ -2923,6 +3139,27 @@
     }
   },
   "capabilities": {
+    "alarm_backhaul_degraded": {
+      "type": "boolean",
+      "title": {
+        "en": "Backhaul degraded",
+        "fr": "Backhaul dégradé"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "uiQuickAction": false,
+      "insights": true,
+      "insightsTitleTrue": {
+        "en": "Backhaul degraded",
+        "fr": "Backhaul dégradé"
+      },
+      "insightsTitleFalse": {
+        "en": "Backhaul healthy",
+        "fr": "Backhaul sain"
+      },
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
     "alarm_firmware_update": {
       "type": "boolean",
       "title": {
@@ -3114,6 +3351,17 @@
         "ru": "Соединение обратного канала",
         "ko": "백홀 연결",
         "ar": "اتصال الشبكة الخلفية"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "backhaul_parent": {
+      "type": "string",
+      "title": {
+        "en": "Backhaul parent",
+        "fr": "Parent du backhaul"
       },
       "getable": true,
       "setable": false,
@@ -3722,6 +3970,22 @@
       "setable": true,
       "insights": false
     },
+    "prioritized_clients": {
+      "type": "number",
+      "title": {
+        "en": "Prioritized clients",
+        "fr": "Clients prioritaires"
+      },
+      "units": {
+        "en": "clients",
+        "fr": "clients"
+      },
+      "decimals": 0,
+      "getable": true,
+      "setable": false,
+      "insights": true,
+      "icon": "./assets/capabilities/connected_clients.svg"
+    },
     "reboot": {
       "type": "boolean",
       "title": {
@@ -3814,6 +4078,17 @@
         "ru": "Сигнал 5 ГГц",
         "ko": "신호 5 GHz",
         "ar": "إشارة 5 جيجاهرتز"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor",
+      "icon": "./assets/capabilities/router-wifi-svgrepo-com.svg"
+    },
+    "signal_strength_6g": {
+      "type": "string",
+      "title": {
+        "en": "Signal 6 GHz",
+        "fr": "Signal 6 GHz"
       },
       "getable": true,
       "setable": false,

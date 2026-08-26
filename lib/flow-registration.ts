@@ -40,6 +40,16 @@ export class DeviceFlowRegistration {
       async (query: string, args: any) => buildClientAutocomplete(args.device, query),
     );
 
+    const clientPriorityChanged = flow.getDeviceTriggerCard('client_priority_changed');
+    clientPriorityChanged.registerRunListener(async (args: any, state: any) => (
+      args.client.mac === state.mac
+      && args.priority_state === (state.prioritized ? 'prioritized' : 'normal')
+    ));
+    clientPriorityChanged.registerArgumentAutocompleteListener(
+      'client',
+      async (query: string, args: any) => buildClientAutocomplete(args.device, query),
+    );
+
     return true;
   }
 }

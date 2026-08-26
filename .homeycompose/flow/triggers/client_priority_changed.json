@@ -1,0 +1,32 @@
+{
+  "id": "client_priority_changed",
+  "title": { "en": "A client's priority changed", "fr": "La priorité d'un client a changé" },
+  "titleFormatted": {
+    "en": "[[client]] became [[priority_state]]",
+    "fr": "[[client]] est devenu [[priority_state]]"
+  },
+  "highlight": true,
+  "tokens": [
+    { "name": "name", "type": "string", "title": { "en": "Client name", "fr": "Nom du client" } },
+    { "name": "mac", "type": "string", "title": { "en": "MAC address", "fr": "Adresse MAC" } },
+    { "name": "prioritized", "type": "boolean", "title": { "en": "Prioritized", "fr": "Prioritaire" } },
+    {
+      "name": "priority_remaining_seconds",
+      "type": "number",
+      "title": { "en": "Priority time remaining", "fr": "Temps de priorité restant" }
+    }
+  ],
+  "args": [
+    { "name": "device", "type": "device", "filter": "driver_id=tplink_deco" },
+    { "name": "client", "type": "autocomplete", "title": { "en": "Client", "fr": "Client" } },
+    {
+      "name": "priority_state",
+      "type": "dropdown",
+      "title": { "en": "Priority state", "fr": "État de priorité" },
+      "values": [
+        { "id": "prioritized", "title": { "en": "prioritized", "fr": "prioritaire" } },
+        { "id": "normal", "title": { "en": "normal", "fr": "normal" } }
+      ]
+    }
+  ]
+}
