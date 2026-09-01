@@ -37,6 +37,7 @@ import {
   PausedClients,
 } from '../../lib/client-pause-coordinator';
 import { CADENCE_SETTING_KEYS, resolvePollCadence } from '../../lib/poll-cadence';
+import { resolveWanDisconnected } from '../../lib/wan-status';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
 import { DecoClient, LteIntfCfgResponse, LteLinkCfgResponse } from '../../lib/client';
@@ -946,10 +947,11 @@ class TplinkDecoDevice extends Device {
           }
 
           // Fetch WAN IP address
+          let wanIpAddress: string | undefined;
           if (isMaster) {
             const wanResponse = poll.wan;
             if (wanResponse?.error_code === 0) {
-              const wanIpAddress = wanResponse.result?.wan?.ip_info?.ip ?? '';
+              wanIpAddress = wanResponse.result?.wan?.ip_info?.ip ?? '';
               await this.updateCapability('wan_ipv4_ipaddr', wanIpAddress);
               const uptime = wanResponse.result?.wan?.uptime
                 ?? wanResponse.result?.wan?.ip_info?.uptime;
@@ -968,31 +970,34 @@ class TplinkDecoDevice extends Device {
           // Fetch Internet status — only available on master node
           if (isMaster) {
             const internetResponse = poll.internet;
-
-            // Only update WAN alarm when we got a real response (not the safeApiCall fallback).
-            // If the call failed/timed-out, error_code is 1 (our default) and we leave
-            // the capability at its last known value to avoid false "disconnected" alerts.
-            if (internetResponse?.error_code === 0) {
-              // Cellular models (IMEI present, e.g. X50-5G) connect to the internet via
-              // 5G — the wired WAN port is unused so internet.ipv4.inet_status is empty /
-              // disconnected even when online.  device_list.inet_status is the reliable
-              // source for actual internet connectivity on these models.
-              const ipv4InetStatus = device.imei
-                ? device.inet_status
-                : (internetResponse?.result?.ipv4?.inet_status ?? '');
+            const ipv4Disconnected = resolveWanDisconnected({
+              nodeInternetStatus: device.inet_status,
+              wanInternetStatus: internetResponse?.error_code === 0
+                ? internetResponse.result?.ipv4?.inet_status
+                : undefined,
+              wanIpAddress,
+            });
+            if (ipv4Disconnected !== undefined) {
               await this.handleWanStateChange(
                 'ipv4',
-                ipv4InetStatus,
+                ipv4Disconnected,
                 this.savedWanipv4State ?? false,
                 'alarm_wan_ipv4_state',
               );
-              if (internetResponse?.result?.ipv6?.error_code === 0) {
+            }
+
+            if (internetResponse?.error_code === 0
+              && internetResponse.result?.ipv6?.error_code === 0) {
+              const ipv6Disconnected = resolveWanDisconnected({
+                wanInternetStatus: internetResponse.result.ipv6.inet_status,
+              });
+              if (ipv6Disconnected !== undefined) {
                 if (!this.hasCapability('alarm_wan_ipv6_state')) {
                   await this.addCapability('alarm_wan_ipv6_state');
                 }
                 await this.handleWanStateChange(
                   'ipv6',
-                  internetResponse?.result?.ipv6?.inet_status ?? '',
+                  ipv6Disconnected,
                   this.savedWanipv6State ?? false,
                   'alarm_wan_ipv6_state',
                 );
@@ -1147,32 +1152,29 @@ class TplinkDecoDevice extends Device {
    */
   private async handleWanStateChange(
     ipVersion: 'ipv4' | 'ipv6',
-    inetStatus: string,
+    disconnected: boolean,
     savedWanState: boolean,
     capabilityName: string,
   ) {
     try {
-      // Determine current WAN status
-      const currentWanStatus = inetStatus?.toLowerCase() !== 'online';
-
       // Check if WAN status has changed
-      if (currentWanStatus !== savedWanState) {
+      if (disconnected !== savedWanState) {
         const cardTriggerWanStatus = this.homey.flow.getDeviceTriggerCard(
           'alarm_wan_state_changed',
         );
 
         // Trigger flow card for WAN state change
         await cardTriggerWanStatus.trigger(this, {
-          wan_state: currentWanStatus,
+          wan_state: disconnected,
           ip_version: ipVersion,
         });
 
         // Update saved WAN state
-        this[`savedWan${ipVersion}State`] = currentWanStatus;
+        this[`savedWan${ipVersion}State`] = disconnected;
       }
 
       // Update capability with current WAN status
-      await this.updateCapability(capabilityName, currentWanStatus);
+      await this.updateCapability(capabilityName, disconnected);
     } catch (err) {
       this.error(
         `Failed to handle WAN ${ipVersion} state change for device: ${
