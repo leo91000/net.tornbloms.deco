@@ -37,6 +37,7 @@ import {
   PausedClients,
 } from '../../lib/client-pause-coordinator';
 import { CADENCE_SETTING_KEYS, resolvePollCadence } from '../../lib/poll-cadence';
+import { buildWanFlowEvents } from '../../lib/wan-flow-events';
 import { resolveWanDisconnected } from '../../lib/wan-status';
 // Type-only import to access the driver's shared-auth methods without a circular dep
 type TplinkDecoDriver = import('./driver').TplinkDecoDriver;
@@ -1157,24 +1158,23 @@ class TplinkDecoDevice extends Device {
     capabilityName: string,
   ) {
     try {
-      // Check if WAN status has changed
-      if (disconnected !== savedWanState) {
-        const cardTriggerWanStatus = this.homey.flow.getDeviceTriggerCard(
-          'alarm_wan_state_changed',
-        );
+      const flowEvents = buildWanFlowEvents({
+        cachedDisconnected: this.getCapabilityValue(capabilityName),
+        fallbackDisconnected: savedWanState,
+        currentDisconnected: disconnected,
+        ipVersion,
+      });
 
-        // Trigger flow card for WAN state change
-        await cardTriggerWanStatus.trigger(this, {
-          wan_state: disconnected,
-          ip_version: ipVersion,
-        });
-
-        // Update saved WAN state
-        this[`savedWan${ipVersion}State`] = disconnected;
-      }
-
-      // Update capability with current WAN status
+      this[`savedWan${ipVersion}State`] = disconnected;
       await this.updateCapability(capabilityName, disconnected);
+
+      for (const event of flowEvents) {
+        try {
+          await this.homey.flow.getDeviceTriggerCard(event.cardId).trigger(this, event.tokens);
+        } catch (flowError) {
+          this.error(`Failed to trigger ${event.cardId}`, flowError);
+        }
+      }
     } catch (err) {
       this.error(
         `Failed to handle WAN ${ipVersion} state change for device: ${
