@@ -6,5 +6,5 @@
     "noImplicitAny": false,
     "typeRoots": ["../node_modules/@types", "../types"]
   },
-  "include": ["regression-login-combo-state.ts", "../lib/**/*.ts"]
+  "include": ["regression-*.ts", "../lib/**/*.ts"]
 }

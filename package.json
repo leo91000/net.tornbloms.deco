@@ -4,7 +4,7 @@
   "main": "app.ts",
   "scripts": {
     "build": "tsc",
-    "test": "tsc -p test/tsconfig.json && node test/dist/test/regression-login-combo-state.js"
+    "test": "tsc -p test/tsconfig.json && node test/dist/test/regression-login-combo-state.js && node test/dist/test/regression-wan-status.js && node test/dist/test/regression-wan-flow-events.js"
   },
   "devDependencies": {
     "@tsconfig/node16": "^16.1.3",
